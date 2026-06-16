@@ -36,3 +36,9 @@ export function saveConnection(credentials: SavedConnection): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(credentials));
 }
+
+export function clearSavedConnection(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(CREDENTIALS_STORAGE_KEY);
+}
+

@@ -9,6 +9,7 @@ import { Toast } from '@/components/Toast';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ensureServerConnection } from '@/lib/client-connection';
 import { syncApiKeyToServer } from '@/lib/api-key-storage';
+import { loadSavedConnection, clearSavedConnection } from '@/lib/connection-defaults';
 import type { DatabaseConnection, QueryMode, QueryResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -28,12 +29,12 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userEmail] = useState('user@example.com');
 
-  const loadConnections = useCallback(async () => {
+  const loadConnections = useCallback(async (autoRedirect = false, allowAutoConnect = true) => {
     try {
       let res = await fetch('/api/connection', { credentials: 'same-origin' });
       let data = res.ok ? await res.json() : null;
 
-      if (!data?.connected) {
+      if (!data?.connected && allowAutoConnect) {
         const reconnected = await ensureServerConnection();
         if (reconnected) {
           res = await fetch('/api/connection', { credentials: 'same-origin' });
@@ -45,7 +46,11 @@ export default function Home() {
         setConnections(data.connections || []);
         if (data.connection && data.connections?.length > 0) {
           setActiveConnection(data.connection);
-          setView('workspace');
+          if (autoRedirect) {
+            setView('workspace');
+          }
+        } else {
+          setActiveConnection(null);
         }
       }
     } catch (err) {
@@ -68,7 +73,7 @@ export default function Home() {
   useEffect(() => {
     const init = async () => {
       await syncApiKeyToServer();
-      await loadConnections();
+      await loadConnections(true, true);
       await loadMode();
     };
     init();
@@ -93,12 +98,27 @@ export default function Home() {
 
   const handleDeleteConnection = async (id: string) => {
     if (!confirm('Remove this connection?')) return;
-    await fetch(`/api/connection?id=${id}`, { method: 'DELETE' });
-    await loadConnections();
-    if (activeConnection?.id === id) {
-      setActiveConnection(null);
-      setView('connections');
+
+    // Clear from localStorage if it matches the saved connection or if it's the last connection
+    const connToDelete = connections.find((c) => c.id === id);
+    if (connToDelete) {
+      const saved = loadSavedConnection();
+      if (saved) {
+        const isMatch =
+          saved.type === connToDelete.type &&
+          (connToDelete.type === 'sqlite'
+            ? saved.filepath === connToDelete.filepath
+            : saved.host === connToDelete.host &&
+              saved.database === connToDelete.database &&
+              saved.user === connToDelete.user);
+        if (isMatch || connections.length <= 1) {
+          clearSavedConnection();
+        }
+      }
     }
+
+    await fetch(`/api/connection?id=${id}`, { method: 'DELETE' });
+    await loadConnections(false, false);
   };
 
   const handleDemo = async () => {
@@ -108,7 +128,7 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create demo DB');
 
-      await loadConnections();
+      await loadConnections(false, false);
       if (data.connection) {
         setActiveConnection(data.connection);
         setView('workspace');
@@ -122,7 +142,7 @@ export default function Home() {
   };
 
   const handleConnected = async (connection: DatabaseConnection) => {
-    await loadConnections();
+    await loadConnections(false, false);
     setActiveConnection(connection);
     setView('workspace');
     showNotification('Connected successfully');
