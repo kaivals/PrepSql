@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUp, Loader2 } from 'lucide-react';
+import { ArrowUp, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ResultsTable } from '@/components/ResultsTable';
 import { ApiKeySetup } from '@/components/ApiKeySetup';
 import { ensureServerConnection } from '@/lib/client-connection';
-import type { QueryResult } from '@/lib/types';
+import type { QueryResult, TokenUsage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const SUGGESTIONS = [
@@ -32,10 +32,10 @@ interface QueryInterfaceProps {
 
 function formatApiError(message: string): string {
   if (message.includes('credit balance') || message.includes('billing')) {
-    return 'Your Anthropic account has no credits. Add a different API key in Settings, add credits at console.anthropic.com/settings/billing, or use Run SQL mode.';
+    return 'Your Anthropic account has no credits. Add a Groq key in Settings, add Anthropic credits, or use Run SQL mode.';
   }
   if (message.includes('API key')) {
-    return 'Anthropic API key is missing or invalid. Open Settings to add or change your key.';
+    return 'AI API key is missing or invalid. Open Settings to add a Groq (gsk_...) or Anthropic key.';
   }
   return message;
 }
@@ -54,6 +54,9 @@ export function QueryInterface({
   const [error, setError] = useState('');
   const [hasQueried, setHasQueried] = useState(false);
 
+  // Token usage analytics
+  const [usage, setUsage] = useState<TokenUsage | null>(null);
+
   const handleSqlSubmit = async (sql: string) => {
     const query = sql.trim();
     if (!query) return;
@@ -63,6 +66,7 @@ export function QueryInterface({
     setGeneratedSql(query);
     setExplanation('');
     setHasQueried(true);
+    setUsage(null);
 
     try {
       const connected = await ensureServerConnection();
@@ -86,6 +90,7 @@ export function QueryInterface({
     setGeneratedSql('');
     setExplanation('');
     setHasQueried(true);
+    setUsage(null);
 
     try {
       const connected = await ensureServerConnection();
@@ -108,6 +113,10 @@ export function QueryInterface({
       const data = await res.json();
       setGeneratedSql(data.sql);
       setExplanation(data.explanation);
+
+      // Store token usage analytics
+      if (data.usage) setUsage(data.usage);
+
       await onExecute(data.sql, query);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Generation failed';
@@ -130,6 +139,7 @@ export function QueryInterface({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
+
       {inputMode === 'natural' && <ApiKeySetup onOpenSettings={() => onOpenSettings?.()} />}
       <div className="flex flex-1 flex-col overflow-y-auto">
         {showWelcome ? (
@@ -202,6 +212,26 @@ export function QueryInterface({
                 </pre>
                 {explanation && (
                   <p className="mt-2 text-sm text-muted-foreground">{explanation}</p>
+                )}
+
+                {/* ===== TOKEN USAGE ANALYTICS ===== */}
+                {usage && (
+                  <div className="mt-3 flex items-center gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
+                    <span>
+                      Prompt tokens:{' '}
+                      <strong className="font-medium text-foreground">{usage.promptTokens}</strong>
+                    </span>
+                    <span>
+                      Completion tokens:{' '}
+                      <strong className="font-medium text-foreground">{usage.completionTokens}</strong>
+                    </span>
+                    <span>
+                      Total:{' '}
+                      <strong className="font-medium text-foreground">
+                        {usage.promptTokens + usage.completionTokens}
+                      </strong>
+                    </span>
+                  </div>
                 )}
               </div>
             )}

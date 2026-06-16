@@ -10,6 +10,7 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { ensureServerConnection } from '@/lib/client-connection';
 import { syncApiKeyToServer } from '@/lib/api-key-storage';
 import type { DatabaseConnection, QueryMode, QueryResult } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 type View = 'connections' | 'workspace';
 
@@ -24,6 +25,7 @@ export default function Home() {
   const [toast, setToast] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userEmail] = useState('user@example.com');
 
   const loadConnections = useCallback(async () => {
@@ -182,28 +184,49 @@ export default function Home() {
           onModeChange={handleModeChange}
           onLogout={handleLogout}
           onOpenSettings={() => setShowSettings(true)}
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
         <Toast message={toast} visible={showToast} onDismiss={() => setShowToast(false)} />
         <SettingsModal
           open={showSettings}
           onClose={() => setShowSettings(false)}
         />
-        <div className="flex flex-1 overflow-hidden">
-          <SchemaSidebar
-            connection={activeConnection}
-            onBack={() => {
-              setView('connections');
-              setResult(null);
-            }}
-            onSelectQuery={handleExecuteQuery}
-            refreshTrigger={historyRefresh}
-          />
-          <QueryInterface
-            onExecute={handleExecuteQuery}
-            isLoading={loading}
-            result={result}
-            onOpenSettings={() => setShowSettings(true)}
-          />
+        <div className="flex flex-1 overflow-hidden relative">
+          {sidebarOpen && (
+            <div
+              className="absolute inset-0 z-30 bg-black/20 md:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+          <div
+            className={cn(
+              'absolute inset-y-0 left-0 z-40 transition-all duration-300 md:static md:overflow-hidden',
+              sidebarOpen
+                ? 'translate-x-0 w-72 md:w-80 border-r border-border'
+                : '-translate-x-full w-72 md:translate-x-0 md:w-0 md:border-r-0'
+            )}
+          >
+            <SchemaSidebar
+              connection={activeConnection}
+              onBack={() => {
+                setView('connections');
+                setResult(null);
+              }}
+              onSelectQuery={(sql) => {
+                handleExecuteQuery(sql);
+                if (window.innerWidth < 768) setSidebarOpen(false);
+              }}
+              refreshTrigger={historyRefresh}
+            />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <QueryInterface
+              onExecute={handleExecuteQuery}
+              isLoading={loading}
+              result={result}
+              onOpenSettings={() => setShowSettings(true)}
+            />
+          </div>
         </div>
       </div>
     );

@@ -1,5 +1,5 @@
 export type DatabaseType = 'sqlite' | 'postgresql' | 'mysql' | 'mariadb'
-export type QueryMode = 'readonly' | 'crud' | 'analytics'
+export type QueryMode = 'readonly' | 'crud' | 'analytics' | 'indexes'
 
 export interface DatabaseConnection {
   id: string

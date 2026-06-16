@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Database, LogOut, BarChart3, Settings } from 'lucide-react';
+import { Database, LogOut, BarChart3, Settings, Key, Menu } from 'lucide-react';
 import type { QueryMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ interface AppHeaderProps {
   onModeChange?: (mode: QueryMode) => void;
   onLogout?: () => void;
   onOpenSettings?: () => void;
+  onToggleSidebar?: () => void;
 }
 
 export function AppHeader({
@@ -21,17 +22,27 @@ export function AppHeader({
   onModeChange,
   onLogout,
   onOpenSettings,
+  onToggleSidebar,
 }: AppHeaderProps) {
   const modes: { id: QueryMode; label: string; icon?: ReactNode }[] = [
     { id: 'readonly', label: 'Read-only' },
     { id: 'crud', label: 'CRUD' },
     { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="h-3 w-3" /> },
+    { id: 'indexes', label: 'Indexes', icon: <Key className="h-3 w-3" /> },
   ];
 
   return (
     <header className="relative border-b border-border bg-white">
-      <div className="flex h-14 items-center justify-between px-6">
+      <div className="flex h-14 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2.5">
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="mr-1 rounded p-1 text-muted-foreground hover:bg-muted md:hidden"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
           <div className="flex h-7 w-7 items-center justify-center rounded bg-foreground">
             <Database className="h-3.5 w-3.5 text-background" />
           </div>
@@ -39,14 +50,14 @@ export function AppHeader({
         </div>
 
         {showModeSwitcher && onModeChange && (
-          <div className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-lg border border-border bg-muted/40 p-0.5">
+          <div className="absolute left-1/2 top-14 flex w-full -translate-x-1/2 items-center justify-center border-b border-border bg-white p-1.5 md:static md:w-auto md:translate-x-0 md:border-none md:bg-muted/40 md:p-0.5 md:rounded-lg">
             {modes.map((m) => (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => onModeChange(m.id)}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 md:px-4 text-xs md:text-sm font-medium transition-colors',
                   mode === m.id
                     ? 'bg-white text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -59,7 +70,7 @@ export function AppHeader({
           </div>
         )}
 
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm">
           {onOpenSettings && (
             <button
               type="button"
@@ -70,15 +81,15 @@ export function AppHeader({
               Settings
             </button>
           )}
-          <span className="text-muted-foreground">{userEmail}</span>
+          <span className="hidden text-muted-foreground md:inline">{userEmail}</span>
           {onLogout && (
             <button
               type="button"
               onClick={onLogout}
               className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
             >
-              <LogOut className="h-3.5 w-3.5" />
-              Log out
+              <LogOut className="h-4 w-4 md:h-3.5 md:w-3.5" />
+              <span className="hidden md:inline">Log out</span>
             </button>
           )}
         </div>

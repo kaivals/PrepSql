@@ -8,6 +8,7 @@ export interface PersistedSessionData {
   queryMode: QueryMode;
   history: QueryHistoryItem[];
   anthropicApiKey?: string;
+  groqApiKey?: string;
 }
 
 const SESSIONS_FILE = path.join(process.cwd(), 'data', 'sessions.json');

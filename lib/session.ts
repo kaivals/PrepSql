@@ -154,11 +154,14 @@ export async function clearHistory(): Promise<void> {
 }
 
 export async function getAnthropicApiKey(): Promise<string | undefined> {
+  const session = await getSession();
+  if (session.anthropicApiKey?.trim()) {
+    return session.anthropicApiKey.trim();
+  }
   if (process.env.ANTHROPIC_API_KEY) {
     return process.env.ANTHROPIC_API_KEY;
   }
-  const session = await getSession();
-  return session.anthropicApiKey;
+  return undefined;
 }
 
 export async function setAnthropicApiKey(apiKey: string): Promise<void> {
@@ -204,9 +207,116 @@ function maskApiKey(key: string): string {
   return `${key.slice(0, 10)}...${key.slice(-4)}`;
 }
 
-export async function isAnthropicConfigured(): Promise<boolean> {
-  const key = await getAnthropicApiKey();
-  return !!key?.trim();
+export async function getGroqApiKey(): Promise<string | undefined> {
+  const session = await getSession();
+  if (session.groqApiKey?.trim()) {
+    return session.groqApiKey.trim();
+  }
+  if (process.env.GROQ_API_KEY?.trim()) {
+    return process.env.GROQ_API_KEY.trim();
+  }
+  return undefined;
+}
+
+export async function setGroqApiKey(apiKey: string): Promise<void> {
+  const session = await getSession();
+  session.groqApiKey = apiKey;
+  saveSessions();
+}
+
+export async function clearGroqApiKey(): Promise<void> {
+  const session = await getSession();
+  delete session.groqApiKey;
+  saveSessions();
+}
+
+export async function getAiApiKey(): Promise<
+  { provider: 'groq' | 'anthropic'; key: string } | undefined
+> {
+  const groqKey = await getGroqApiKey();
+  if (groqKey?.trim()) {
+    return { provider: 'groq', key: groqKey.trim() };
+  }
+
+  const anthropicKey = await getAnthropicApiKey();
+  if (anthropicKey?.trim()) {
+    return { provider: 'anthropic', key: anthropicKey.trim() };
+  }
+
+  return undefined;
+}
+
+export async function getAiKeyInfo(): Promise<{
+  configured: boolean;
+  provider?: 'groq' | 'anthropic';
+  source: 'env' | 'session' | 'none';
+  maskedKey?: string;
+}> {
+  const session = await getSession();
+  const groqKey = session.groqApiKey?.trim();
+  if (groqKey) {
+    return {
+      configured: true,
+      provider: 'groq',
+      source: 'session',
+      maskedKey: maskApiKey(groqKey),
+    };
+  }
+
+  const sessionKey = session.anthropicApiKey?.trim();
+  if (sessionKey) {
+    return {
+      configured: true,
+      provider: 'anthropic',
+      source: 'session',
+      maskedKey: maskApiKey(sessionKey),
+    };
+  }
+
+  if (process.env.GROQ_API_KEY?.trim()) {
+    return {
+      configured: true,
+      provider: 'groq',
+      source: 'env',
+      maskedKey: maskApiKey(process.env.GROQ_API_KEY),
+    };
+  }
+
+  if (process.env.ANTHROPIC_API_KEY?.trim()) {
+    return {
+      configured: true,
+      provider: 'anthropic',
+      source: 'env',
+      maskedKey: maskApiKey(process.env.ANTHROPIC_API_KEY),
+    };
+  }
+
+  return { configured: false, source: 'none' };
+}
+
+export async function setAiApiKey(apiKey: string): Promise<void> {
+  const trimmed = apiKey.trim();
+  if (trimmed.startsWith('gsk_')) {
+    await setGroqApiKey(trimmed);
+    await clearAnthropicApiKey();
+    return;
+  }
+  if (trimmed.startsWith('sk-ant-')) {
+    await setAnthropicApiKey(trimmed);
+    await clearGroqApiKey();
+    return;
+  }
+  throw new Error('Invalid API key format. Use a Groq key (gsk_...) or Anthropic key (sk-ant-...).');
+}
+
+export async function clearAiApiKey(): Promise<void> {
+  await clearGroqApiKey();
+  await clearAnthropicApiKey();
+}
+
+export async function isAiConfigured(): Promise<boolean> {
+  const config = await getAiApiKey();
+  return !!config?.key;
 }
 
 export function validateConnection(connection: Partial<DatabaseConnection>): { valid: boolean; error?: string } {

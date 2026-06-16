@@ -13,6 +13,7 @@ interface SettingsModalProps {
 
 interface KeyInfo {
   configured: boolean;
+  provider?: 'groq' | 'anthropic';
   source: 'env' | 'session' | 'none';
   maskedKey?: string;
 }
@@ -91,8 +92,13 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
       if (!res.ok) throw new Error(data.error || 'Failed to remove API key');
 
       saveStoredApiKey('');
-      setSuccess('API key removed.');
-      setInfo({ configured: false, source: 'none' });
+      setSuccess(data.configured ? 'Session key removed. Falling back to .env.local key.' : 'API key removed.');
+      setInfo({
+        configured: data.configured,
+        source: data.source,
+        provider: data.provider,
+        maskedKey: data.maskedKey,
+      });
       onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove API key');
@@ -124,11 +130,20 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
           <section>
             <div className="mb-3 flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">Anthropic API key</h3>
+              <h3 className="text-sm font-semibold">AI API key</h3>
             </div>
 
             <p className="mb-4 text-sm text-muted-foreground">
-              Required for natural language → SQL. Get a free key at{' '}
+              Required for natural language → SQL. Use a free Groq key from{' '}
+              <a
+                href="https://console.groq.com/keys"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary underline"
+              >
+                console.groq.com
+              </a>{' '}
+              (recommended, model: llama-3.1-8b-instant) or an Anthropic key from{' '}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
@@ -136,8 +151,8 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                 className="text-primary underline"
               >
                 console.anthropic.com
-              </a>{' '}
-              (new accounts include free credits). Paste it here to switch keys anytime.
+              </a>
+              .
             </p>
 
             {info?.configured && (
@@ -145,6 +160,9 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                 <p className="text-muted-foreground">
                   Current key:{' '}
                   <span className="font-mono text-foreground">{info.maskedKey}</span>
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Provider: {info.provider === 'groq' ? 'Groq' : 'Anthropic'}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Source:{' '}
@@ -155,13 +173,12 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
               </div>
             )}
 
-            {info?.source !== 'env' && (
-              <form onSubmit={handleSave} className="space-y-3">
+            <form onSubmit={handleSave} className="space-y-3">
                 <input
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk-ant-api03-..."
+                  placeholder="gsk_... or sk-ant-..."
                   className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <div className="flex gap-2">
@@ -180,7 +197,6 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                   )}
                 </div>
               </form>
-            )}
 
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
             {success && <p className="mt-2 text-sm text-emerald-600">{success}</p>}

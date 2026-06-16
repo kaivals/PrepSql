@@ -43,10 +43,18 @@ async function introspectSQLite(db: SqliteAdapter): Promise<SchemaTable[]> {
       });
     });
 
+    const indexesList: { name: string }[] = await new Promise((resolve, reject) => {
+      db.all(`PRAGMA index_list("${table.name}")`, (err: Error | null, rows: { name: string }[]) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
     result.push({
       name: table.name,
       columns: columns.map((c) => ({ name: c.name, type: c.type })),
       rowCount: countRow?.count ?? 0,
+      indexes: indexesList.map((i) => i.name),
     });
   }
 
@@ -77,6 +85,11 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
     const quotedTable = quotePgTable(tableName);
     const countResult = await pool.query(`SELECT COUNT(*)::int AS count FROM ${quotedTable}`);
 
+    const indexesResult = await pool.query(
+      `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = $1`,
+      [tableName]
+    );
+
     result.push({
       name: tableName,
       columns: columnsResult.rows.map((c: { column_name: string; data_type: string }) => ({
@@ -84,6 +97,7 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
         type: c.data_type,
       })),
       rowCount: countResult.rows[0]?.count ?? 0,
+      indexes: indexesResult.rows.map((i: { indexname: string }) => i.indexname),
     });
   }
 
@@ -104,6 +118,9 @@ async function introspectMySQL(pool: any): Promise<SchemaTable[]> {
       const [countRows] = await connection.query(`SELECT COUNT(*) as count FROM \`${tableName}\``);
       const count = (countRows as { count: number }[])[0]?.count ?? 0;
 
+      const [indexesRows] = await connection.query(`SHOW INDEX FROM \`${tableName}\``);
+      const indexNames = Array.from(new Set((indexesRows as any[]).map((r) => r.Key_name)));
+
       result.push({
         name: tableName,
         columns: (columns as { Field: string; Type: string }[]).map((c) => ({
@@ -111,6 +128,7 @@ async function introspectMySQL(pool: any): Promise<SchemaTable[]> {
           type: c.Type,
         })),
         rowCount: typeof count === 'number' ? count : parseInt(String(count), 10),
+        indexes: indexNames,
       });
     }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConnection, getQueryMode, getAnthropicApiKey } from '@/lib/session';
+import { getConnection, getQueryMode, getAiApiKey } from '@/lib/session';
 import { generateSQL, validateSQLSafety } from '@/lib/claude';
 import { introspectSchema } from '@/lib/schema';
 import { formatSchemaForPrompt } from '@/lib/schema-format';
@@ -23,10 +23,10 @@ export async function POST(request: NextRequest) {
     }
 
     const mode = await getQueryMode();
-    const apiKey = await getAnthropicApiKey();
+    const aiConfig = await getAiApiKey();
     const tables = await introspectSchema(connection);
     const schemaContext = formatSchemaForPrompt(tables, connection.type);
-    const result = await generateSQL(prompt, connection, mode, apiKey, schemaContext);
+    const result = await generateSQL(prompt, connection, mode, aiConfig, schemaContext);
 
     // Validate for obvious safety issues
     const safety = validateSQLSafety(result.sql);
@@ -34,8 +34,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       sql: result.sql,
       explanation: result.explanation,
+      usage: result.usage,
       safetyWarnings: safety.warnings,
       safetyOk: safety.safe,
+      isMutation: safety.isMutation,
     });
   } catch (error) {
     console.error('Generation error:', error);

@@ -15,7 +15,7 @@ export function formatSchemaForPrompt(tables: SchemaTable[], dbType: string): st
 
   const pgNote =
     dbType === 'postgresql'
-      ? '\nIMPORTANT: This is a Sequelize PostgreSQL database. Table and column names may be case-sensitive. Always double-quote mixed-case identifiers exactly as shown above (e.g. SELECT * FROM "Users", not FROM users or Users).'
+      ? '\nIMPORTANT: This is a PostgreSQL database. Table and column names may be case-sensitive. You MUST double-quote ALL table names AND column names exactly as they appear in the schema (e.g. SELECT "createdAt" FROM "Users"). Failure to quote will cause case-folding errors.'
       : '';
 
   return `Database schema:\n\n${lines.join('\n\n')}${pgNote}`;
