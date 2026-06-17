@@ -1,5 +1,5 @@
 export type DatabaseType = 'sqlite' | 'postgresql' | 'mysql' | 'mariadb'
-export type QueryMode = 'readonly' | 'crud' | 'analytics' | 'indexes'
+export type QueryMode = 'crud' | 'analytics' | 'schema'
 
 export interface DatabaseConnection {
   id: string
@@ -16,12 +16,22 @@ export interface DatabaseConnection {
 export interface SchemaColumn {
   name: string
   type: string
+  nullable: boolean
+  defaultValue: string | null
+  primaryKey: boolean
+  unique: boolean
+  autoIncrement: boolean
+  foreignKey?: {
+    table: string;
+    column: string;
+  } | null;
 }
 
 export interface SchemaTable {
   name: string
   columns: SchemaColumn[]
   rowCount: number
+  indexes?: string[]
 }
 
 export interface QueryResult {
@@ -40,4 +50,10 @@ export interface QueryHistoryItem {
   success: boolean
   error?: string
   rowsAffected?: number
+  executionTime?: number
+  rowsScanned?: number
+  rowsReturned?: number
+  cpuUsage?: number
+  memoryUsage?: number
+  indexesUsed?: string[]
 }

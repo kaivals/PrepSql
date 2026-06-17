@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { mode } = body;
 
-    if (!['readonly', 'crud', 'analytics'].includes(mode)) {
+    if (!['crud', 'analytics', 'schema'].includes(mode)) {
       return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
     }
 

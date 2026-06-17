@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Database, LogOut, BarChart3, Settings, Key, Menu } from 'lucide-react';
+import { Database, LogOut, BarChart3, Settings, Table2, Menu } from 'lucide-react';
 import type { QueryMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -25,10 +25,9 @@ export function AppHeader({
   onToggleSidebar,
 }: AppHeaderProps) {
   const modes: { id: QueryMode; label: string; icon?: ReactNode }[] = [
-    { id: 'readonly', label: 'Read-only' },
     { id: 'crud', label: 'CRUD' },
     { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="h-3 w-3" /> },
-    { id: 'indexes', label: 'Indexes', icon: <Key className="h-3 w-3" /> },
+    { id: 'schema', label: 'Schema Editor', icon: <Table2 className="h-3 w-3" /> },
   ];
 
   return (

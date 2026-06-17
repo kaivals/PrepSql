@@ -1,0 +1,607 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  TrendingUp,
+  Activity,
+  AlertTriangle,
+  Zap,
+  Gauge,
+  FileText,
+  Clock,
+  Database,
+  ArrowRight,
+  RefreshCw,
+  Copy,
+  Check,
+} from 'lucide-react';
+import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
+import { cn } from '@/lib/utils';
+
+interface AnalyticsPageProps {
+  connection: DatabaseConnection;
+  showConfirmation: (message: string, onConfirm: () => void) => void;
+  showNotification: (message: string, type: 'success' | 'error') => void;
+  onRefreshSchema: () => void;
+}
+
+interface AIAnalysisResult {
+  rootCause: string;
+  impact: 'High' | 'Medium' | 'Low';
+  optimizedQuery: string;
+  isDdl: boolean;
+  explanation: string;
+  estTimeBefore: number;
+  estTimeAfter: number;
+  estScannedBefore: number;
+  estScannedAfter: number;
+}
+
+interface DBHealthReport {
+  queryEfficiency: number;
+  indexCoverage: number;
+  schemaQuality: number;
+  overallScore: number;
+  recommendations: string[];
+}
+
+export function AnalyticsPage({
+  connection,
+  showConfirmation,
+  showNotification,
+  onRefreshSchema,
+}: AnalyticsPageProps) {
+  const [history, setHistory] = useState<QueryHistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [analyzingQuery, setAnalyzingQuery] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null);
+  const [selectedQueryForAI, setSelectedQueryForAI] = useState<QueryHistoryItem | null>(null);
+
+  // DB Health Score State
+  const [healthReport, setHealthReport] = useState<DBHealthReport>({
+    queryEfficiency: 85,
+    indexCoverage: 70,
+    schemaQuality: 90,
+    overallScore: 81,
+    recommendations: [
+      'Add indexes to frequently searched columns.',
+      'Always limit results of analytical queries.',
+    ],
+  });
+  const [auditingDb, setAuditingDb] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Load history from API
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch('/api/history');
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.history || []);
+      }
+    } catch (err) {
+      console.error('Failed to load query history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, [connection.id]);
+
+  // Execute AI Health Audit
+  const handleDbAudit = async () => {
+    setAuditingDb(true);
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'db', history }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to analyze DB health');
+      }
+
+      const report = await res.json();
+      setHealthReport(report);
+      showNotification('Database health audit completed successfully!', 'success');
+    } catch (err) {
+      showNotification(`Audit failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    } finally {
+      setAuditingDb(false);
+    }
+  };
+
+  // Run AI query optimizer
+  const handleOptimizeQuery = async (queryItem: QueryHistoryItem) => {
+    setAnalyzingQuery(queryItem.id);
+    setSelectedQueryForAI(queryItem);
+    setAnalysisResult(null);
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'query', sql: queryItem.sql }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'AI optimization failed');
+      }
+
+      const result = await res.json();
+      setAnalysisResult(result);
+    } catch (err) {
+      showNotification(`Optimization failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    } finally {
+      setAnalyzingQuery(null);
+    }
+  };
+
+  // Apply optimized index creation (DDL)
+  const handleApplyDdl = (ddl: string) => {
+    showConfirmation(
+      `Apply SQL optimization DDL?\n\nThis will execute:\n\n${ddl}`,
+      async () => {
+        try {
+          const res = await fetch('/api/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sql: ddl }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || 'Failed to execute DDL');
+          }
+
+          showNotification('Optimization DDL executed successfully!', 'success');
+          onRefreshSchema();
+          fetchHistory();
+          setAnalysisResult(null);
+          setSelectedQueryForAI(null);
+        } catch (err) {
+          showNotification(`DDL failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+        }
+      }
+    );
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Helpers
+  const getQueryStatus = (time?: number) => {
+    if (!time) return { label: 'Fast', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    if (time > 100) return { label: 'Slow', color: 'bg-red-50 text-red-700 border-red-200' };
+    if (time > 50) return { label: 'Medium', color: 'bg-amber-50 text-amber-700 border-amber-200' };
+    return { label: 'Fast', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  };
+
+  // Filter slow queries (>100ms)
+  const slowQueries = history.filter((item) => item.success && item.executionTime && item.executionTime > 100);
+
+  // Compute table usage stats
+  const tableStats: Record<string, number> = {};
+  history.forEach((h) => {
+    const match = h.sql.match(/from\s+["`]?(\w+)["`]?/i);
+    if (match) {
+      const tbl = match[1];
+      tableStats[tbl] = (tableStats[tbl] || 0) + 1;
+    }
+  });
+  const topTables = Object.entries(tableStats)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  return (
+    <div className="flex flex-1 flex-col overflow-y-auto bg-background p-6">
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">AI Database Performance Advisor</h1>
+          <p className="text-xs text-muted-foreground">
+            Monitor query latencies, examine index coverage, and apply AI-driven suggestions.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleDbAudit}
+          disabled={auditingDb}
+          className="flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-2 text-xs font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', auditingDb && 'animate-spin')} />
+          Run Health Audit
+        </button>
+      </div>
+
+      {/* Grid: Health Score Dial & Recommendations */}
+      <div className="mb-6 grid gap-6 md:grid-cols-3">
+        {/* Health Dial */}
+        <div className="rounded-xl border border-border bg-white p-5 flex flex-col items-center justify-center">
+          <div className="relative flex h-28 w-28 items-center justify-center">
+            {/* Custom SVG Dial */}
+            <svg className="absolute h-full w-full -rotate-90">
+              <circle
+                cx="56"
+                cy="56"
+                r="46"
+                className="stroke-muted/20"
+                strokeWidth="8"
+                fill="none"
+              />
+              <circle
+                cx="56"
+                cy="56"
+                r="46"
+                className={cn(
+                  'transition-all duration-1000',
+                  healthReport.overallScore > 80 ? 'stroke-emerald-500' : 'stroke-amber-500'
+                )}
+                strokeWidth="8"
+                fill="none"
+                strokeDasharray="289"
+                strokeDashoffset={289 - (289 * healthReport.overallScore) / 100}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="text-center">
+              <span className="text-3xl font-extrabold text-foreground">{healthReport.overallScore}</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Health Score
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 flex w-full justify-between text-center border-t border-border pt-4 text-xs text-muted-foreground">
+            <div>
+              <span className="block font-bold text-foreground">{healthReport.queryEfficiency}</span>
+              Efficiency
+            </div>
+            <div className="border-l border-border px-3">
+              <span className="block font-bold text-foreground">{healthReport.indexCoverage}</span>
+              Index Cov
+            </div>
+            <div className="border-l border-border pl-3">
+              <span className="block font-bold text-foreground">{healthReport.schemaQuality}</span>
+              Schema
+            </div>
+          </div>
+        </div>
+
+        {/* AI Health Recommendations */}
+        <div className="md:col-span-2 rounded-xl border border-border bg-white p-5 flex flex-col justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-700">
+              <Gauge className="h-4 w-4" />
+              AI Recommendations
+            </div>
+            <ul className="space-y-2.5 text-xs leading-relaxed text-muted-foreground">
+              {healthReport.recommendations.map((rec, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <ArrowRight className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                  <span>{rec}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-4 border-t border-border/60 pt-3">
+            Last audited connection: <span className="font-semibold text-foreground">{connection.name}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Section: Custom SVG Visualizations */}
+      <div className="mb-6 grid gap-6 md:grid-cols-2">
+        {/* SVG Query Execution Trend */}
+        <div className="rounded-xl border border-border bg-white p-5">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <TrendingUp className="h-4 w-4" />
+            Query Latencies (Last 10 Queries)
+          </h3>
+          <div className="h-40 flex items-end gap-1.5 pt-4 relative">
+            {history.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                No executions recorded.
+              </div>
+            ) : (
+              history
+                .slice(0, 10)
+                .reverse()
+                .map((h, i) => {
+                  const maxTime = Math.max(...history.map((item) => item.executionTime || 10));
+                  const percentage = ((h.executionTime || 2) / maxTime) * 100;
+                  return (
+                    <div key={i} className="flex-1 group relative flex flex-col items-center gap-1 h-full justify-end">
+                      <div
+                        className={cn(
+                          'w-full rounded-t-sm transition-all duration-300 group-hover:opacity-85',
+                          h.success
+                            ? (h.executionTime || 0) > 100
+                              ? 'bg-red-400'
+                              : 'bg-emerald-400'
+                            : 'bg-red-200'
+                        )}
+                        style={{ height: `${Math.max(10, Math.min(100, percentage))}%` }}
+                      />
+                      <span className="text-[9px] text-muted-foreground whitespace-nowrap overflow-hidden max-w-full">
+                        {h.executionTime}ms
+                      </span>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        </div>
+
+        {/* SVG Table Usage */}
+        <div className="rounded-xl border border-border bg-white p-5">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Database className="h-4 w-4" />
+            Most Consulted Tables
+          </h3>
+          {topTables.length === 0 ? (
+            <div className="h-40 flex items-center justify-center text-xs text-muted-foreground">
+              No tables accessed yet.
+            </div>
+          ) : (
+            <div className="h-40 space-y-3.5 flex flex-col justify-center">
+              {topTables.map(([tbl, count]) => {
+                const maxCount = Math.max(...topTables.map((t) => t[1]));
+                const pct = (count / maxCount) * 100;
+                return (
+                  <div key={tbl} className="text-xs">
+                    <div className="flex justify-between font-semibold mb-1 text-[11px]">
+                      <span>{tbl}</span>
+                      <span className="text-muted-foreground">{count} queries</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary/70 rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Optimization Details Panel */}
+      {selectedQueryForAI && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/30 p-5">
+          <div className="flex items-center justify-between border-b border-amber-100 pb-3 mb-4">
+            <h3 className="text-sm font-bold text-amber-900 flex items-center gap-1.5">
+              <Zap className="h-4 w-4 text-amber-600" />
+              AI Performance Analysis
+            </h3>
+            <button
+              type="button"
+              onClick={() => setSelectedQueryForAI(null)}
+              className="text-xs text-amber-700 hover:text-amber-950 font-semibold"
+            >
+              Close Panel
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Target Query</p>
+              <pre className="mt-1.5 overflow-x-auto rounded bg-white border border-amber-200 p-3 font-mono text-xs text-amber-950">
+                <code>{selectedQueryForAI.sql}</code>
+              </pre>
+            </div>
+
+            {analyzingQuery ? (
+              <div className="flex items-center gap-2 text-xs text-amber-800 font-medium py-3">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Analyzing execution parameters and query planning...
+              </div>
+            ) : (
+              analysisResult && (
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Diagnosis</span>
+                      <p className="text-xs mt-1 text-amber-950">{analysisResult.rootCause}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Explanation</span>
+                      <p className="text-xs mt-1 text-amber-900 leading-relaxed">{analysisResult.explanation}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">
+                        Proposed Optimization
+                      </span>
+                      <div className="relative mt-1.5">
+                        <pre className="overflow-x-auto rounded bg-slate-900 p-3 font-mono text-xs text-white">
+                          <code>{analysisResult.optimizedQuery}</code>
+                        </pre>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(analysisResult.optimizedQuery)}
+                          className="absolute right-2 top-2 rounded bg-slate-800 p-1 text-slate-400 hover:text-white"
+                          title="Copy SQL"
+                        >
+                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {analysisResult.isDdl && (
+                      <button
+                        type="button"
+                        onClick={() => handleApplyDdl(analysisResult.optimizedQuery)}
+                        className="mt-4 flex w-full justify-center items-center gap-1.5 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                      >
+                        <Zap className="h-4 w-4" />
+                        Apply Index Optimization
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Side-by-side performance comparison */}
+                  <div className="flex flex-col justify-center">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide block mb-2">
+                      Side-By-Side Projection
+                    </span>
+                    <div className="overflow-hidden rounded-lg border border-amber-200 bg-white">
+                      <table className="w-full border-collapse text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-amber-100 bg-amber-50/20 font-medium">
+                            <th className="p-2.5">Metric</th>
+                            <th className="p-2.5 text-amber-700">Before Fix</th>
+                            <th className="p-2.5 text-emerald-700">After Fix (Est)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-amber-100">
+                            <td className="p-2.5 font-medium">Execution Time</td>
+                            <td className="p-2.5 text-amber-700">{analysisResult.estTimeBefore}ms</td>
+                            <td className="p-2.5 text-emerald-700 font-semibold">{analysisResult.estTimeAfter}ms</td>
+                          </tr>
+                          <tr className="border-b border-amber-100">
+                            <td className="p-2.5 font-medium">Rows Scanned</td>
+                            <td className="p-2.5 text-amber-700">{analysisResult.estScannedBefore.toLocaleString()}</td>
+                            <td className="p-2.5 text-emerald-700 font-semibold">
+                              {analysisResult.estScannedAfter.toLocaleString()}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="p-2.5 font-medium">Indexes Used</td>
+                            <td className="p-2.5 text-amber-700">No (Table Scan)</td>
+                            <td className="p-2.5 text-emerald-700 font-semibold">Yes (Index Scan)</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Section: Slow Queries Logs */}
+      <div className="mb-6 rounded-xl border border-border bg-white p-5">
+        <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-red-600 flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4" />
+          Slow Query Detection ({'>'}100ms)
+        </h3>
+        {loadingHistory ? (
+          <p className="text-xs text-muted-foreground">Loading log entries...</p>
+        ) : slowQueries.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2">
+            Excellent! No queries exceeded the 100ms latency threshold.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/20 font-medium text-muted-foreground">
+                  <th className="p-3">Query</th>
+                  <th className="p-3">Execution Time</th>
+                  <th className="p-3">Optimization Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slowQueries.map((item) => (
+                  <tr key={item.id} className="border-b border-border hover:bg-muted/10 transition-colors">
+                    <td className="p-3 font-mono text-[11px] max-w-md truncate" title={item.sql}>
+                      {item.sql}
+                    </td>
+                    <td className="p-3 font-semibold text-red-600">{item.executionTime}ms</td>
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => handleOptimizeQuery(item)}
+                        disabled={analyzingQuery === item.id}
+                        className="flex items-center gap-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-60"
+                      >
+                        <Zap className="h-3 w-3" />
+                        Optimize Query
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Section: Performance Dashboard Table */}
+      <div className="rounded-xl border border-border bg-white p-5">
+        <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <FileText className="h-4 w-4" />
+          Recent Executions Dashboard
+        </h3>
+        {loadingHistory ? (
+          <p className="text-xs text-muted-foreground">Loading dashboard data...</p>
+        ) : history.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2">No query execution history found on this session.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/20 font-medium text-muted-foreground">
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Query</th>
+                  <th className="p-3">Time</th>
+                  <th className="p-3">Scanned</th>
+                  <th className="p-3">Returned</th>
+                  <th className="p-3">Indexes Used</th>
+                  <th className="p-3">CPU</th>
+                  <th className="p-3">Memory</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((item) => {
+                  const stat = getQueryStatus(item.executionTime);
+                  return (
+                    <tr key={item.id} className="border-b border-border hover:bg-muted/10 transition-colors">
+                      <td className="p-3">
+                        <span
+                          className={cn(
+                            'inline-block px-2 py-0.5 rounded border text-[10px] font-bold',
+                            stat.color
+                          )}
+                        >
+                          {stat.label}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-[11px] max-w-xs truncate" title={item.sql}>
+                        {item.sql}
+                      </td>
+                      <td className="p-3">{item.executionTime ? `${item.executionTime}ms` : '-'}</td>
+                      <td className="p-3">{item.rowsScanned ? item.rowsScanned.toLocaleString() : '-'}</td>
+                      <td className="p-3">{item.rowsReturned ? item.rowsReturned.toLocaleString() : '0'}</td>
+                      <td className="p-3 max-w-[100px] truncate" title={item.indexesUsed?.join(', ')}>
+                        {item.indexesUsed && item.indexesUsed.length > 0 ? (
+                          <span className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold">
+                            <Key className="h-3 w-3" />
+                            {item.indexesUsed[0]}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/60">-</span>
+                        )}
+                      </td>
+                      <td className="p-3">{item.cpuUsage ? `${item.cpuUsage}%` : '-'}</td>
+                      <td className="p-3">{item.memoryUsage ? `${item.memoryUsage}MB` : '-'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

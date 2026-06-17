@@ -5,6 +5,8 @@ import { AppHeader } from '@/components/AppHeader';
 import { ConnectionsPage } from '@/components/ConnectionsPage';
 import { SchemaSidebar } from '@/components/SchemaSidebar';
 import { QueryInterface } from '@/components/QueryInterface';
+import { SchemaEditor } from '@/components/SchemaEditor';
+import { AnalyticsPage } from '@/components/AnalyticsPage';
 import { Toast } from '@/components/Toast';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ensureServerConnection } from '@/lib/client-connection';
@@ -19,14 +21,21 @@ export default function Home() {
   const [view, setView] = useState<View>('connections');
   const [connections, setConnections] = useState<DatabaseConnection[]>([]);
   const [activeConnection, setActiveConnection] = useState<DatabaseConnection | null>(null);
-  const [mode, setMode] = useState<QueryMode>('readonly');
+  const [mode, setMode] = useState<QueryMode>('crud');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [toast, setToast] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [toastConfig, setToastConfig] = useState<{
+    onConfirm?: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'success' | 'error' | 'confirm';
+  }>({});
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [userEmail] = useState('user@example.com');
 
   const loadConnections = useCallback(async (autoRedirect = false, allowAutoConnect = true) => {
@@ -79,8 +88,20 @@ export default function Home() {
     init();
   }, [loadConnections, loadMode]);
 
-  const showNotification = (message: string) => {
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setToast(message);
+    setToastConfig({ type });
+    setShowToast(true);
+  };
+
+  const showConfirmation = (message: string, onConfirm: () => void) => {
+    setToast(message);
+    setToastConfig({
+      type: 'confirm',
+      onConfirm,
+      confirmText: 'Execute',
+      cancelText: 'Cancel',
+    });
     setShowToast(true);
   };
 
@@ -93,6 +114,7 @@ export default function Home() {
     });
     setActiveConnection(connection);
     setResult(null);
+    setSelectedTable(null);
     setView('workspace');
   };
 
@@ -132,10 +154,9 @@ export default function Home() {
       if (data.connection) {
         setActiveConnection(data.connection);
         setView('workspace');
-        showNotification('Demo database ready');
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Demo setup failed');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -144,8 +165,8 @@ export default function Home() {
   const handleConnected = async (connection: DatabaseConnection) => {
     await loadConnections(false, false);
     setActiveConnection(connection);
+    setSelectedTable(null);
     setView('workspace');
-    showNotification('Connected successfully');
   };
 
   const handleModeChange = async (newMode: QueryMode) => {
@@ -158,6 +179,22 @@ export default function Home() {
   };
 
   const handleExecuteQuery = async (sql: string) => {
+    const upperSql = sql.toUpperCase();
+    const isMutation = upperSql.includes('UPDATE ') || upperSql.includes('DELETE ');
+
+    if (isMutation) {
+      const action = upperSql.includes('UPDATE ') ? 'UPDATE' : 'DELETE';
+      showConfirmation(
+        `Are you sure you want to execute this ${action} operation?\n\n${sql}`,
+        () => executeQueryInternal(sql)
+      );
+      return;
+    }
+
+    await executeQueryInternal(sql);
+  };
+
+  const executeQueryInternal = async (sql: string) => {
     setLoading(true);
     setResult(null);
 
@@ -179,10 +216,21 @@ export default function Home() {
       const data = await res.json();
       setResult(data);
       setHistoryRefresh((prev) => prev + 1);
+
+      const upperSql = sql.toUpperCase();
+      if (upperSql.includes('UPDATE ') || upperSql.includes('DELETE ')) {
+        const action = upperSql.includes('UPDATE ') ? 'Update' : 'Delete';
+        showNotification(`${action} successful. Rows affected: ${data.rowsAffected || 0}`, 'success');
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Query execution failed';
       setResult({ columns: [], rows: [], rowCount: 0 });
-      alert(`Error: ${errorMsg}`);
+      
+      const upperSql = sql.toUpperCase();
+      if (upperSql.includes('UPDATE ') || upperSql.includes('DELETE ')) {
+        showNotification(`Error: ${errorMsg}`, 'error');
+      }
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -206,7 +254,15 @@ export default function Home() {
           onOpenSettings={() => setShowSettings(true)}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
-        <Toast message={toast} visible={showToast} onDismiss={() => setShowToast(false)} />
+        <Toast
+          message={toast}
+          visible={showToast}
+          onDismiss={() => setShowToast(false)}
+          onConfirm={toastConfig.onConfirm}
+          confirmText={toastConfig.confirmText}
+          cancelText={toastConfig.cancelText}
+          type={toastConfig.type}
+        />
         <SettingsModal
           open={showSettings}
           onClose={() => setShowSettings(false)}
@@ -236,16 +292,34 @@ export default function Home() {
                 handleExecuteQuery(sql);
                 if (window.innerWidth < 768) setSidebarOpen(false);
               }}
+              onSelectTable={(tbl) => setSelectedTable(tbl)}
               refreshTrigger={historyRefresh}
             />
           </div>
           <div className="flex-1 min-w-0 flex flex-col">
-            <QueryInterface
-              onExecute={handleExecuteQuery}
-              isLoading={loading}
-              result={result}
-              onOpenSettings={() => setShowSettings(true)}
-            />
+            {mode === 'schema' ? (
+              <SchemaEditor
+                connection={activeConnection}
+                selectedTable={selectedTable}
+                showConfirmation={showConfirmation}
+                showNotification={showNotification}
+                onRefreshSchema={() => setHistoryRefresh((prev) => prev + 1)}
+              />
+            ) : mode === 'analytics' ? (
+              <AnalyticsPage
+                connection={activeConnection}
+                showConfirmation={showConfirmation}
+                showNotification={showNotification}
+                onRefreshSchema={() => setHistoryRefresh((prev) => prev + 1)}
+              />
+            ) : (
+              <QueryInterface
+                onExecute={handleExecuteQuery}
+                isLoading={loading}
+                result={result}
+                onOpenSettings={() => setShowSettings(true)}
+              />
+            )}
           </div>
         </div>
       </div>

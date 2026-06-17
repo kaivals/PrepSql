@@ -24,10 +24,9 @@ const dialectDescriptions = {
 };
 
 const modeGuidelines: Record<QueryMode, string> = {
-  readonly: 'Only generate SELECT queries. No INSERT, UPDATE, DELETE, DROP, or DDL.',
   crud: 'Generate SELECT, INSERT, UPDATE, or DELETE as needed. Avoid DROP and TRUNCATE.',
   analytics: 'Generate analytical queries with aggregations, window functions, CTEs, and JOINs as appropriate.',
-  indexes: 'Only generate CREATE INDEX or DROP INDEX queries. Focus on optimizing table performance based on the user request. DO NOT generate other statements.',
+  schema: 'Generate DDL queries to modify tables (ALTER TABLE, CREATE TABLE, etc.) if requested, otherwise focus on schema analysis.',
 };
 
 function buildSystemPrompt(

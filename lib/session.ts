@@ -40,7 +40,7 @@ export async function getSession(): Promise<SessionData> {
   if (!sessions.has(sessionId)) {
     sessions.set(sessionId, {
       connections: [],
-      queryMode: 'readonly',
+      queryMode: 'crud',
       history: [],
     });
     saveSessions();

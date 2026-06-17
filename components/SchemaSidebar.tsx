@@ -16,6 +16,7 @@ interface SchemaSidebarProps {
   connection: DatabaseConnection;
   onBack: () => void;
   onSelectQuery: (sql: string) => void;
+  onSelectTable?: (tableName: string) => void;
   refreshTrigger?: number;
 }
 
@@ -23,6 +24,7 @@ export function SchemaSidebar({
   connection,
   onBack,
   onSelectQuery,
+  onSelectTable,
   refreshTrigger,
 }: SchemaSidebarProps) {
   const [tab, setTab] = useState<'schema' | 'history' | 'indexes'>('schema');
@@ -151,9 +153,12 @@ export function SchemaSidebar({
                 <div key={table.name}>
                   <button
                     type="button"
-                    onClick={() => toggleTable(table.name)}
+                    onClick={() => {
+                      toggleTable(table.name);
+                      if (onSelectTable) onSelectTable(table.name);
+                    }}
                     onDoubleClick={() => onSelectQuery(buildSelectPreview(table, connection.type))}
-                    title="Click to expand · Double-click to preview rows"
+                    title="Click to select & expand · Double-click to preview rows"
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
                   >
                     <ChevronRight
