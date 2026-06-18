@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAiApiKey, getConnection } from '@/lib/session';
 import Anthropic from '@anthropic-ai/sdk';
 
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
 async function generateJSON(prompt: string, apiKey: string, provider: 'groq' | 'anthropic') {
   if (provider === 'groq') {

@@ -18,7 +18,7 @@ interface AppHeaderProps {
 export function AppHeader({
   userEmail = 'user@example.com',
   showModeSwitcher = false,
-  mode = 'readonly',
+  mode = 'crud',
   onModeChange,
   onLogout,
   onOpenSettings,

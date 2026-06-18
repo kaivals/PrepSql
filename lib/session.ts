@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { randomBytes } from 'crypto';
 import type { DatabaseConnection, QueryHistoryItem, QueryMode } from './types';
 import { loadPersistedSessions, persistSessions, type PersistedSessionData } from './session-persist';
@@ -11,7 +11,13 @@ function saveSessions(): void {
   persistSessions(sessions);
 }
 
-async function getSessionId(): Promise<string> {
+export async function getSessionId(): Promise<string> {
+  const headerStore = await headers();
+  const headerSessionId = headerStore.get('x-prepsql-session-id');
+  if (headerSessionId) {
+    return headerSessionId;
+  }
+
   const cookieStore = await cookies();
   let sessionId = cookieStore.get('prepsql-session')?.value;
 

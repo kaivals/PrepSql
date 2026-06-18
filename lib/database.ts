@@ -64,6 +64,7 @@ export async function createConnection(config: DatabaseConnectionConfig): Promis
         database: config.database!,
       });
     }
+    throw new Error(`Unsupported database type: ${config.type}`);
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('[v0] Connection error:', msg);
@@ -111,12 +112,13 @@ export async function testConnection(config: DatabaseConnectionConfig): Promise<
 
 export async function executeQuery(conn: DatabaseClient, sql: string): Promise<QueryResult> {
   try {
-    if (conn?.all && conn?.run && !('query' in conn)) {
+    const anyConn = conn as any;
+    if (anyConn?.all && anyConn?.run && !('query' in anyConn)) {
       // sqlite3 duck typing
-      return await executeSQLiteQuery(conn, sql);
+      return await executeSQLiteQuery(conn as SqliteAdapter, sql);
     } else if (conn instanceof Pool) {
       return await executePostgresQuery(conn, sql);
-    } else if (conn?.getConnection) {
+    } else if (anyConn?.getConnection) {
       // mysql.Pool duck typing
       return await executeMySQLQuery(conn as mysql.Pool, sql);
     }
@@ -138,13 +140,13 @@ async function executeSQLiteQuery(db: SqliteAdapter, sql: string): Promise<Query
         }
       });
     } else {
-      db.run(sql, function (this: { changes: number }, err: Error | null) {
+      db.exec(sql, (err: Error | null) => {
         if (err) reject(err);
         else {
           resolve({
             columns: [],
             rows: [],
-            rowsAffected: this.changes,
+            rowsAffected: 1,
           });
         }
       });
@@ -154,7 +156,7 @@ async function executeSQLiteQuery(db: SqliteAdapter, sql: string): Promise<Query
 
 async function executePostgresQuery(pool: Pool, sql: string): Promise<QueryResult> {
   const result = await pool.query(sql);
-  const columns = result.fields ? result.fields.map((f) => f.name) : [];
+  const columns = result.fields ? result.fields.map((f: any) => f.name) : [];
   return {
     columns,
     rows: result.rows || [],
@@ -169,7 +171,7 @@ async function executeMySQLQuery(pool: mysql.Pool, sql: string): Promise<QueryRe
     const columns = Array.isArray(fields) ? fields.map((f: any) => f.name) : [];
     return {
       columns,
-      rows: Array.isArray(rows) ? rows : [],
+      rows: Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [],
       rowsAffected: Array.isArray(rows) ? rows.length : 0,
     };
   } finally {
@@ -204,13 +206,14 @@ export function closePool(config: DatabaseConnectionConfig): void {
   const conn = pools.get(key);
 
   if (conn) {
-    if (conn && 'all' in conn && 'run' in conn) {
+    const anyConn = conn as any;
+    if (anyConn && 'all' in anyConn && 'run' in anyConn) {
       (conn as SqliteAdapter).close();
     } else if (conn instanceof Pool) {
       (conn as Pool).end();
-    } else if (conn?.end) {
+    } else if (anyConn?.end && typeof anyConn.end === 'function') {
       // mysql.Pool
-      (conn as mysql.Pool).end();
+      anyConn.end();
     }
     pools.delete(key);
   }

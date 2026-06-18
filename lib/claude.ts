@@ -14,7 +14,7 @@ interface AiConfig {
   key: string;
 }
 
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
 const dialectDescriptions = {
   sqlite: 'SQLite3 - supports basic SQL with some limitations',
@@ -186,7 +186,7 @@ async function generateWithAnthropic(
 export async function generateSQL(
   prompt: string,
   connection: DatabaseConnection,
-  mode: QueryMode = 'readonly',
+  mode: QueryMode = 'crud',
   aiConfig?: AiConfig,
   schemaContext?: string
 ): Promise<GenerationResult> {
