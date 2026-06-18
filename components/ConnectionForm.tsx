@@ -9,9 +9,12 @@ interface Props {
   onConnected: (connection: DatabaseConnection) => void;
   isLoading?: boolean;
   autoConnect?: boolean;
+  /** When true, pre-fill form from saved localStorage credentials (for auto-reconnect).
+   *  When false (default), start with a blank/generic form for a brand-new connection. */
+  prefillSaved?: boolean;
 }
 
-export function ConnectionForm({ onConnected, isLoading = false, autoConnect = false }: Props) {
+export function ConnectionForm({ onConnected, isLoading = false, autoConnect = false, prefillSaved = false }: Props) {
   const [dbType, setDbType] = useState<'sqlite' | 'postgresql' | 'mysql' | 'mariadb'>('postgresql');
   const [name, setName] = useState(POSTGRES_DEFAULTS.name);
   const [host, setHost] = useState(POSTGRES_DEFAULTS.host);
@@ -32,19 +35,28 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
   };
 
   useEffect(() => {
-    const saved = loadSavedConnection();
-    if (saved) {
-      setDbType(saved.type);
-      setName(saved.name || POSTGRES_DEFAULTS.name);
-      setHost(saved.host || POSTGRES_DEFAULTS.host);
-      setPort(String(saved.port || POSTGRES_DEFAULTS.port));
-      setUser(saved.user || POSTGRES_DEFAULTS.user);
-      setDatabase(saved.database || POSTGRES_DEFAULTS.database);
-      setPassword(saved.password || '');
-      if (saved.filepath) setFilepath(saved.filepath);
+    if (prefillSaved) {
+      // Auto-reconnect path: restore from saved credentials
+      const saved = loadSavedConnection();
+      if (saved) {
+        setDbType(saved.type);
+        setName(saved.name || POSTGRES_DEFAULTS.name);
+        setHost(saved.host || POSTGRES_DEFAULTS.host);
+        setPort(String(saved.port || POSTGRES_DEFAULTS.port));
+        setUser(saved.user || POSTGRES_DEFAULTS.user);
+        setDatabase(saved.database || POSTGRES_DEFAULTS.database);
+        setPassword(saved.password || '');
+        if (saved.filepath) setFilepath(saved.filepath);
+      }
+    } else {
+      // New connection path: start completely blank so user must fill in fresh details.
+      // Keep the POSTGRES_DEFAULTS for host/port/user as hints, but clear name, password, database.
+      setName('');
+      setPassword('');
+      setDatabase('');
     }
     setReady(true);
-  }, []);
+  }, [prefillSaved]);
 
   const applyPostgresDefaults = () => {
     setName(POSTGRES_DEFAULTS.name);

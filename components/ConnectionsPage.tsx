@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Database, Plus, Trash2, Zap, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConnectionForm } from '@/components/ConnectionForm';
@@ -26,12 +26,19 @@ export function ConnectionsPage({
   openFormOnLoad = true,
 }: ConnectionsPageProps) {
   const [showModal, setShowModal] = useState(false);
+  const didAutoOpen = useRef(false);
 
+  // Auto-open only once on mount when there are no connections yet.
+  // Must NOT depend on connections.length — that would reopen the modal
+  // every time a connection is added or removed.
   useEffect(() => {
+    if (didAutoOpen.current) return;
+    didAutoOpen.current = true;
     if (openFormOnLoad && connections.length === 0) {
       setShowModal(true);
     }
-  }, [connections.length, openFormOnLoad]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getConnectionPath = (conn: DatabaseConnection) => {
     if (conn.type === 'sqlite') return conn.filepath || '';
@@ -114,7 +121,7 @@ export function ConnectionsPage({
               </button>
             </div>
             <ConnectionForm
-              autoConnect
+              prefillSaved={false}
               onConnected={(conn) => {
                 onConnected(conn);
                 setShowModal(false);

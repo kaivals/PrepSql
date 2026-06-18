@@ -37,23 +37,38 @@ function buildSystemPrompt(
   const dialectInfo = dialectDescriptions[connection.type];
   const dbName = connection.name || connection.database || 'unknown';
 
+  const pgIdentifierRules =
+    connection.type === 'postgresql'
+      ? `
+PostgreSQL Identifier Rules (MANDATORY — violations cause runtime errors):
+- PostgreSQL folds unquoted identifiers to lowercase at runtime.
+- ALL table names and column names MUST be wrapped in double-quotes exactly as shown in the schema above.
+- NEVER lowercase, NEVER transform, NEVER omit double-quotes from any identifier.
+- Copy every identifier character-for-character from the schema context.
+- Correct:   SELECT "userId", "createdAt" FROM "Users"
+- Incorrect: SELECT userid, createdat FROM users  ← will fail with "column does not exist"
+- Incorrect: SELECT "userid" FROM "users"          ← wrong casing, will fail
+`
+      : '';
+
   return `You are an expert SQL developer. Generate safe, efficient SQL queries based on user prompts.
 
 Database Info:
 - Type: ${dialectInfo}
 - Name: ${dbName}
 
-${schemaContext || 'Schema not available — introspect tables before assuming names.'}
-
+${schemaContext || 'No schema available.'}
+${pgIdentifierRules}
 Query mode: ${mode}
 ${modeGuidelines[mode]}
 
-Important guidelines:
-1. Always generate valid SQL for the specified database dialect
-2. Use proper escaping and parameterization concepts
-3. Keep queries efficient and readable
-4. When uncertain about schema, make reasonable assumptions and note them
-5. Return ONLY the SQL query in a code block, followed by a brief explanation. DO NOT output conversational text before the code block.
+STRICT IDENTIFIER RULES:
+1. ONLY use table names and column names that appear in the schema context above.
+2. NEVER invent, guess, or transform identifier names — use them exactly as shown.
+3. If you cannot fulfil the request with the available schema, say so in the explanation instead of guessing a table or column name.
+4. Always generate valid SQL for the specified database dialect.
+5. Keep queries efficient and readable.
+6. Return ONLY the SQL query in a code block, followed by a brief explanation. DO NOT output conversational text before the code block.
 
 Format your response EXACTLY as:
 \`\`\`sql
@@ -62,6 +77,7 @@ Format your response EXACTLY as:
 
 Explanation: [Brief explanation of what the query does]`;
 }
+
 
 function parseGenerationResponse(text: string, usage?: TokenUsage): GenerationResult {
   const sqlMatch = text.match(/```(?:sql)?\s*\n?([\s\S]*?)\n?\s*```/i);

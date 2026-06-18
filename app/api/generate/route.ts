@@ -3,6 +3,7 @@ import { getConnection, getQueryMode, getAiApiKey } from '@/lib/session';
 import { generateSQL, validateSQLSafety } from '@/lib/claude';
 import { introspectSchema } from '@/lib/schema';
 import { formatSchemaForPrompt } from '@/lib/schema-format';
+import { validateAndCorrectSQL } from '@/lib/sql-validator';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,22 +23,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 1. Fetch live schema metadata (uses pg_catalog for PG — exact identifier casing)
     const mode = await getQueryMode();
     const aiConfig = await getAiApiKey();
     const tables = await introspectSchema(connection);
+
+    // 2. Build schema context string with all identifiers pre-quoted for the AI
     const schemaContext = formatSchemaForPrompt(tables, connection.type);
+
+    // 3. Generate SQL via AI
     const result = await generateSQL(prompt, connection, mode, aiConfig, schemaContext);
 
-    // Validate for obvious safety issues
-    const safety = validateSQLSafety(result.sql);
+    // 4. Post-generation validation: auto-correct identifier casing & PG quoting
+    const validation = validateAndCorrectSQL(result.sql, tables, connection.type);
+    const finalSql = validation.correctedSql;
+
+    // 5. Safety check
+    const safety = validateSQLSafety(finalSql);
 
     return NextResponse.json({
-      sql: result.sql,
+      sql: finalSql,
       explanation: result.explanation,
       usage: result.usage,
       safetyWarnings: safety.warnings,
       safetyOk: safety.safe,
       isMutation: safety.isMutation,
+      // Surface auto-correction metadata for the UI
+      identifierCorrections: validation.corrections,
+      unmatchedIdentifiers: validation.unmatchedIdentifiers,
     });
   } catch (error) {
     console.error('Generation error:', error);

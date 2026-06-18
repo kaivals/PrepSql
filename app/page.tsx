@@ -162,11 +162,11 @@ export default function Home() {
     }
   };
 
-  const handleConnected = async (connection: DatabaseConnection) => {
+  const handleConnected = async (_connection: DatabaseConnection) => {
+    // Stay on the connections page so the user can see ALL their connections
+    // and choose which one to open. Navigating to workspace happens only when
+    // the user explicitly clicks a connection card (handleSelectConnection).
     await loadConnections(false, false);
-    setActiveConnection(connection);
-    setSelectedTable(null);
-    setView('workspace');
   };
 
   const handleModeChange = async (newMode: QueryMode) => {

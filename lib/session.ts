@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 import type { DatabaseConnection, QueryHistoryItem, QueryMode } from './types';
 import { loadPersistedSessions, persistSessions, type PersistedSessionData } from './session-persist';
 
-interface SessionData extends PersistedSessionData {}
+interface SessionData extends PersistedSessionData { }
 
 const sessions = loadPersistedSessions();
 
@@ -57,8 +57,11 @@ export async function getConnections(): Promise<DatabaseConnection[]> {
 export async function addConnection(connection: Omit<DatabaseConnection, 'id'>): Promise<DatabaseConnection> {
   const session = await getSession();
 
+  // Match duplicates by credentials only (NOT by name).
+  // Same DB credentials = reconnect to existing entry (update password/name if changed).
+  // Different credentials (different host, port, db, or user) = always a brand-new entry.
   const existing = session.connections.find((c) => {
-    if (c.type !== connection.type || c.name !== connection.name) return false;
+    if (c.type !== connection.type) return false;
     if (c.type === 'sqlite') return c.filepath === connection.filepath;
     return (
       c.host === connection.host &&
@@ -69,7 +72,9 @@ export async function addConnection(connection: Omit<DatabaseConnection, 'id'>):
   });
 
   if (existing) {
-    Object.assign(existing, connection);
+    // Update mutable fields (password may have changed, user may have renamed it)
+    if (connection.password !== undefined) existing.password = connection.password;
+    if (connection.name && connection.name !== existing.name) existing.name = connection.name;
     session.activeConnectionId = existing.id;
     saveSessions();
     return existing;

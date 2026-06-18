@@ -1,6 +1,12 @@
 export type DatabaseType = 'sqlite' | 'postgresql' | 'mysql' | 'mariadb'
 export type QueryMode = 'crud' | 'analytics' | 'schema'
 
+export interface TokenUsage {
+  promptTokens: number
+  completionTokens: number
+}
+
+
 export interface DatabaseConnection {
   id: string
   type: DatabaseType

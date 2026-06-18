@@ -110,11 +110,17 @@ async function introspectSQLite(db: SqliteAdapter): Promise<SchemaTable[]> {
 }
 
 async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
+  // Use pg_catalog views instead of information_schema to preserve EXACT identifier
+  // casing (camelCase, PascalCase, mixed-case). information_schema normalises
+  // identifiers to lowercase, which causes "column does not exist" errors when the
+  // AI copies those lowercased names into SQL.
   const tablesResult = await pool.query(`
-    SELECT tablename AS table_name
-    FROM pg_tables
-    WHERE schemaname = 'public'
-    ORDER BY tablename
+    SELECT c.relname AS table_name
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'r'
+    ORDER BY c.relname
   `);
 
   const result: SchemaTable[] = [];
@@ -122,50 +128,62 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
   for (const row of tablesResult.rows) {
     const tableName = row.table_name as string;
 
+    // pg_attribute preserves the original attname exactly as created.
     const columnsResult = await pool.query(
-      `SELECT 
-          column_name, 
-          data_type, 
-          is_nullable, 
-          column_default,
-          (SELECT EXISTS(
-              SELECT 1 FROM information_schema.table_constraints tc 
-              JOIN information_schema.key_column_usage kcu 
-                  ON tc.constraint_name = kcu.constraint_name
-              WHERE tc.table_schema = 'public' 
-                  AND tc.table_name = c.table_name 
-                  AND kcu.column_name = c.column_name 
-                  AND tc.constraint_type = 'PRIMARY KEY'
-          )) AS is_primary,
-          (SELECT EXISTS(
-              SELECT 1 FROM information_schema.table_constraints tc 
-              JOIN information_schema.key_column_usage kcu 
-                  ON tc.constraint_name = kcu.constraint_name
-              WHERE tc.table_schema = 'public' 
-                  AND tc.table_name = c.table_name 
-                  AND kcu.column_name = c.column_name 
-                  AND tc.constraint_type = 'UNIQUE'
-          )) AS is_unique,
-          (column_default LIKE 'nextval(%' OR column_default LIKE 'identity%') AS is_identity
-       FROM information_schema.columns c
-       WHERE table_schema = 'public' AND table_name = $1
-       ORDER BY ordinal_position`,
+      `SELECT
+          a.attname                                        AS column_name,
+          pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+          NOT a.attnotnull                                 AS is_nullable,
+          pg_catalog.pg_get_expr(d.adbin, d.adrelid)      AS column_default,
+          EXISTS (
+            SELECT 1 FROM pg_catalog.pg_index ix
+            JOIN pg_catalog.pg_attribute ia
+              ON ia.attrelid = ix.indrelid AND ia.attnum = ANY(ix.indkey)
+            WHERE ix.indrelid = a.attrelid
+              AND ia.attnum    = a.attnum
+              AND ix.indisprimary
+          ) AS is_primary,
+          EXISTS (
+            SELECT 1 FROM pg_catalog.pg_index ix
+            JOIN pg_catalog.pg_attribute ia
+              ON ia.attrelid = ix.indrelid AND ia.attnum = ANY(ix.indkey)
+            WHERE ix.indrelid = a.attrelid
+              AND ia.attnum    = a.attnum
+              AND ix.indisunique
+              AND NOT ix.indisprimary
+          ) AS is_unique,
+          (
+            pg_catalog.pg_get_expr(d.adbin, d.adrelid) ILIKE 'nextval(%'
+            OR a.attidentity != ''
+          ) AS is_identity
+       FROM pg_catalog.pg_attribute a
+       JOIN pg_catalog.pg_class     cl ON cl.oid = a.attrelid
+       JOIN pg_catalog.pg_namespace n  ON n.oid  = cl.relnamespace
+       LEFT JOIN pg_catalog.pg_attrdef d
+         ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+       WHERE n.nspname  = 'public'
+         AND cl.relname = $1
+         AND a.attnum   > 0
+         AND NOT a.attisdropped
+       ORDER BY a.attnum`,
       [tableName]
     );
 
+    // FK relationships — pg_constraint preserves exact column names.
     const fksResult = await pool.query(
-      `SELECT 
-          kcu.column_name, 
-          ccu.table_name AS foreign_table, 
+      `SELECT
+          kcu.column_name,
+          ccu.table_name  AS foreign_table,
           ccu.column_name AS foreign_column
-       FROM information_schema.table_constraints tc 
-       JOIN information_schema.key_column_usage kcu 
-          ON tc.constraint_name = kcu.constraint_name
-       JOIN information_schema.constraint_column_usage ccu 
-          ON tc.constraint_name = ccu.constraint_name
-       WHERE tc.constraint_type = 'FOREIGN KEY' 
-          AND tc.table_schema = 'public' 
-          AND tc.table_name = $1`,
+       FROM information_schema.table_constraints   tc
+       JOIN information_schema.key_column_usage    kcu
+         ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema    = kcu.table_schema
+       JOIN information_schema.constraint_column_usage ccu
+         ON tc.constraint_name = ccu.constraint_name
+       WHERE tc.constraint_type = 'FOREIGN KEY'
+         AND tc.table_schema    = 'public'
+         AND tc.table_name      = $1`,
       [tableName]
     );
 
@@ -185,9 +203,9 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
     result.push({
       name: tableName,
       columns: columnsResult.rows.map((c: any) => ({
-        name: c.column_name,
+        name: c.column_name,       // exact casing from pg_attribute.attname
         type: c.data_type,
-        nullable: c.is_nullable === 'YES',
+        nullable: c.is_nullable,
         defaultValue: c.column_default,
         primaryKey: c.is_primary,
         unique: c.is_unique,
