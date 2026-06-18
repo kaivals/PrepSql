@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import type { DatabaseConnection, QueryHistoryItem, QueryMode } from './types';
+import type { DatabaseConnection, QueryHistoryItem, QueryMode, TimelineStep } from './types';
 
 export interface PersistedSessionData {
   connections: DatabaseConnection[];
@@ -9,6 +9,7 @@ export interface PersistedSessionData {
   history: QueryHistoryItem[];
   anthropicApiKey?: string;
   groqApiKey?: string;
+  pendingTimeline?: TimelineStep[];
 }
 
 const SESSIONS_FILE = path.join(process.cwd(), 'data', 'sessions.json');

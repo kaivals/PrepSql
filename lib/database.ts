@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import mysql from 'mysql2/promise';
 import type { DatabaseConnection } from './types';
 import { openSqlite, type SqliteAdapter } from './sqlite-adapter';
+import { logQueryStep } from './query-logger';
 
 type DatabaseConnectionConfig = Omit<DatabaseConnection, 'id'>;
 
@@ -111,6 +112,32 @@ export async function testConnection(config: DatabaseConnectionConfig): Promise<
 }
 
 export async function executeQuery(conn: DatabaseClient, sql: string): Promise<QueryResult> {
+  const startTime = performance.now();
+  try {
+    const result = await executeQueryInternal(conn, sql);
+    const duration = Math.round(performance.now() - startTime);
+    logQueryStep({
+      type: 'final_executed',
+      sql,
+      success: true,
+      executionTime: duration,
+      rowsAffected: result.rowsAffected,
+    });
+    return result;
+  } catch (error) {
+    const duration = Math.round(performance.now() - startTime);
+    logQueryStep({
+      type: 'final_executed',
+      sql,
+      success: false,
+      executionTime: duration,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
+async function executeQueryInternal(conn: DatabaseClient, sql: string): Promise<QueryResult> {
   try {
     const anyConn = conn as any;
     if (anyConn?.all && anyConn?.run && !('query' in anyConn)) {

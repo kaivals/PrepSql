@@ -48,6 +48,17 @@ export interface QueryResult {
   truncated?: boolean
 }
 
+export interface TimelineStep {
+  id: string
+  type: 'initial_ai' | 'validation' | 'schema_discovery' | 'optimization_rewrite' | 'final_executed'
+  sql: string
+  timestamp: number
+  success: boolean
+  executionTime?: number
+  rowsAffected?: number
+  error?: string
+}
+
 export interface QueryHistoryItem {
   id: string
   prompt: string
@@ -62,4 +73,12 @@ export interface QueryHistoryItem {
   cpuUsage?: number
   memoryUsage?: number
   indexesUsed?: string[]
+  timeline?: TimelineStep[]
+  principlesValidation?: {
+    dry: { status: 'follows' | 'violates' | 'n/a'; description: string }
+    yagni: { status: 'follows' | 'violates' | 'n/a'; description: string }
+    kiss: { status: 'follows' | 'violates' | 'n/a'; description: string }
+    solid: { status: 'follows' | 'violates' | 'n/a'; description: string }
+    concerns: string[]
+  }
 }

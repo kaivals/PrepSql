@@ -116,6 +116,71 @@ Return EXACTLY this JSON structure:
 
       const dbReport = await generateJSON(prompt, aiConfig.key, aiConfig.provider);
       return NextResponse.json(dbReport);
+    } else if (action === 'timeline') {
+      const { timeline } = body;
+      if (!timeline || !Array.isArray(timeline)) {
+        return NextResponse.json({ error: 'Timeline array required' }, { status: 400 });
+      }
+
+      const prompt = `You are a database performance and engineering principles expert.
+Analyze this sequence of queries executed during a single database request:
+Dialect: ${connection.type}
+Timeline: ${JSON.stringify(timeline)}
+
+For each query in the timeline, show:
+- Purpose of the query
+- Execution time (approximate, based on input data)
+- Query cost (if available, or an estimate relative to complexity)
+- Tables involved
+- Potential bottlenecks
+- Optimization opportunities
+
+Also, perform an Engineering Principles Validation:
+- Detect and report where the implementation follows or violates DRY (Don't Repeat Yourself), YAGNI (You Aren't Gonna Need It), KISS (Keep It Simple, Stupid), and SOLID Principles.
+- Highlight duplicate logic, unnecessary complexity, redundant queries, and maintainability concerns.
+
+If there are optimizations or query rewrites/corrections in the timeline, provide a Change Explanation Section:
+- What changed
+- Why the change was needed
+- Expected impact (Performance improvement, Readability improvement, Maintainability improvement)
+
+Return EXACTLY this JSON structure, with no markdown code blocks outside of it. Make sure the JSON is completely valid:
+{
+  "queries": [
+    {
+      "sql": "query text...",
+      "purpose": "Explanation of purpose...",
+      "cost": "Cost estimate...",
+      "tablesInvolved": ["table1", "table2"],
+      "bottlenecks": "Bottlenecks if any...",
+      "optimizationOpportunities": "Optimization opportunities if any..."
+    }
+  ],
+  "principlesValidation": {
+    "dry": { "status": "follows" | "violates" | "n/a", "description": "Explanation..." },
+    "yagni": { "status": "follows" | "violates" | "n/a", "description": "Explanation..." },
+    "kiss": { "status": "follows" | "violates" | "n/a", "description": "Explanation..." },
+    "solid": { "status": "follows" | "violates" | "n/a", "description": "Explanation..." },
+    "concerns": [
+      "Duplicate logic in...",
+      "Redundant query for..."
+    ]
+  },
+  "changeExplanations": [
+    {
+      "sql": "query text...",
+      "whatChanged": "What was modified...",
+      "whyNeeded": "Why this modification was needed...",
+      "expectedImpact": "Summary of expected benefits...",
+      "performanceImprovement": "High/Medium/Low/None",
+      "readabilityImprovement": "High/Medium/Low/None",
+      "maintainabilityImprovement": "High/Medium/Low/None"
+    }
+  ]
+}`;
+
+      const timelineAnalysis = await generateJSON(prompt, aiConfig.key, aiConfig.provider);
+      return NextResponse.json(timelineAnalysis);
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

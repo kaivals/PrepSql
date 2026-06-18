@@ -58,6 +58,40 @@ export function AnalyticsPage({
   const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null);
   const [selectedQueryForAI, setSelectedQueryForAI] = useState<QueryHistoryItem | null>(null);
 
+  // Timeline & Lifecycle analysis states
+  const [selectedRun, setSelectedRun] = useState<QueryHistoryItem | null>(null);
+  const [analyzingTimeline, setAnalyzingTimeline] = useState(false);
+  const [timelineAnalysis, setTimelineAnalysis] = useState<any | null>(null);
+
+  const handleAnalyzeTimeline = async (run: QueryHistoryItem) => {
+    if (!run.timeline || run.timeline.length === 0) {
+      showNotification('No timeline steps recorded for this execution.', 'error');
+      return;
+    }
+    setAnalyzingTimeline(true);
+    setTimelineAnalysis(null);
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'timeline', timeline: run.timeline }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Timeline analysis failed');
+      }
+
+      const report = await res.json();
+      setTimelineAnalysis(report);
+      showNotification('Lifecycle analysis completed!', 'success');
+    } catch (err) {
+      showNotification(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+    } finally {
+      setAnalyzingTimeline(false);
+    }
+  };
+
   // DB Health Score State
   const [healthReport, setHealthReport] = useState<DBHealthReport>({
     queryEfficiency: 85,
@@ -541,7 +575,7 @@ export function AnalyticsPage({
       <div className="rounded-xl border border-border bg-white p-5">
         <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <FileText className="h-4 w-4" />
-          Recent Executions Dashboard
+          Recent Executions Dashboard (Click any row to analyze query lifecycle)
         </h3>
         {loadingHistory ? (
           <p className="text-xs text-muted-foreground">Loading dashboard data...</p>
@@ -566,7 +600,17 @@ export function AnalyticsPage({
                 {history.map((item) => {
                   const stat = getQueryStatus(item.executionTime);
                   return (
-                    <tr key={item.id} className="border-b border-border hover:bg-muted/10 transition-colors">
+                    <tr
+                      key={item.id}
+                      onClick={() => {
+                        setSelectedRun(item);
+                        setTimelineAnalysis(null);
+                      }}
+                      className={cn(
+                        'border-b border-border hover:bg-muted/10 transition-colors cursor-pointer',
+                        selectedRun?.id === item.id && 'bg-muted/30 font-medium'
+                      )}
+                    >
                       <td className="p-3">
                         <span
                           className={cn(
@@ -603,6 +647,277 @@ export function AnalyticsPage({
           </div>
         )}
       </div>
+
+      {/* Execution Timeline Lifecycle Analyzer panel */}
+      {selectedRun && (
+        <div className="mt-6 rounded-xl border border-border bg-white p-5 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border pb-4 gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <Activity className="h-4 w-4 text-primary" />
+                Query Execution Lifecycle Timeline
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl truncate" title={selectedRun.prompt || selectedRun.sql}>
+                Inspect every query step executed during request:{" "}
+                <span className="font-semibold text-foreground">
+                  {selectedRun.prompt || selectedRun.sql}
+                </span>
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleAnalyzeTimeline(selectedRun)}
+                disabled={analyzingTimeline || !selectedRun.timeline?.length}
+                className="flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/95 disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                <Zap className="h-3 w-3" />
+                {analyzingTimeline ? 'Analyzing Lifecycle...' : 'Run AI Lifecycle Analysis'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRun(null);
+                  setTimelineAnalysis(null);
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground font-semibold px-2 py-1 cursor-pointer"
+              >
+                Close Panel
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Timeline Flow list */}
+            <div className="lg:col-span-1 border-r border-border pr-4 space-y-4 max-h-[500px] overflow-y-auto">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-2">
+                Execution Steps ({selectedRun.timeline?.length || 0})
+              </span>
+              
+              {!selectedRun.timeline || selectedRun.timeline.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No intermediate timeline steps recorded for this execution.</p>
+              ) : (
+                <div className="relative pl-4 border-l border-border space-y-6">
+                  {selectedRun.timeline.map((step) => {
+                    let badgeColor = 'bg-slate-100 text-slate-800 border-slate-200';
+                    let typeLabel = 'Executed Query';
+                    if (step.type === 'schema_discovery') {
+                      badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                      typeLabel = 'Schema Discovery';
+                    } else if (step.type === 'initial_ai') {
+                      badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                      typeLabel = 'Initial AI Query';
+                    } else if (step.type === 'validation') {
+                      badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
+                      typeLabel = 'Validation Step';
+                    } else if (step.type === 'optimization_rewrite') {
+                      badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                      typeLabel = 'AI Query Optimization / Rewrite';
+                    } else if (step.type === 'final_executed') {
+                      badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                      typeLabel = 'Final Execution';
+                    }
+
+                    return (
+                      <div key={step.id} className="relative group">
+                        {/* Bullet point indicator */}
+                        <div className={cn(
+                          "absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border border-white",
+                          step.success ? "bg-emerald-500" : "bg-red-500"
+                        )} />
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className={cn("inline-block px-2 py-0.5 rounded border text-[9px] font-bold", badgeColor)}>
+                              {typeLabel}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground">
+                              {step.executionTime ? `${step.executionTime}ms` : ''}
+                            </span>
+                          </div>
+                          
+                          <pre className="overflow-x-auto rounded bg-muted/40 p-2 font-mono text-[10px] text-foreground border border-border max-h-36">
+                            <code>{step.sql}</code>
+                          </pre>
+
+                          {step.error && (
+                            <p className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded p-1.5">
+                              Error: {step.error}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* AI Analysis Details */}
+            <div className="lg:col-span-2 space-y-6 max-h-[500px] overflow-y-auto">
+              {!timelineAnalysis ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-border rounded-lg bg-muted/10 h-full">
+                  <Activity className="h-8 w-8 text-muted-foreground/60 mb-2 animate-pulse" />
+                  <p className="text-xs font-semibold text-foreground">Query Lifecycle Analysis Pending</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                    Click "Run AI Lifecycle Analysis" to analyze every query in this chain, evaluate engineering principles, and explain optimization rewrites.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Step-by-Step Analysis */}
+                  <div>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-3">
+                      Query Analysis Chain
+                    </span>
+                    <div className="space-y-4">
+                      {timelineAnalysis.queries?.map((q: any, idx: number) => (
+                        <div key={idx} className="rounded-lg border border-border bg-muted/20 p-3.5 space-y-2">
+                          <pre className="overflow-x-auto rounded bg-slate-900 p-2 font-mono text-[10px] text-white">
+                            <code>{q.sql}</code>
+                          </pre>
+                          <div className="grid gap-2 sm:grid-cols-2 text-xs pt-1">
+                            <div>
+                              <strong className="text-foreground">Purpose:</strong>
+                              <p className="text-muted-foreground text-[11px] mt-0.5">{q.purpose}</p>
+                            </div>
+                            <div>
+                              <strong className="text-foreground">Cost:</strong>
+                              <p className="text-muted-foreground text-[11px] mt-0.5">{q.cost || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <strong className="text-foreground">Tables Involved:</strong>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {q.tablesInvolved?.map((t: string) => (
+                                  <span key={t} className="px-1.5 py-0.2 bg-white text-foreground border border-border rounded text-[10px] font-medium">{t}</span>
+                                )) || <span className="text-muted-foreground text-[11px]">-</span>}
+                              </div>
+                            </div>
+                            <div>
+                              <strong className="text-foreground">Potential Bottlenecks:</strong>
+                              <p className="text-amber-700 text-[11px] mt-0.5 font-medium">{q.bottlenecks || 'None detected'}</p>
+                            </div>
+                          </div>
+                          {q.optimizationOpportunities && (
+                            <div className="text-xs border-t border-border/40 pt-2">
+                              <strong className="text-emerald-700">Optimization Opportunities:</strong>
+                              <p className="text-muted-foreground text-[11px] mt-0.5">{q.optimizationOpportunities}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* SOLID / DRY / KISS / YAGNI principles */}
+                  <div>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-3">
+                      Engineering Principles Validation
+                    </span>
+                    <div className="grid gap-3 sm:grid-cols-4">
+                      {['dry', 'yagni', 'kiss', 'solid'].map((p) => {
+                        const val = timelineAnalysis.principlesValidation?.[p];
+                        if (!val) return null;
+                        
+                        let badgeColor = 'bg-slate-100 text-slate-800 border-slate-200';
+                        if (val.status === 'follows') badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        if (val.status === 'violates') badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
+
+                        return (
+                          <div key={p} className="rounded-lg border border-border bg-white p-3 space-y-1.5 flex flex-col justify-between">
+                            <div>
+                              <span className="text-[11px] font-bold uppercase text-foreground">{p}</span>
+                              <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">{val.description}</p>
+                            </div>
+                            <span className={cn("inline-block w-fit px-1.5 py-0.2 rounded border text-[9px] font-bold capitalize mt-2", badgeColor)}>
+                              {val.status}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {timelineAnalysis.principlesValidation?.concerns?.length > 0 && (
+                      <div className="mt-3.5 rounded-lg border border-red-200 bg-red-50/40 p-3 space-y-1.5">
+                        <strong className="text-red-800 text-xs flex items-center gap-1">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          Maintainability & Redundancy Concerns
+                        </strong>
+                        <ul className="list-disc list-inside text-red-700 text-[11px] space-y-1">
+                          {timelineAnalysis.principlesValidation.concerns.map((c: string, idx: number) => (
+                            <li key={idx}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Change Explanations for Optimization / Rewrites */}
+                  {timelineAnalysis.changeExplanations?.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-3">
+                        Query Optimization & Change Explanations
+                      </span>
+                      <div className="space-y-4">
+                        {timelineAnalysis.changeExplanations.map((exp: any, idx: number) => (
+                          <div key={idx} className="rounded-lg border border-amber-200 bg-amber-50/20 p-3.5 space-y-3">
+                            <div>
+                              <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Optimized Query</span>
+                              <pre className="mt-1 overflow-x-auto rounded bg-slate-900 p-2 font-mono text-[10px] text-white">
+                                <code>{exp.sql}</code>
+                              </pre>
+                            </div>
+                            
+                            <div className="grid gap-3 sm:grid-cols-3 text-xs pt-1">
+                              <div>
+                                <strong className="text-amber-900">What Changed:</strong>
+                                <p className="text-amber-950 text-[11px] mt-0.5 leading-relaxed">{exp.whatChanged}</p>
+                              </div>
+                              <div>
+                                <strong className="text-amber-900">Why Needed:</strong>
+                                <p className="text-amber-950 text-[11px] mt-0.5 leading-relaxed">{exp.whyNeeded}</p>
+                              </div>
+                              <div>
+                                <strong className="text-amber-900">Expected Impact:</strong>
+                                <p className="text-amber-950 text-[11px] mt-0.5 leading-relaxed">{exp.expectedImpact}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-4 border-t border-amber-200/50 pt-2.5 text-[10px]">
+                              <span className="text-amber-900 font-semibold uppercase">Expected Improvements:</span>
+                              <span className="flex items-center gap-1 text-[11px]">
+                                Performance:
+                                <strong className={cn(
+                                  "font-bold text-[11px]",
+                                  exp.performanceImprovement === 'High' ? 'text-emerald-700' : 'text-amber-700'
+                                )}>{exp.performanceImprovement}</strong>
+                              </span>
+                              <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-[11px]">
+                                Readability:
+                                <strong className={cn(
+                                  "font-bold text-[11px]",
+                                  exp.readabilityImprovement === 'High' ? 'text-emerald-700' : 'text-amber-700'
+                                )}>{exp.readabilityImprovement}</strong>
+                              </span>
+                              <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-[11px]">
+                                Maintainability:
+                                <strong className={cn(
+                                  "font-bold text-[11px]",
+                                  exp.maintainabilityImprovement === 'High' ? 'text-emerald-700' : 'text-amber-700'
+                                )}>{exp.maintainabilityImprovement}</strong>
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

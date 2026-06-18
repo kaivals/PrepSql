@@ -1,6 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { randomBytes } from 'crypto';
-import type { DatabaseConnection, QueryHistoryItem, QueryMode } from './types';
+import type { DatabaseConnection, QueryHistoryItem, QueryMode, TimelineStep } from './types';
 import { loadPersistedSessions, persistSessions, type PersistedSessionData } from './session-persist';
 
 interface SessionData extends PersistedSessionData { }
@@ -161,6 +161,23 @@ export async function getHistory(): Promise<QueryHistoryItem[]> {
 export async function clearHistory(): Promise<void> {
   const session = await getSession();
   session.history = [];
+  saveSessions();
+}
+
+export async function getPendingTimeline(): Promise<TimelineStep[] | undefined> {
+  const session = await getSession();
+  return session.pendingTimeline;
+}
+
+export async function setPendingTimeline(timeline: TimelineStep[]): Promise<void> {
+  const session = await getSession();
+  session.pendingTimeline = timeline;
+  saveSessions();
+}
+
+export async function clearPendingTimeline(): Promise<void> {
+  const session = await getSession();
+  delete session.pendingTimeline;
   saveSessions();
 }
 

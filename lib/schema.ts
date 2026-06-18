@@ -2,6 +2,95 @@ import type { DatabaseConnection, SchemaTable } from './types';
 import { getOrCreatePool } from './database';
 import type { SqliteAdapter } from './sqlite-adapter';
 import { quotePgTable } from './pg-identifiers';
+import { logQueryStep } from './query-logger';
+
+// --- Query Wrappers for Schema Discovery Logging ---
+
+async function runSQLiteAll(db: SqliteAdapter, sql: string): Promise<any[]> {
+  const startTime = performance.now();
+  return new Promise((resolve, reject) => {
+    db.all(sql, (err: Error | null, rows: any[]) => {
+      const duration = Math.round(performance.now() - startTime);
+      logQueryStep({
+        type: 'schema_discovery',
+        sql,
+        success: !err,
+        executionTime: duration,
+      });
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+}
+
+async function runSQLiteGet(db: SqliteAdapter, sql: string, params: any[] = []): Promise<any> {
+  const startTime = performance.now();
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err: Error | null, row: any) => {
+      const duration = Math.round(performance.now() - startTime);
+      logQueryStep({
+        type: 'schema_discovery',
+        sql: sql + (params.length > 0 ? ` [params: ${JSON.stringify(params)}]` : ''),
+        success: !err,
+        executionTime: duration,
+      });
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+async function runPostgresQuery(pool: any, sql: string, params: any[] = []): Promise<any> {
+  const startTime = performance.now();
+  try {
+    const res = await pool.query(sql, params);
+    const duration = Math.round(performance.now() - startTime);
+    logQueryStep({
+      type: 'schema_discovery',
+      sql: sql + (params.length > 0 ? ` [params: ${JSON.stringify(params)}]` : ''),
+      success: true,
+      executionTime: duration,
+    });
+    return res;
+  } catch (err) {
+    const duration = Math.round(performance.now() - startTime);
+    logQueryStep({
+      type: 'schema_discovery',
+      sql: sql + (params.length > 0 ? ` [params: ${JSON.stringify(params)}]` : ''),
+      success: false,
+      executionTime: duration,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+async function runMySQLQuery(connection: any, sql: string, params: any[] = []): Promise<any> {
+  const startTime = performance.now();
+  try {
+    const [rows, fields] = await connection.query(sql, params);
+    const duration = Math.round(performance.now() - startTime);
+    logQueryStep({
+      type: 'schema_discovery',
+      sql: sql + (params.length > 0 ? ` [params: ${JSON.stringify(params)}]` : ''),
+      success: true,
+      executionTime: duration,
+    });
+    return [rows, fields];
+  } catch (err) {
+    const duration = Math.round(performance.now() - startTime);
+    logQueryStep({
+      type: 'schema_discovery',
+      sql: sql + (params.length > 0 ? ` [params: ${JSON.stringify(params)}]` : ''),
+      success: false,
+      executionTime: duration,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+// --- Public Introspection API ---
 
 export async function introspectSchema(connection: DatabaseConnection): Promise<SchemaTable[]> {
   const pool = await getOrCreatePool(connection);
@@ -16,78 +105,42 @@ export async function introspectSchema(connection: DatabaseConnection): Promise<
 }
 
 async function introspectSQLite(db: SqliteAdapter): Promise<SchemaTable[]> {
-  const tables: { name: string }[] = await new Promise((resolve, reject) => {
-    db.all(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-      (err: Error | null, rows: { name: string }[]) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      }
-    );
-  });
+  const tables = await runSQLiteAll(
+    db,
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+  );
 
   const result: SchemaTable[] = [];
 
   for (const table of tables) {
-    const columns: any[] = await new Promise((resolve, reject) => {
-      db.all(`PRAGMA table_info("${table.name}")`, (err: Error | null, rows: any[]) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-
-    const fks: any[] = await new Promise((resolve, reject) => {
-      db.all(`PRAGMA foreign_key_list("${table.name}")`, (err: Error | null, rows: any[]) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
+    const columns = await runSQLiteAll(db, `PRAGMA table_info("${table.name}")`);
+    const fks = await runSQLiteAll(db, `PRAGMA foreign_key_list("${table.name}")`);
 
     const fkMap = new Map<string, { table: string; column: string }>();
     fks.forEach((fk) => {
       fkMap.set(fk.from, { table: fk.table, column: fk.to });
     });
 
-    const indexesList: { name: string; unique: number }[] = await new Promise((resolve, reject) => {
-      db.all(`PRAGMA index_list("${table.name}")`, (err: Error | null, rows: any[]) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
+    const indexesList = await runSQLiteAll(db, `PRAGMA index_list("${table.name}")`);
 
     const uniqueCols = new Set<string>();
     for (const idx of indexesList) {
       if (idx.unique === 1) {
-        const idxCols: any[] = await new Promise((resolve, reject) => {
-          db.all(`PRAGMA index_info("${idx.name}")`, (err: Error | null, rows: any[]) => {
-            if (err) reject(err);
-            else resolve(rows || []);
-          });
-        });
+        const idxCols = await runSQLiteAll(db, `PRAGMA index_info("${idx.name}")`);
         idxCols.forEach((col) => {
           uniqueCols.add(col.name);
         });
       }
     }
 
-    const sqlRow: any = await new Promise((resolve, reject) => {
-      db.get(`SELECT sql FROM sqlite_master WHERE type='table' AND name=$1`, [table.name], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const sqlRow = await runSQLiteGet(db, `SELECT sql FROM sqlite_master WHERE type='table' AND name=$1`, [table.name]);
     const tableSql = (sqlRow?.sql || '').toLowerCase();
 
-    const countRow: { count: number } = await new Promise((resolve, reject) => {
-      db.get(`SELECT COUNT(*) as count FROM "${table.name}"`, (err: Error | null, row: { count: number }) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+    const countRow = await runSQLiteGet(db, `SELECT COUNT(*) as count FROM "${table.name}"`);
 
     result.push({
       name: table.name,
-      columns: columns.map((c) => {
+      columns: columns.map((c: any) => {
         const isPk = c.pk > 0;
         const isAuto = isPk && tableSql.includes('autoincrement');
         return {
@@ -102,7 +155,7 @@ async function introspectSQLite(db: SqliteAdapter): Promise<SchemaTable[]> {
         };
       }),
       rowCount: countRow?.count ?? 0,
-      indexes: indexesList.map((i) => i.name),
+      indexes: indexesList.map((i: any) => i.name),
     });
   }
 
@@ -110,11 +163,7 @@ async function introspectSQLite(db: SqliteAdapter): Promise<SchemaTable[]> {
 }
 
 async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
-  // Use pg_catalog views instead of information_schema to preserve EXACT identifier
-  // casing (camelCase, PascalCase, mixed-case). information_schema normalises
-  // identifiers to lowercase, which causes "column does not exist" errors when the
-  // AI copies those lowercased names into SQL.
-  const tablesResult = await pool.query(`
+  const tablesResult = await runPostgresQuery(pool, `
     SELECT c.relname AS table_name
     FROM pg_catalog.pg_class c
     JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
@@ -128,8 +177,8 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
   for (const row of tablesResult.rows) {
     const tableName = row.table_name as string;
 
-    // pg_attribute preserves the original attname exactly as created.
-    const columnsResult = await pool.query(
+    const columnsResult = await runPostgresQuery(
+      pool,
       `SELECT
           a.attname                                        AS column_name,
           pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
@@ -169,18 +218,18 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
       [tableName]
     );
 
-    // FK relationships — pg_constraint preserves exact column names.
-    const fksResult = await pool.query(
+    const fksResult = await runPostgresQuery(
+      pool,
       `SELECT
           kcu.column_name,
           ccu.table_name  AS foreign_table,
           ccu.column_name AS foreign_column
        FROM information_schema.table_constraints   tc
        JOIN information_schema.key_column_usage    kcu
-         ON tc.constraint_name = kcu.constraint_name
-        AND tc.table_schema    = kcu.table_schema
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema    = kcu.table_schema
        JOIN information_schema.constraint_column_usage ccu
-         ON tc.constraint_name = ccu.constraint_name
+          ON tc.constraint_name = ccu.constraint_name
        WHERE tc.constraint_type = 'FOREIGN KEY'
          AND tc.table_schema    = 'public'
          AND tc.table_name      = $1`,
@@ -193,9 +242,10 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
     });
 
     const quotedTable = quotePgTable(tableName);
-    const countResult = await pool.query(`SELECT COUNT(*)::int AS count FROM ${quotedTable}`);
+    const countResult = await runPostgresQuery(pool, `SELECT COUNT(*)::int AS count FROM ${quotedTable}`);
 
-    const indexesResult = await pool.query(
+    const indexesResult = await runPostgresQuery(
+      pool,
       `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = $1`,
       [tableName]
     );
@@ -203,7 +253,7 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
     result.push({
       name: tableName,
       columns: columnsResult.rows.map((c: any) => ({
-        name: c.column_name,       // exact casing from pg_attribute.attname
+        name: c.column_name,
         type: c.data_type,
         nullable: c.is_nullable,
         defaultValue: c.column_default,
@@ -223,14 +273,15 @@ async function introspectPostgres(pool: any): Promise<SchemaTable[]> {
 async function introspectMySQL(pool: any): Promise<SchemaTable[]> {
   const connection = await pool.getConnection();
   try {
-    const [tables] = await connection.query('SHOW TABLES');
+    const [tables] = await runMySQLQuery(connection, 'SHOW TABLES');
     const tableKey = Object.keys((tables as object[])[0] || {})[0] || 'Tables_in_db';
     const result: SchemaTable[] = [];
 
     for (const row of tables as Record<string, string>[]) {
       const tableName = row[tableKey];
 
-      const [columns] = await connection.query(
+      const [columns] = await runMySQLQuery(
+        connection,
         `SELECT 
             COLUMN_NAME, 
             DATA_TYPE, 
@@ -244,7 +295,8 @@ async function introspectMySQL(pool: any): Promise<SchemaTable[]> {
         [tableName]
       );
 
-      const [fks] = await connection.query(
+      const [fks] = await runMySQLQuery(
+        connection,
         `SELECT 
             COLUMN_NAME, 
             REFERENCED_TABLE_NAME AS foreign_table, 
@@ -261,10 +313,10 @@ async function introspectMySQL(pool: any): Promise<SchemaTable[]> {
         fkMap.set(fk.COLUMN_NAME, { table: fk.foreign_table, column: fk.foreign_column });
       });
 
-      const [countRows] = await connection.query(`SELECT COUNT(*) as count FROM \`${tableName}\``);
+      const [countRows] = await runMySQLQuery(connection, `SELECT COUNT(*) as count FROM \`${tableName}\``);
       const count = (countRows as { count: number }[])[0]?.count ?? 0;
 
-      const [indexesRows] = await connection.query(`SHOW INDEX FROM \`${tableName}\``);
+      const [indexesRows] = await runMySQLQuery(connection, `SHOW INDEX FROM \`${tableName}\``);
       const indexNames = Array.from(new Set((indexesRows as any[]).map((r) => r.Key_name)));
 
       result.push({

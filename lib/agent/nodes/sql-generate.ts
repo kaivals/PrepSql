@@ -4,6 +4,7 @@ import { buildSystemPrompt } from '../prompts/system';
 import { getFewShotExamples } from '../prompts/few-shot';
 import { getQueryMode, getGroqApiKey } from '../../session';
 import type { AgentStateType } from '../state';
+import { logQueryStep } from '../../query-logger';
 
 export async function sqlGenerateNode(
   state: AgentStateType
@@ -71,6 +72,12 @@ export async function sqlGenerateNode(
         usage_metadata?: { input_tokens: number; output_tokens: number };
       }
     ).usage_metadata;
+
+    logQueryStep({
+      type: state.retryCount > 0 ? 'optimization_rewrite' : 'initial_ai',
+      sql: generatedSQL,
+      success: true,
+    });
 
     return {
       generatedSQL,
