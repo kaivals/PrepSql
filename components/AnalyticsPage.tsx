@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Copy,
   Check,
+  Key,
 } from 'lucide-react';
 import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';

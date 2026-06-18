@@ -143,7 +143,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
               >
                 console.groq.com
               </a>{' '}
-              (recommended, model: llama-3.1-8b-instant) or an Anthropic key from{' '}
+              (recommended, model: llama-3.3-70b-versatile) or an Anthropic key from{' '}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"

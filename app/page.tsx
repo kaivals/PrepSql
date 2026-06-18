@@ -17,6 +17,26 @@ import { cn } from '@/lib/utils';
 
 type View = 'connections' | 'workspace';
 
+if (typeof window !== 'undefined' && !((window as any).__prepsql_fetch_overridden)) {
+  (window as any).__prepsql_fetch_overridden = true;
+  const originalFetch = window.fetch;
+  window.fetch = async function (input, init) {
+    const SESSION_KEY = 'prepsql-session-id';
+    let sessionId = localStorage.getItem(SESSION_KEY);
+    if (!sessionId) {
+      sessionId = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+      localStorage.setItem(SESSION_KEY, sessionId);
+    }
+
+    const newInit = { ...init } as RequestInit;
+    const headers = new Headers(newInit.headers || {});
+    headers.set('x-prepsql-session-id', sessionId);
+    newInit.headers = headers;
+
+    return originalFetch(input, newInit);
+  };
+}
+
 export default function Home() {
   const [view, setView] = useState<View>('connections');
   const [connections, setConnections] = useState<DatabaseConnection[]>([]);
@@ -132,7 +152,9 @@ export default function Home() {
   useEffect(() => {
     const init = async () => {
       await syncApiKeyToServer();
-      await loadConnections(true, true);
+      const savedView = typeof window !== 'undefined' ? localStorage.getItem('prepsql-view') : null;
+      const shouldRedirect = savedView === 'workspace';
+      await loadConnections(shouldRedirect, true);
       await loadMode();
     };
     init();
@@ -166,6 +188,9 @@ export default function Home() {
     setResult(null);
     setSelectedTable(null);
     setView('workspace');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('prepsql-view', 'workspace');
+    }
   };
 
   const handleDeleteConnection = async (id: string) => {
@@ -204,6 +229,9 @@ export default function Home() {
       if (data.connection) {
         setActiveConnection(data.connection);
         setView('workspace');
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('prepsql-view', 'workspace');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -288,6 +316,9 @@ export default function Home() {
 
   const handleLogout = () => {
     setView('connections');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('prepsql-view', 'connections');
+    }
     setActiveConnection(null);
     setResult(null);
   };
@@ -340,6 +371,9 @@ export default function Home() {
               connection={activeConnection}
               onBack={() => {
                 setView('connections');
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('prepsql-view', 'connections');
+                }
                 setResult(null);
               }}
               onSelectQuery={(sql) => {
@@ -377,10 +411,12 @@ export default function Home() {
               />
             ) : (
               <QueryInterface
+                connectionId={activeConnection?.id}
                 onExecute={handleExecuteQuery}
                 isLoading={loading}
                 result={result}
                 onOpenSettings={() => setShowSettings(true)}
+                onQueryResult={(res) => setResult(res)}
               />
             )}
           </div>

@@ -7,12 +7,12 @@ export async function introspectSchema(connection: DatabaseConnection): Promise<
   const pool = await getOrCreatePool(connection);
 
   if (connection.type === 'sqlite') {
-    return introspectSQLite(pool);
+    return introspectSQLite(pool as any);
   }
   if (connection.type === 'postgresql') {
-    return introspectPostgres(pool);
+    return introspectPostgres(pool as any);
   }
-  return introspectMySQL(pool);
+  return introspectMySQL(pool as any);
 }
 
 async function introspectSQLite(db: SqliteAdapter): Promise<SchemaTable[]> {

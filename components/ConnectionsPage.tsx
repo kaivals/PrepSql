@@ -92,7 +92,10 @@ export function ConnectionsPage({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDelete(conn.id);
+                    e.preventDefault();
+                    setTimeout(() => {
+                      onDelete(conn.id);
+                    }, 0);
                   }}
                   className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-destructive group-hover:opacity-100"
                 >
