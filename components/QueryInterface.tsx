@@ -296,7 +296,7 @@ export function QueryInterface({
                   ? 'SELECT * FROM users LIMIT 10'
                   : 'Ask a question in plain English...'
               }
-              rows={inputMode === 'sql' ? 3 : 1}
+              rows={inputMode === 'sql' ? 6 : 3}
               disabled={generating || isLoading}
               className="w-full resize-none rounded-xl border border-border bg-muted/30 px-4 py-3 font-mono text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
             />

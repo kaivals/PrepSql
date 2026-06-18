@@ -37,6 +37,56 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [userEmail] = useState('user@example.com');
+  const [isResizing, setIsResizing] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebarWidth');
+    if (saved) {
+      const width = parseInt(saved, 10);
+      if (width >= 240 && width <= 600) {
+        setSidebarWidth(width);
+      }
+    }
+  }, []);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (!isResizing) return;
+    const newWidth = e.clientX;
+    if (newWidth >= 240 && newWidth <= 600) {
+      setSidebarWidth(newWidth);
+      localStorage.setItem('sidebarWidth', String(newWidth));
+    }
+  }, [isResizing]);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
 
   const loadConnections = useCallback(async (autoRedirect = false, allowAutoConnect = true) => {
     try {
@@ -276,11 +326,15 @@ export default function Home() {
           )}
           <div
             className={cn(
-              'absolute inset-y-0 left-0 z-40 transition-all duration-300 md:static md:overflow-hidden',
+              'absolute inset-y-0 left-0 z-40 md:static md:overflow-hidden relative max-w-[85vw] md:max-w-none',
+              isResizing ? 'transition-none' : 'transition-all duration-300',
               sidebarOpen
-                ? 'translate-x-0 w-72 md:w-80 border-r border-border'
+                ? 'translate-x-0 w-72 md:w-[var(--sidebar-width)] border-r border-border'
                 : '-translate-x-full w-72 md:translate-x-0 md:w-0 md:border-r-0'
             )}
+            style={{
+              '--sidebar-width': `${sidebarWidth}px`,
+            } as React.CSSProperties}
           >
             <SchemaSidebar
               connection={activeConnection}
@@ -295,6 +349,15 @@ export default function Home() {
               onSelectTable={(tbl) => setSelectedTable(tbl)}
               refreshTrigger={historyRefresh}
             />
+            {/* Resize Handle */}
+            {sidebarOpen && (
+              <div
+                onMouseDown={startResizing}
+                className="absolute top-0 right-0 bottom-0 w-2 -mr-1 cursor-col-resize group z-50 md:block hidden"
+              >
+                <div className="w-[2px] h-full mx-auto bg-transparent group-hover:bg-primary/40 group-active:bg-primary transition-colors" />
+              </div>
+            )}
           </div>
           <div className="flex-1 min-w-0 flex flex-col">
             {mode === 'schema' ? (

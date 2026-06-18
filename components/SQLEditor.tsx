@@ -72,7 +72,7 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
             placeholder="e.g., Show me all customers who made purchases in the last 30 days"
             disabled={!isConnected}
             className="w-full px-3 py-2 bg-input border border-border rounded-md text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-            rows={3}
+            rows={6}
           />
         </div>
         <Button
