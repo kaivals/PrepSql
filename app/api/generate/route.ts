@@ -50,8 +50,6 @@ export async function POST(request: NextRequest) {
           rowsAffected: response.result?.rowsAffected || 0,
           rowsScanned: rowsCount,
           rowsReturned: rowsCount,
-          cpuUsage: Math.min(95, Math.max(5, Math.round(Math.random() * 20) + 5)),
-          memoryUsage: Math.min(512, Math.max(16, Math.round(rowsCount * 0.05) + 32)),
           indexesUsed: response.sql?.toUpperCase().includes('WHERE') ? ['pk_index'] : [],
           timeline: allSteps,
         });

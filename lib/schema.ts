@@ -16,6 +16,7 @@ async function runSQLiteAll(db: SqliteAdapter, sql: string): Promise<any[]> {
         sql,
         success: !err,
         executionTime: duration,
+        error: err ? (err instanceof Error ? err.message : String(err)) : undefined,
       });
       if (err) reject(err);
       else resolve(rows || []);
@@ -33,6 +34,7 @@ async function runSQLiteGet(db: SqliteAdapter, sql: string, params: any[] = []):
         sql: sql + (params.length > 0 ? ` [params: ${JSON.stringify(params)}]` : ''),
         success: !err,
         executionTime: duration,
+        error: err ? (err instanceof Error ? err.message : String(err)) : undefined,
       });
       if (err) reject(err);
       else resolve(row);
