@@ -1,6 +1,17 @@
 export type DatabaseType = 'sqlite' | 'postgresql' | 'mysql' | 'mariadb'
 export type QueryMode = 'crud' | 'analytics' | 'schema'
 
+/** Coarse classification of an executed statement, derived from the SQL verb. */
+export type QueryType =
+  | 'select'
+  | 'insert'
+  | 'update'
+  | 'delete'
+  | 'create'
+  | 'alter'
+  | 'drop'
+  | 'other'
+
 export interface TokenUsage {
   promptTokens: number
   completionTokens: number
@@ -66,6 +77,11 @@ export interface QueryHistoryItem {
   timestamp: number
   success: boolean
   error?: string
+  /** Classified statement type (select / insert / update / delete / create / alter / drop / other). */
+  queryType?: QueryType
+  /** Connection the query ran against, captured at execution time. */
+  connectionId?: string
+  connectionName?: string
   rowsAffected?: number
   executionTime?: number
   rowsScanned?: number

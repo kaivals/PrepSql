@@ -7,7 +7,7 @@ import {
   getConnection,
   validateConnection,
   stripPassword,
-} from '@/lib/session';
+} from '@/lib/app-state';
 import { testConnection } from '@/lib/database';
 import type { DatabaseConnection } from '@/lib/types';
 

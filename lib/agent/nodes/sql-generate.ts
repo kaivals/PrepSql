@@ -2,7 +2,7 @@ import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { buildSystemPrompt } from '../prompts/system';
 import { getFewShotExamples } from '../prompts/few-shot';
-import { getQueryMode, getGroqApiKey } from '../../session';
+import { getQueryMode, getGroqApiKey } from '../../app-state';
 import type { AgentStateType } from '../state';
 import { logQueryStep } from '../../query-logger';
 

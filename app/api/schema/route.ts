@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getConnection } from '@/lib/session';
+import { getConnection } from '@/lib/app-state';
 import { introspectSchema } from '@/lib/schema';
 
 export async function GET() {

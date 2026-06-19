@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConnection, getQueryMode, setQueryMode } from '@/lib/session';
+import { getConnection, getQueryMode, setQueryMode } from '@/lib/app-state';
 
 export async function GET() {
   try {

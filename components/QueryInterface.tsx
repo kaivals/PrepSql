@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ResultsTable } from '@/components/ResultsTable';
 import { ApiKeySetup } from '@/components/ApiKeySetup';
 import { ensureServerConnection } from '@/lib/client-connection';
+import { historyQueue } from '@/lib/history-queue';
+import { classifyQuery } from '@/lib/history-classify';
 import type { QueryResult, TokenUsage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -206,6 +208,16 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(data.result);
+
+        // Persist to the localStorage history queue immediately.
+        if (data.historyMeta) {
+          historyQueue.enqueue({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            ...data.historyMeta,
+            timestamp: Date.now(),
+            queryType: classifyQuery(data.historyMeta.sql),
+          });
+        }
       } else if (data.type === 'pending_approval') {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
@@ -217,6 +229,26 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(null);
+      } else if (data.type === 'error') {
+        const assistantMsg: ChatMessage = {
+          id: Math.random().toString(),
+          role: 'assistant',
+          content: data.message || 'Query execution failed.',
+          error: data.message,
+          sql: data.sql,
+        };
+        setChatMessages((prev) => [...prev, assistantMsg]);
+        onQueryResult?.(null);
+
+        // Failed queries are recorded too.
+        if (data.historyMeta) {
+          historyQueue.enqueue({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            ...data.historyMeta,
+            timestamp: Date.now(),
+            queryType: data.historyMeta.sql ? classifyQuery(data.historyMeta.sql) : undefined,
+          });
+        }
       } else {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
@@ -281,6 +313,35 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(data.result);
+
+        // Persist to the localStorage history queue.
+        if (data.historyMeta) {
+          historyQueue.enqueue({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            ...data.historyMeta,
+            timestamp: Date.now(),
+            queryType: classifyQuery(data.historyMeta.sql),
+          });
+        }
+      } else if (data.type === 'error') {
+        const assistantMsg: ChatMessage = {
+          id: Math.random().toString(),
+          role: 'assistant',
+          content: data.message || 'Query execution failed.',
+          error: data.message,
+          sql: data.sql,
+        };
+        setChatMessages((prev) => [...prev, assistantMsg]);
+        onQueryResult?.(null);
+
+        if (data.historyMeta) {
+          historyQueue.enqueue({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            ...data.historyMeta,
+            timestamp: Date.now(),
+            queryType: data.historyMeta.sql ? classifyQuery(data.historyMeta.sql) : undefined,
+          });
+        }
       } else {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),

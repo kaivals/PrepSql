@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   ArrowLeft,
   ChevronRight,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { DatabaseConnection, QueryHistoryItem, SchemaTable } from '@/lib/types';
 import { buildSelectPreview } from '@/lib/schema-format';
+import { historyQueue } from '@/lib/history-queue';
 import { cn } from '@/lib/utils';
 
 interface SchemaSidebarProps {
@@ -30,7 +31,10 @@ export function SchemaSidebar({
   const [tab, setTab] = useState<'schema' | 'history' | 'indexes'>('schema');
   const [tables, setTables] = useState<SchemaTable[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // History is read from the localStorage-backed queue, 5 at a time.
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const HISTORY_PAGE_SIZE = 5;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,20 +54,26 @@ export function SchemaSidebar({
     loadSchema();
   }, [connection.id, refreshTrigger]);
 
+  // Read history from the localStorage-backed queue. The first page (newest
+  // 5) is loaded whenever the user runs a query (refreshTrigger) or the queue
+  // notifies of a change; more pages are appended on "Load more".
+  const loadFirstHistoryPage = useCallback(() => {
+    const { items, hasMore } = historyQueue.getPage(0, HISTORY_PAGE_SIZE);
+    setHistory(items);
+    setHasMoreHistory(hasMore);
+  }, []);
+
   useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const res = await fetch('/api/history');
-        if (res.ok) {
-          const data = await res.json();
-          setHistory(data.history || []);
-        }
-      } catch (err) {
-        console.error('Failed to load history:', err);
-      }
-    };
-    loadHistory();
-  }, [refreshTrigger]);
+    loadFirstHistoryPage();
+    const unsubscribe = historyQueue.subscribe(loadFirstHistoryPage);
+    return unsubscribe;
+  }, [loadFirstHistoryPage, refreshTrigger]);
+
+  const loadMoreHistory = () => {
+    const { items, hasMore } = historyQueue.getPage(0, history.length + HISTORY_PAGE_SIZE);
+    setHistory(items);
+    setHasMoreHistory(hasMore);
+  };
 
   const toggleTable = (name: string) => {
     setExpanded((prev) => {
@@ -252,6 +262,15 @@ export function SchemaSidebar({
                 <div className="mt-1 text-muted-foreground">{formatTime(item.timestamp)}</div>
               </button>
             ))}
+            {hasMoreHistory && (
+              <button
+                type="button"
+                onClick={loadMoreHistory}
+                className="w-full rounded-md border border-dashed border-border py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              >
+                Load more
+              </button>
+            )}
           </div>
         )}
       </div>

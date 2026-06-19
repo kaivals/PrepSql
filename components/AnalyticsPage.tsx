@@ -84,6 +84,7 @@ export function AnalyticsPage({
 
       const report = await res.json();
       setTimelineAnalysis(report);
+      saveAnalysis('timeline', run.sql, report);
       showNotification('Lifecycle analysis completed!', 'success');
     } catch (err) {
       showNotification(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -105,6 +106,19 @@ export function AnalyticsPage({
   });
   const [auditingDb, setAuditingDb] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Persist analysis result to Supabase
+  const saveAnalysis = async (action: string, targetSql: string | null, result: Record<string, unknown>) => {
+    try {
+      await fetch('/api/analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, targetSql, result }),
+      });
+    } catch (err) {
+      console.error('Failed to persist analysis:', err);
+    }
+  };
 
   // Load history from API
   const fetchHistory = async () => {
@@ -143,6 +157,7 @@ export function AnalyticsPage({
 
       const report = await res.json();
       setHealthReport(report);
+      saveAnalysis('db', null, report);
       showNotification('Database health audit completed successfully!', 'success');
     } catch (err) {
       showNotification(`Audit failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -170,6 +185,7 @@ export function AnalyticsPage({
 
       const result = await res.json();
       setAnalysisResult(result);
+      saveAnalysis('query', queryItem.sql, result);
     } catch (err) {
       showNotification(`Optimization failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     } finally {

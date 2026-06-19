@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runAgent } from '@/lib/agent';
 import {
-  getSessionId,
-  addToHistory,
+  getClientId,
   getPendingTimeline,
   setPendingTimeline,
   clearPendingTimeline,
-} from '@/lib/session';
+} from '@/lib/app-state';
 import { runWithQueryLogger } from '@/lib/query-logger';
 
 export async function POST(request: NextRequest) {
@@ -18,7 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt or action is required' }, { status: 400 });
     }
 
-    const threadId = await getSessionId();
+    const threadId = await getClientId();
 
     // Fetch previous steps if we are resuming from an approval/rejection
     const previousSteps = action ? (await getPendingTimeline() || []) : [];
@@ -41,10 +40,11 @@ export async function POST(request: NextRequest) {
         await clearPendingTimeline();
       } else if (response.type === 'sql') {
         const rowsCount = response.result?.rows?.length ?? 0;
-        await addToHistory({
+        // History is now persisted client-side. Include meta so the
+        // client can enqueue the record into the localStorage queue.
+        response.historyMeta = {
           prompt: prompt || 'AI Query',
           sql: response.sql || '',
-          timestamp: Date.now(),
           success: true,
           executionTime: response.result?.executionTime || 0,
           rowsAffected: response.result?.rowsAffected || 0,
@@ -52,13 +52,13 @@ export async function POST(request: NextRequest) {
           rowsReturned: rowsCount,
           indexesUsed: response.sql?.toUpperCase().includes('WHERE') ? ['pk_index'] : [],
           timeline: allSteps,
-        });
+        };
         await clearPendingTimeline();
       } else if (response.type === 'error') {
-        await addToHistory({
+        // Failed queries are also recorded by the client.
+        response.historyMeta = {
           prompt: prompt || 'AI Query',
           sql: response.sql || '',
-          timestamp: Date.now(),
           success: false,
           error: response.message || 'Execution failed',
           executionTime: 0,
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
           memoryUsage: 0,
           indexesUsed: [],
           timeline: allSteps,
-        });
+        };
         await clearPendingTimeline();
       }
     }
@@ -82,4 +82,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

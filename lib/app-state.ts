@@ -1,30 +1,30 @@
 import { cookies, headers } from 'next/headers';
 import { randomBytes } from 'crypto';
 import type { DatabaseConnection, QueryHistoryItem, QueryMode, TimelineStep } from './types';
-import { loadPersistedSessions, persistSessions, type PersistedSessionData } from './session-persist';
+import { loadPersistedState, persistState, type PersistedAppState } from './app-state-persist';
 import { supabase } from './supabase';
 
-interface SessionData extends PersistedSessionData { }
+interface AppState extends PersistedAppState { }
 
-const sessions = loadPersistedSessions();
+const appStates = loadPersistedState();
 
-function saveSessions(): void {
-  persistSessions(sessions);
+function saveState(): void {
+  persistState(appStates);
 }
 
-export async function getSessionId(): Promise<string> {
+export async function getClientId(): Promise<string> {
   const headerStore = await headers();
-  const headerSessionId = headerStore.get('x-prepsql-session-id');
-  if (headerSessionId) {
-    return headerSessionId;
+  const headerClientId = headerStore.get('x-prepsql-client-id');
+  if (headerClientId) {
+    return headerClientId;
   }
 
   const cookieStore = await cookies();
-  let sessionId = cookieStore.get('prepsql-session')?.value;
+  let clientId = cookieStore.get('prepsql-client')?.value;
 
-  if (!sessionId) {
-    sessionId = randomBytes(16).toString('hex');
-    cookieStore.set('prepsql-session', sessionId, {
+  if (!clientId) {
+    clientId = randomBytes(16).toString('hex');
+    cookieStore.set('prepsql-client', clientId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -33,7 +33,7 @@ export async function getSessionId(): Promise<string> {
     });
   }
 
-  return sessionId;
+  return clientId;
 }
 
 export function stripPassword(connection: DatabaseConnection): DatabaseConnection {
@@ -41,33 +41,33 @@ export function stripPassword(connection: DatabaseConnection): DatabaseConnectio
   return rest;
 }
 
-export async function getSession(): Promise<SessionData> {
-  const sessionId = await getSessionId();
+export async function getAppState(): Promise<AppState> {
+  const clientId = await getClientId();
 
-  if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, {
+  if (!appStates.has(clientId)) {
+    appStates.set(clientId, {
       connections: [],
       queryMode: 'crud',
       history: [],
     });
-    saveSessions();
+    saveState();
   }
 
-  return sessions.get(sessionId)!;
+  return appStates.get(clientId)!;
 }
 
 export async function getConnections(): Promise<DatabaseConnection[]> {
-  const session = await getSession();
-  return session.connections;
+  const state = await getAppState();
+  return state.connections;
 }
 
 export async function addConnection(connection: Omit<DatabaseConnection, 'id'>): Promise<DatabaseConnection> {
-  const session = await getSession();
+  const state = await getAppState();
 
   // Match duplicates by credentials only (NOT by name).
   // Same DB credentials = reconnect to existing entry (update password/name if changed).
   // Different credentials (different host, port, db, or user) = always a brand-new entry.
-  const existing = session.connections.find((c) => {
+  const existing = state.connections.find((c) => {
     if (c.type !== connection.type) return false;
     if (c.type === 'sqlite') return c.filepath === connection.filepath;
     return (
@@ -82,74 +82,80 @@ export async function addConnection(connection: Omit<DatabaseConnection, 'id'>):
     // Update mutable fields (password may have changed, user may have renamed it)
     if (connection.password !== undefined) existing.password = connection.password;
     if (connection.name && connection.name !== existing.name) existing.name = connection.name;
-    session.activeConnectionId = existing.id;
-    saveSessions();
+    state.activeConnectionId = existing.id;
+    saveState();
     return existing;
   }
 
   const id = randomBytes(8).toString('hex');
   const newConnection: DatabaseConnection = { ...connection, id };
-  session.connections.push(newConnection);
-  session.activeConnectionId = id;
-  saveSessions();
+  state.connections.push(newConnection);
+  state.activeConnectionId = id;
+  saveState();
   return newConnection;
 }
 
 export async function removeConnection(id: string): Promise<void> {
-  const session = await getSession();
-  session.connections = session.connections.filter((c) => c.id !== id);
-  if (session.activeConnectionId === id) {
-    session.activeConnectionId = session.connections[0]?.id;
+  const state = await getAppState();
+  state.connections = state.connections.filter((c) => c.id !== id);
+  if (state.activeConnectionId === id) {
+    state.activeConnectionId = state.connections[0]?.id;
   }
-  saveSessions();
+  saveState();
 }
 
 export async function setActiveConnection(id: string): Promise<void> {
-  const session = await getSession();
-  if (session.connections.some((c) => c.id === id)) {
-    session.activeConnectionId = id;
-    saveSessions();
+  const state = await getAppState();
+  if (state.connections.some((c) => c.id === id)) {
+    state.activeConnectionId = id;
+    saveState();
   }
 }
 
 export async function getConnection(): Promise<DatabaseConnection | undefined> {
-  const session = await getSession();
-  if (!session.activeConnectionId) {
-    return session.connections[0];
+  const state = await getAppState();
+  if (!state.activeConnectionId) {
+    return state.connections[0];
   }
-  return session.connections.find((c) => c.id === session.activeConnectionId);
+  return state.connections.find((c) => c.id === state.activeConnectionId);
 }
 
 export async function setConnection(connection: DatabaseConnection): Promise<void> {
-  const session = await getSession();
-  const idx = session.connections.findIndex((c) => c.id === connection.id);
+  const state = await getAppState();
+  const idx = state.connections.findIndex((c) => c.id === connection.id);
   if (idx >= 0) {
-    session.connections[idx] = connection;
+    state.connections[idx] = connection;
   } else {
-    session.connections.push(connection);
+    state.connections.push(connection);
   }
-  session.activeConnectionId = connection.id;
-  saveSessions();
+  state.activeConnectionId = connection.id;
+  saveState();
 }
 
 export async function getQueryMode(): Promise<QueryMode> {
-  const session = await getSession();
-  return session.queryMode;
+  const state = await getAppState();
+  return state.queryMode;
 }
 
 export async function setQueryMode(mode: QueryMode): Promise<void> {
-  const session = await getSession();
-  session.queryMode = mode;
-  saveSessions();
+  const state = await getAppState();
+  state.queryMode = mode;
+  saveState();
 }
 
+/**
+ * Persist a query history record to the `query_history` Supabase table.
+ * Called by /api/history/sync when the client queue drains a record.
+ *
+ * NOTE: The `session_id` column name is retained for compatibility with
+ * existing rows — the DB column is intentionally NOT renamed (see
+ * migration notes in the "session → app-state" refactor).
+ */
 export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<void> {
-  const sessionId = await getSessionId();
+  const clientId = await getClientId();
 
-  // session_id column name retained for compatibility with existing rows
-  // (see "rename" task — the DB column is intentionally NOT renamed).
   await supabase.from('query_history').insert({
-    session_id: sessionId,
+    session_id: clientId,
     prompt: item.prompt || '',
     sql: item.sql,
     timestamp: new Date(item.timestamp).toISOString(),
@@ -170,12 +176,12 @@ export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<
 }
 
 export async function getHistory(): Promise<QueryHistoryItem[]> {
-  const sessionId = await getSessionId();
+  const clientId = await getClientId();
 
   const { data, error } = await supabase
     .from('query_history')
     .select('*')
-    .eq('session_id', sessionId)
+    .eq('session_id', clientId)
     .order('timestamp', { ascending: false })
     .limit(50);
 
@@ -206,12 +212,12 @@ export async function getHistory(): Promise<QueryHistoryItem[]> {
 }
 
 export async function clearHistory(): Promise<void> {
-  const sessionId = await getSessionId();
+  const clientId = await getClientId();
 
   const { error } = await supabase
     .from('query_history')
     .delete()
-    .eq('session_id', sessionId);
+    .eq('session_id', clientId);
 
   if (error) {
     console.error('[supabase] Failed to clear history:', error.message);
@@ -219,26 +225,26 @@ export async function clearHistory(): Promise<void> {
 }
 
 export async function getPendingTimeline(): Promise<TimelineStep[] | undefined> {
-  const session = await getSession();
-  return session.pendingTimeline;
+  const state = await getAppState();
+  return state.pendingTimeline;
 }
 
 export async function setPendingTimeline(timeline: TimelineStep[]): Promise<void> {
-  const session = await getSession();
-  session.pendingTimeline = timeline;
-  saveSessions();
+  const state = await getAppState();
+  state.pendingTimeline = timeline;
+  saveState();
 }
 
 export async function clearPendingTimeline(): Promise<void> {
-  const session = await getSession();
-  delete session.pendingTimeline;
-  saveSessions();
+  const state = await getAppState();
+  delete state.pendingTimeline;
+  saveState();
 }
 
 export async function getAnthropicApiKey(): Promise<string | undefined> {
-  const session = await getSession();
-  if (session.anthropicApiKey?.trim()) {
-    return session.anthropicApiKey.trim();
+  const state = await getAppState();
+  if (state.anthropicApiKey?.trim()) {
+    return state.anthropicApiKey.trim();
   }
   if (process.env.ANTHROPIC_API_KEY) {
     return process.env.ANTHROPIC_API_KEY;
@@ -247,20 +253,20 @@ export async function getAnthropicApiKey(): Promise<string | undefined> {
 }
 
 export async function setAnthropicApiKey(apiKey: string): Promise<void> {
-  const session = await getSession();
-  session.anthropicApiKey = apiKey;
-  saveSessions();
+  const state = await getAppState();
+  state.anthropicApiKey = apiKey;
+  saveState();
 }
 
 export async function clearAnthropicApiKey(): Promise<void> {
-  const session = await getSession();
-  delete session.anthropicApiKey;
-  saveSessions();
+  const state = await getAppState();
+  delete state.anthropicApiKey;
+  saveState();
 }
 
 export async function getAnthropicKeyInfo(): Promise<{
   configured: boolean;
-  source: 'env' | 'session' | 'none';
+  source: 'env' | 'client' | 'none';
   maskedKey?: string;
 }> {
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
@@ -271,13 +277,13 @@ export async function getAnthropicKeyInfo(): Promise<{
     };
   }
 
-  const session = await getSession();
-  const sessionKey = session.anthropicApiKey?.trim();
-  if (sessionKey) {
+  const state = await getAppState();
+  const clientKey = state.anthropicApiKey?.trim();
+  if (clientKey) {
     return {
       configured: true,
-      source: 'session',
-      maskedKey: maskApiKey(sessionKey),
+      source: 'client',
+      maskedKey: maskApiKey(clientKey),
     };
   }
 
@@ -290,9 +296,9 @@ function maskApiKey(key: string): string {
 }
 
 export async function getGroqApiKey(): Promise<string | undefined> {
-  const session = await getSession();
-  if (session.groqApiKey?.trim()) {
-    return session.groqApiKey.trim();
+  const state = await getAppState();
+  if (state.groqApiKey?.trim()) {
+    return state.groqApiKey.trim();
   }
   if (process.env.GROQ_API_KEY?.trim()) {
     return process.env.GROQ_API_KEY.trim();
@@ -301,15 +307,15 @@ export async function getGroqApiKey(): Promise<string | undefined> {
 }
 
 export async function setGroqApiKey(apiKey: string): Promise<void> {
-  const session = await getSession();
-  session.groqApiKey = apiKey;
-  saveSessions();
+  const state = await getAppState();
+  state.groqApiKey = apiKey;
+  saveState();
 }
 
 export async function clearGroqApiKey(): Promise<void> {
-  const session = await getSession();
-  delete session.groqApiKey;
-  saveSessions();
+  const state = await getAppState();
+  delete state.groqApiKey;
+  saveState();
 }
 
 export async function getAiApiKey(): Promise<
@@ -331,27 +337,27 @@ export async function getAiApiKey(): Promise<
 export async function getAiKeyInfo(): Promise<{
   configured: boolean;
   provider?: 'groq' | 'anthropic';
-  source: 'env' | 'session' | 'none';
+  source: 'env' | 'client' | 'none';
   maskedKey?: string;
 }> {
-  const session = await getSession();
-  const groqKey = session.groqApiKey?.trim();
+  const state = await getAppState();
+  const groqKey = state.groqApiKey?.trim();
   if (groqKey) {
     return {
       configured: true,
       provider: 'groq',
-      source: 'session',
+      source: 'client',
       maskedKey: maskApiKey(groqKey),
     };
   }
 
-  const sessionKey = session.anthropicApiKey?.trim();
-  if (sessionKey) {
+  const clientKey = state.anthropicApiKey?.trim();
+  if (clientKey) {
     return {
       configured: true,
       provider: 'anthropic',
-      source: 'session',
-      maskedKey: maskApiKey(sessionKey),
+      source: 'client',
+      maskedKey: maskApiKey(clientKey),
     };
   }
 

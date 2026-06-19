@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAiApiKey, getConnection } from '@/lib/session';
+import { getAiApiKey, getConnection } from '@/lib/app-state';
 import Anthropic from '@anthropic-ai/sdk';
 
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';

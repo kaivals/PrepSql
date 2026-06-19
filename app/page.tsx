@@ -12,7 +12,9 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { ensureServerConnection } from '@/lib/client-connection';
 import { syncApiKeyToServer } from '@/lib/api-key-storage';
 import { loadSavedConnection, clearSavedConnection } from '@/lib/connection-defaults';
-import type { DatabaseConnection, QueryMode, QueryResult } from '@/lib/types';
+import { historyQueue } from '@/lib/history-queue';
+import { classifyQuery } from '@/lib/history-classify';
+import type { DatabaseConnection, QueryHistoryItem, QueryMode, QueryResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 type View = 'connections' | 'workspace';
@@ -21,16 +23,24 @@ if (typeof window !== 'undefined' && !((window as any).__prepsql_fetch_overridde
   (window as any).__prepsql_fetch_overridden = true;
   const originalFetch = window.fetch;
   window.fetch = async function (input, init) {
-    const SESSION_KEY = 'prepsql-session-id';
-    let sessionId = localStorage.getItem(SESSION_KEY);
-    if (!sessionId) {
-      sessionId = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
-      localStorage.setItem(SESSION_KEY, sessionId);
+    const CLIENT_KEY = 'prepsql-client-id';
+    let clientId = localStorage.getItem(CLIENT_KEY);
+    if (!clientId) {
+      // One-time migration: move legacy key so existing users keep their
+      // correlation to server-side query_history / analysis_results rows.
+      const legacyId = localStorage.getItem('prepsql-session-id');
+      if (legacyId) {
+        clientId = legacyId;
+        localStorage.removeItem('prepsql-session-id');
+      } else {
+        clientId = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+      }
+      localStorage.setItem(CLIENT_KEY, clientId);
     }
 
     const newInit = { ...init } as RequestInit;
     const headers = new Headers(newInit.headers || {});
-    headers.set('x-prepsql-session-id', sessionId);
+    headers.set('x-prepsql-client-id', clientId);
     newInit.headers = headers;
 
     return originalFetch(input, newInit);
@@ -142,7 +152,10 @@ export default function Home() {
       const res = await fetch('/api/mode');
       if (res.ok) {
         const data = await res.json();
-        setMode(data.mode || 'readonly');
+        const mode = data.mode || 'readonly';
+        // The top-level History tab was removed; fall back to CRUD for any
+        // client whose persisted mode still points at it.
+        setMode(mode === 'history' ? 'crud' : mode);
       }
     } catch (err) {
       console.error('Failed to load mode:', err);
@@ -151,6 +164,9 @@ export default function Home() {
 
   useEffect(() => {
     const init = async () => {
+      // Restore the history queue from localStorage and resume syncing any
+      // records left pending from a previous session (refresh / restart).
+      historyQueue.init();
       await syncApiKeyToServer();
       const savedView = typeof window !== 'undefined' ? localStorage.getItem('prepsql-view') : null;
       const shouldRedirect = savedView === 'workspace';
@@ -159,6 +175,50 @@ export default function Home() {
     };
     init();
   }, [loadConnections, loadMode]);
+
+  /**
+   * Persist an executed query to the localStorage history queue. The record
+   * is saved synchronously (survives refresh/restart) and the background sync
+   * loop pushes it to the database. Called for BOTH successful and failed runs.
+   */
+  const recordHistory = useCallback(
+    (params: {
+      sql: string;
+      prompt?: string;
+      success: boolean;
+      error?: string;
+      executionTime?: number;
+      rowsAffected?: number;
+      rowsScanned?: number;
+      rowsReturned?: number;
+      cpuUsage?: number;
+      memoryUsage?: number;
+      indexesUsed?: string[];
+      timeline?: QueryHistoryItem['timeline'];
+    }) => {
+      historyQueue.enqueue({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        prompt: params.prompt || '',
+        sql: params.sql,
+        timestamp: Date.now(),
+        success: params.success,
+        error: params.error,
+        queryType: classifyQuery(params.sql),
+        connectionId: activeConnection?.id,
+        connectionName: activeConnection?.name,
+        executionTime: params.executionTime,
+        rowsAffected: params.rowsAffected,
+        rowsScanned: params.rowsScanned,
+        rowsReturned: params.rowsReturned,
+        cpuUsage: params.cpuUsage,
+        memoryUsage: params.memoryUsage,
+        indexesUsed: params.indexesUsed,
+        timeline: params.timeline,
+      });
+      setHistoryRefresh((prev) => prev + 1);
+    },
+    [activeConnection],
+  );
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setToast(message);
@@ -256,7 +316,7 @@ export default function Home() {
     });
   };
 
-  const handleExecuteQuery = async (sql: string) => {
+  const handleExecuteQuery = async (sql: string, prompt?: string) => {
     const upperSql = sql.toUpperCase();
     const isMutation = upperSql.includes('UPDATE ') || upperSql.includes('DELETE ');
 
@@ -264,17 +324,18 @@ export default function Home() {
       const action = upperSql.includes('UPDATE ') ? 'UPDATE' : 'DELETE';
       showConfirmation(
         `Are you sure you want to execute this ${action} operation?\n\n${sql}`,
-        () => executeQueryInternal(sql)
+        () => executeQueryInternal(sql, prompt)
       );
       return;
     }
 
-    await executeQueryInternal(sql);
+    await executeQueryInternal(sql, prompt);
   };
 
-  const executeQueryInternal = async (sql: string) => {
+  const executeQueryInternal = async (sql: string, prompt?: string) => {
     setLoading(true);
     setResult(null);
+    const startedAt = performance.now();
 
     try {
       await ensureServerConnection();
@@ -293,7 +354,22 @@ export default function Home() {
 
       const data = await res.json();
       setResult(data);
-      setHistoryRefresh((prev) => prev + 1);
+
+      // Persist to the localStorage history queue immediately. The background
+      // sync loop forwards it to the database; metrics come from the server.
+      recordHistory({
+        sql,
+        prompt,
+        success: true,
+        executionTime: data.executionTime ?? Math.round(performance.now() - startedAt),
+        rowsAffected: data.rowsAffected,
+        rowsScanned: data.rowsScanned,
+        rowsReturned: data.rowCount,
+        cpuUsage: data.cpuUsage,
+        memoryUsage: data.memoryUsage,
+        indexesUsed: data.indexesUsed,
+        timeline: data.timeline,
+      });
 
       const upperSql = sql.toUpperCase();
       if (upperSql.includes('UPDATE ') || upperSql.includes('DELETE ')) {
@@ -303,7 +379,22 @@ export default function Home() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Query execution failed';
       setResult({ columns: [], rows: [], rowCount: 0 });
-      
+
+      // Failed queries are recorded too — no history is ever lost.
+      recordHistory({
+        sql,
+        prompt,
+        success: false,
+        error: errorMsg,
+        executionTime: Math.round(performance.now() - startedAt),
+        rowsAffected: 0,
+        rowsScanned: 0,
+        rowsReturned: 0,
+        cpuUsage: 0,
+        memoryUsage: 0,
+        indexesUsed: [],
+      });
+
       const upperSql = sql.toUpperCase();
       if (upperSql.includes('UPDATE ') || upperSql.includes('DELETE ')) {
         showNotification(`Error: ${errorMsg}`, 'error');

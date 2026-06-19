@@ -2,7 +2,7 @@
 // Query execution node — wraps lib/database.ts with correct pool-based API.
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import { getOrCreatePool, executeQuery } from '../../database';
-import { getConnection } from '../../session';
+import { getConnection } from '../../app-state';
 import type { AgentStateType } from '../state';
 import { clearSchemaCache } from './schema-load';
 

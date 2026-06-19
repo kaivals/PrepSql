@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getHistory, clearHistory } from '@/lib/session';
+import { getHistory, clearHistory } from '@/lib/app-state';
 
 export async function GET() {
   try {

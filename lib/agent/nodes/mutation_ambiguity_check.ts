@@ -1,6 +1,6 @@
 import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
-import { getGroqApiKey } from '../../session';
+import { getGroqApiKey } from '../../app-state';
 import type { AgentStateType } from '../state';
 import {
   buildConversationContext,

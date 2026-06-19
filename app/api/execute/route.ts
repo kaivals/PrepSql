@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConnection, addToHistory } from '@/lib/session';
+import { getConnection } from '@/lib/app-state';
 import { getOrCreatePool, executeQuery } from '@/lib/database';
 import { runWithQueryLogger, getLoggedSteps } from '@/lib/query-logger';
 
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
       const cpuUsage = Math.min(99, Math.max(1, Math.round((executionTime / 300) * 100) + Math.floor(Math.random() * 5)));
       const memoryUsage = Math.min(512, Math.max(1, Math.round(rowsReturned * 0.04) + Math.floor(Math.random() * 6) + 1));
-      
+
       const tableMatch = sql.match(/from\s+["`]?(\w+)["`]?/i);
       const tableName = tableMatch ? tableMatch[1] : '';
       const indexesUsed: string[] = [];
@@ -70,21 +70,8 @@ export async function POST(request: NextRequest) {
 
       const timeline = getLoggedSteps();
 
-      // Add to history
-      await addToHistory({
-        prompt: '',
-        sql,
-        timestamp: Date.now(),
-        success: true,
-        rowsAffected: queryResult.rowsAffected,
-        executionTime,
-        rowsScanned,
-        rowsReturned,
-        cpuUsage,
-        memoryUsage,
-        indexesUsed,
-        timeline,
-      });
+      // History persistence is now client-side (localStorage queue → /api/history/sync).
+      // We return the metrics here so the client can build the history record.
 
       return {
         response: {
@@ -93,29 +80,17 @@ export async function POST(request: NextRequest) {
           rowsAffected: queryResult.rowsAffected || 0,
           rowCount: queryResult.rows.length,
           truncated: originalRowCount > 1000,
+          // Metrics for client-side history enqueue
+          executionTime,
+          rowsScanned,
+          cpuUsage,
+          memoryUsage,
+          indexesUsed,
+          timeline,
         },
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to execute query';
-      const timeline = getLoggedSteps();
-
-      const connection = await getConnection();
-      if (connection && sql) {
-        await addToHistory({
-          prompt: '',
-          sql,
-          timestamp: Date.now(),
-          success: false,
-          error: errorMessage,
-          executionTime: 0,
-          rowsScanned: 0,
-          rowsReturned: 0,
-          cpuUsage: 0,
-          memoryUsage: 0,
-          indexesUsed: [],
-          timeline,
-        });
-      }
 
       return { error: errorMessage, status: 400 };
     }
