@@ -60,4 +60,4 @@ supabase/.temp/
 
 # Secrets
 secrets.json
-config.local.json
+config.local.json.zcode/
