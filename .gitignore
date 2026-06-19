@@ -7,11 +7,57 @@ __v0_jsx-dev-runtime.ts
 .vercel/
 
 # Environment variables
-.env*.local
+.env
+.env.*
+!.env.example
 
-# Common ignores
-node_modules
+# Dependencies
+node_modules/
+
+# Build outputs
 .next/
+dist/
+build/
+out/
+coverage/
 *.tsbuildinfo
+
+# Data files
 data/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Supabase
+.supabase/
+supabase/.temp/
+
+# MCP / AI configs
+.zcode/
+.cursor/
+.claude/
+.mcp/
+
+# IDE
+.vscode/
+.idea/
+
+# Local storage dumps / exports
+*.sqlite
+*.db
+*.sqlite3
+
+# Vercel
+.vercel/
+
+# Secrets
+secrets.json
+config.local.json
