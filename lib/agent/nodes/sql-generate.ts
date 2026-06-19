@@ -97,6 +97,14 @@ export async function sqlGenerateNode(
     };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'LLM call failed';
+
+    logQueryStep({
+      type: state.retryCount > 0 ? 'optimization_rewrite' : 'initial_ai',
+      sql: `-- Failed to generate SQL: ${errMsg}`,
+      success: false,
+      error: errMsg,
+    });
+
     return {
       error: errMsg,
       finalResponse: {

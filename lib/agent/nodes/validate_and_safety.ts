@@ -33,6 +33,13 @@ export async function validateAndSafetyNode(
       ?.map(t => `- ${t.name} (${t.columns.map(c => c.name).join(', ')})`)
       .join('\n') ?? '';
 
+    logQueryStep({
+      type: 'validation',
+      sql: `-- Validation Failed: Unknown tables: ${validation.unknownTables.join(', ')}`,
+      success: false,
+      error: `Unknown tables: ${validation.unknownTables.join(', ')}`,
+    });
+
     return {
       generatedSQL: "",
       error: `Unknown tables: ${validation.unknownTables.join(', ')}`,

@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       const executionTime = Math.round(performance.now() - startTime);
 
       // Limit results to 1000 rows
+      const originalRowCount = queryResult.rows ? queryResult.rows.length : 0;
       if (queryResult.rows && queryResult.rows.length > 1000) {
         queryResult.rows = queryResult.rows.slice(0, 1000);
       }
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
           rows: queryResult.rows,
           rowsAffected: queryResult.rowsAffected || 0,
           rowCount: queryResult.rows.length,
-          truncated: queryResult.rows.length > 1000,
+          truncated: originalRowCount > 1000,
         },
       };
     } catch (error) {
