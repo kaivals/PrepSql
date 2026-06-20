@@ -72,6 +72,16 @@ export async function POST(request: NextRequest) {
 
       // History persistence is now client-side (localStorage queue → /api/history/sync).
       // We return the metrics here so the client can build the history record.
+      console.debug('[api/execute] metrics captured:', {
+        executionTime,
+        rowsScanned,
+        rowsReturned,
+        rowsAffected: queryResult.rowsAffected || 0,
+        cpuUsage,
+        memoryUsage,
+        indexesUsed,
+        timelineSteps: timeline.length,
+      });
 
       return {
         response: {
@@ -91,6 +101,7 @@ export async function POST(request: NextRequest) {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to execute query';
+      console.error('[api/execute] execution failed:', errorMessage);
 
       return { error: errorMessage, status: 400 };
     }

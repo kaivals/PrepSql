@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
   Activity,
@@ -15,9 +15,12 @@ import {
   Copy,
   Check,
   Key,
+  Cpu,
+  MemoryStick,
 } from 'lucide-react';
 import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { historyQueue } from '@/lib/history-queue';
 
 interface AnalyticsPageProps {
   connection: DatabaseConnection;
@@ -120,25 +123,62 @@ export function AnalyticsPage({
     }
   };
 
-  // Load history from API
-  const fetchHistory = async () => {
-    setLoadingHistory(true);
-    try {
-      const res = await fetch('/api/history');
-      if (res.ok) {
-        const data = await res.json();
-        setHistory(data.history || []);
-      }
-    } catch (err) {
-      console.error('Failed to load query history:', err);
-    } finally {
-      setLoadingHistory(false);
-    }
+  // Load history from the localStorage-backed historyQueue, which is the
+  // source of truth for metrics (the server-side query_history table lacks
+  // dedicated columns for execution_time, rows_scanned, cpu_usage, etc.).
+  // The queue restores from localStorage on init and survives refresh.
+  const loadHistory = () => {
+    const items = historyQueue.getItems();
+    console.debug(
+      '[analytics] loaded history from localStorage queue:',
+      items.length,
+      'records | metrics sample:',
+      items[0]
+        ? {
+            executionTime: items[0].executionTime,
+            rowsScanned: items[0].rowsScanned,
+            rowsReturned: items[0].rowsReturned,
+            cpuUsage: items[0].cpuUsage,
+            memoryUsage: items[0].memoryUsage,
+            indexesUsed: items[0].indexesUsed,
+          }
+        : null,
+    );
+    setHistory(items);
+    setLoadingHistory(false);
   };
 
   useEffect(() => {
-    fetchHistory();
+    // Make sure the queue is initialised (restores from localStorage).
+    historyQueue.init();
+    loadHistory();
+    // Re-render whenever the queue changes (new query enqueued, sync, clear).
+    const unsubscribe = historyQueue.subscribe(loadHistory);
+    return unsubscribe;
   }, [connection.id]);
+
+  // Aggregate metrics for the summary cards. Computed from the real,
+  // complete data held in the history queue.
+  const metrics = useMemo(() => {
+    const successful = history.filter((h) => h.success);
+    const total = history.length;
+    const totalTime = successful.reduce((sum, h) => sum + (h.executionTime || 0), 0);
+    const totalScanned = successful.reduce((sum, h) => sum + (h.rowsScanned || 0), 0);
+    const totalReturned = successful.reduce((sum, h) => sum + (h.rowsReturned || 0), 0);
+    const totalCpu = successful.reduce((sum, h) => sum + (h.cpuUsage || 0), 0);
+    const totalMem = successful.reduce((sum, h) => sum + (h.memoryUsage || 0), 0);
+    const indexHits = successful.filter((h) => h.indexesUsed && h.indexesUsed.length > 0).length;
+    return {
+      total,
+      avgTime: successful.length ? Math.round(totalTime / successful.length) : 0,
+      avgScanned: successful.length ? Math.round(totalScanned / successful.length) : 0,
+      avgReturned: successful.length ? Math.round(totalReturned / successful.length) : 0,
+      avgCpu: successful.length ? Math.round(totalCpu / successful.length) : 0,
+      avgMem: successful.length ? Math.round(totalMem / successful.length) : 0,
+      indexHitRatio: successful.length ? Math.round((indexHits / successful.length) * 100) : 0,
+      slowCount: successful.filter((h) => (h.executionTime || 0) > 100).length,
+    };
+  }, [history]);
 
   // Execute AI Health Audit
   const handleDbAudit = async () => {
@@ -212,7 +252,10 @@ export function AnalyticsPage({
 
           showNotification('Optimization DDL executed successfully!', 'success');
           onRefreshSchema();
-          fetchHistory();
+          // The DDL ran through /api/execute, which records into the history
+          // queue. We're subscribed to the queue, but reload explicitly to be
+          // safe in case the subscription fired during render.
+          loadHistory();
           setAnalysisResult(null);
           setSelectedQueryForAI(null);
         } catch (err) {
@@ -271,6 +314,30 @@ export function AnalyticsPage({
           <RefreshCw className={cn('h-3.5 w-3.5', auditingDb && 'animate-spin')} />
           Run Health Audit
         </button>
+      </div>
+
+      {/* Execution Metrics Summary Cards — computed from real data in the
+          localStorage history queue. */}
+      <div className="mb-6 grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+        {[
+          { label: 'Total Queries', value: metrics.total.toLocaleString(), icon: FileText, color: 'text-foreground' },
+          { label: 'Avg Time', value: `${metrics.avgTime}ms`, icon: Clock, color: metrics.avgTime > 100 ? 'text-red-600' : 'text-emerald-600' },
+          { label: 'Avg Scanned', value: metrics.avgScanned.toLocaleString(), icon: Database, color: 'text-foreground' },
+          { label: 'Avg Returned', value: metrics.avgReturned.toLocaleString(), icon: TrendingUp, color: 'text-foreground' },
+          { label: 'Avg CPU', value: `${metrics.avgCpu}%`, icon: Cpu, color: 'text-foreground' },
+          { label: 'Avg Memory', value: `${metrics.avgMem}MB`, icon: MemoryStick, color: 'text-foreground' },
+          { label: 'Index Hit', value: `${metrics.indexHitRatio}%`, icon: Key, color: metrics.indexHitRatio > 50 ? 'text-emerald-600' : 'text-amber-600' },
+        ].map((card) => (
+          <div key={card.label} className="rounded-xl border border-border bg-white p-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {card.label}
+              </span>
+              <card.icon className={cn('h-3.5 w-3.5', card.color)} />
+            </div>
+            <p className={cn('mt-1.5 text-lg font-bold', card.color)}>{card.value}</p>
+          </div>
+        ))}
       </div>
 
       {/* Grid: Health Score Dial & Recommendations */}
@@ -640,9 +707,9 @@ export function AnalyticsPage({
                       <td className="p-3 font-mono text-[11px] max-w-xs truncate" title={item.sql}>
                         {item.sql}
                       </td>
-                      <td className="p-3">{item.executionTime ? `${item.executionTime}ms` : '-'}</td>
-                      <td className="p-3">{item.rowsScanned ? item.rowsScanned.toLocaleString() : '-'}</td>
-                      <td className="p-3">{item.rowsReturned ? item.rowsReturned.toLocaleString() : '0'}</td>
+                      <td className="p-3">{item.executionTime != null ? `${item.executionTime}ms` : '-'}</td>
+                      <td className="p-3">{item.rowsScanned != null ? item.rowsScanned.toLocaleString() : '-'}</td>
+                      <td className="p-3">{item.rowsReturned != null ? item.rowsReturned.toLocaleString() : '-'}</td>
                       <td className="p-3 max-w-[100px] truncate" title={item.indexesUsed?.join(', ')}>
                         {item.indexesUsed && item.indexesUsed.length > 0 ? (
                           <span className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold">
@@ -650,11 +717,11 @@ export function AnalyticsPage({
                             {item.indexesUsed[0]}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground/60">-</span>
+                          <span className="text-muted-foreground/60">Sequential scan</span>
                         )}
                       </td>
-                      <td className="p-3">{item.cpuUsage ? `${item.cpuUsage}%` : '-'}</td>
-                      <td className="p-3">{item.memoryUsage ? `${item.memoryUsage}MB` : '-'}</td>
+                      <td className="p-3">{item.cpuUsage != null ? `${item.cpuUsage}%` : '-'}</td>
+                      <td className="p-3">{item.memoryUsage != null ? `${item.memoryUsage}MB` : '-'}</td>
                     </tr>
                   );
                 })}
@@ -701,6 +768,23 @@ export function AnalyticsPage({
                 Close Panel
               </button>
             </div>
+          </div>
+
+          {/* Per-query metrics summary — real values captured at execution time. */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            {[
+              { label: 'Execution Time', value: selectedRun.executionTime != null ? `${selectedRun.executionTime}ms` : '-' },
+              { label: 'Rows Scanned', value: selectedRun.rowsScanned != null ? selectedRun.rowsScanned.toLocaleString() : '-' },
+              { label: 'Rows Returned', value: selectedRun.rowsReturned != null ? selectedRun.rowsReturned.toLocaleString() : '-' },
+              { label: 'Rows Affected', value: selectedRun.rowsAffected != null ? selectedRun.rowsAffected.toLocaleString() : '-' },
+              { label: 'CPU Usage', value: selectedRun.cpuUsage != null ? `${selectedRun.cpuUsage}%` : '-' },
+              { label: 'Memory', value: selectedRun.memoryUsage != null ? `${selectedRun.memoryUsage}MB` : '-' },
+            ].map((m) => (
+              <div key={m.label} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{m.label}</p>
+                <p className="mt-0.5 text-sm font-bold text-foreground">{m.value}</p>
+              </div>
+            ))}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">

@@ -196,6 +196,16 @@ export default function Home() {
       indexesUsed?: string[];
       timeline?: QueryHistoryItem['timeline'];
     }) => {
+      console.debug('[history] recording query:', {
+        sql: params.sql.slice(0, 60),
+        success: params.success,
+        executionTime: params.executionTime,
+        rowsScanned: params.rowsScanned,
+        rowsReturned: params.rowsReturned,
+        cpuUsage: params.cpuUsage,
+        memoryUsage: params.memoryUsage,
+        indexesUsed: params.indexesUsed,
+      });
       historyQueue.enqueue({
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         prompt: params.prompt || '',
