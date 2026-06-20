@@ -154,7 +154,7 @@ export async function setQueryMode(mode: QueryMode): Promise<void> {
 export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<void> {
   const clientId = await getClientId();
 
-  await supabase.from('query_history').insert({
+  const { error } = await supabase.from('query_history').insert({
     session_id: clientId,
     prompt: item.prompt || '',
     sql: item.sql,
@@ -173,6 +173,10 @@ export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<
     indexes_used: item.indexesUsed || [],
     timeline: item.timeline || [],
   });
+
+  if (error) {
+    console.error('[supabase] Failed to add history:', error.message);
+  }
 }
 
 export async function getHistory(): Promise<QueryHistoryItem[]> {
