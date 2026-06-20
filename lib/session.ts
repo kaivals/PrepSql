@@ -148,7 +148,7 @@ export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<
 
   // session_id column name retained for compatibility with existing rows
   // (see "rename" task — the DB column is intentionally NOT renamed).
-  await supabase.from('query_history').insert({
+  const { error } = await supabase.from('query_history').insert({
     session_id: sessionId,
     prompt: item.prompt || '',
     sql: item.sql,
@@ -167,6 +167,10 @@ export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<
     indexes_used: item.indexesUsed || [],
     timeline: item.timeline || [],
   });
+
+  if (error) {
+    console.error('[supabase] Failed to add history:', error.message);
+  }
 }
 
 export async function getHistory(): Promise<QueryHistoryItem[]> {

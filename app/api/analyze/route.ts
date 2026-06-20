@@ -121,11 +121,14 @@ Return EXACTLY this JSON structure:
       if (!timeline || !Array.isArray(timeline)) {
         return NextResponse.json({ error: 'Timeline array required' }, { status: 400 });
       }
+      if (timeline.length > 1000) {
+        return NextResponse.json({ error: 'Timeline array exceeds maximum size of 1000 items' }, { status: 400 });
+      }
 
       const prompt = `You are a database performance and engineering principles expert.
 Analyze this sequence of queries executed during a single database request:
 Dialect: ${connection.type}
-Timeline: ${JSON.stringify(timeline)}
+Timeline: ${JSON.stringify(timeline.slice(0, 1000))}
 
 For each query in the timeline, show:
 - Purpose of the query
