@@ -154,28 +154,60 @@ export async function setQueryMode(mode: QueryMode): Promise<void> {
 export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<void> {
   const clientId = await getClientId();
 
-  const { error } = await supabase.from('query_history').insert({
+  // Only write columns that exist in the Supabase table.
+  // The following columns are missing and will need to be added via a
+  // migration (see comment below): query_type, connection_id,
+  // connection_name, rows_affected, execution_time, rows_scanned,
+  // rows_returned, cpu_usage, memory_usage.
+  // Until those are added, we store their values inside a single JSON
+  // `meta` object in the `error` column won't work — instead we put them
+  // in the `timeline` array's first entry as metadata. Actually, the
+  // simplest approach: store extra fields inside the `timeline` array.
+  //
+  // For now, just write the columns that exist so sync succeeds.
+
+  // Build the insert payload with only known-good columns.
+  const row: Record<string, unknown> = {
     session_id: clientId,
     prompt: item.prompt || '',
     sql: item.sql,
     timestamp: new Date(item.timestamp).toISOString(),
     success: item.success,
     error: item.error || null,
-    query_type: item.queryType || null,
-    connection_id: item.connectionId || null,
-    connection_name: item.connectionName || null,
-    rows_affected: item.rowsAffected || 0,
-    execution_time: item.executionTime || 0,
-    rows_scanned: item.rowsScanned || 0,
-    rows_returned: item.rowsReturned || 0,
-    cpu_usage: item.cpuUsage || 0,
-    memory_usage: item.memoryUsage || 0,
     indexes_used: item.indexesUsed || [],
     timeline: item.timeline || [],
-  });
+  };
+
+  // Bundle the metrics that have no dedicated column into the timeline
+  // as a synthetic "meta" step so they aren't lost. This is backwards-
+  // compatible: readers that only care about real timeline steps can
+  // filter by type !== 'meta'.
+  const metrics: Record<string, unknown> = {};
+  if (item.queryType) metrics.queryType = item.queryType;
+  if (item.connectionId) metrics.connectionId = item.connectionId;
+  if (item.connectionName) metrics.connectionName = item.connectionName;
+  if (item.rowsAffected) metrics.rowsAffected = item.rowsAffected;
+  if (item.executionTime) metrics.executionTime = item.executionTime;
+  if (item.rowsScanned) metrics.rowsScanned = item.rowsScanned;
+  if (item.rowsReturned) metrics.rowsReturned = item.rowsReturned;
+  if (item.cpuUsage) metrics.cpuUsage = item.cpuUsage;
+  if (item.memoryUsage) metrics.memoryUsage = item.memoryUsage;
+  if (Object.keys(metrics).length > 0) {
+    const existingTimeline = (row.timeline as unknown[]) || [];
+    row.timeline = [
+      { id: 'meta', type: 'meta', sql: '', timestamp: item.timestamp, success: true, ...metrics },
+      ...existingTimeline,
+    ];
+  }
+
+  const { error } = await supabase.from('query_history').insert(row);
 
   if (error) {
-    console.error('[supabase] Failed to add history:', error.message);
+    // Surface the error so /api/history/sync returns 500 and the client
+    // queue retries. Previously this was silently swallowed, which made a
+    // failed insert look successful and removed the record from the pending
+    // queue (losing the server-side copy).
+    throw new Error(`Failed to insert query history: ${error.message}`);
   }
 }
 
@@ -194,25 +226,33 @@ export async function getHistory(): Promise<QueryHistoryItem[]> {
     return [];
   }
 
-  return (data || []).map((row) => ({
-    id: row.id,
-    prompt: row.prompt || '',
-    sql: row.sql,
-    timestamp: new Date(row.timestamp).getTime(),
-    success: row.success,
-    error: row.error || undefined,
-    queryType: row.query_type || undefined,
-    connectionId: row.connection_id || undefined,
-    connectionName: row.connection_name || undefined,
-    rowsAffected: row.rows_affected || undefined,
-    executionTime: row.execution_time || undefined,
-    rowsScanned: row.rows_scanned || undefined,
-    rowsReturned: row.rows_returned || undefined,
-    cpuUsage: row.cpu_usage || undefined,
-    memoryUsage: row.memory_usage || undefined,
-    indexesUsed: row.indexes_used || undefined,
-    timeline: row.timeline || undefined,
-  }));
+  return (data || []).map((row) => {
+    // Extract metrics from the synthetic "meta" timeline step that was
+    // inserted by addToHistory (for columns that don't exist in the table).
+    const timeline: unknown[] = row.timeline || [];
+    const metaStep = timeline.find((s: any) => s && s.type === 'meta');
+    const realTimeline = timeline.filter((s: any) => s && s.type !== 'meta');
+
+    return {
+      id: row.id,
+      prompt: row.prompt || '',
+      sql: row.sql,
+      timestamp: new Date(row.timestamp).getTime(),
+      success: row.success,
+      error: row.error || undefined,
+      queryType: metaStep?.queryType || row.query_type || undefined,
+      connectionId: metaStep?.connectionId || row.connection_id || undefined,
+      connectionName: metaStep?.connectionName || row.connection_name || undefined,
+      rowsAffected: metaStep?.rowsAffected || row.rows_affected || undefined,
+      executionTime: metaStep?.executionTime || row.execution_time || undefined,
+      rowsScanned: metaStep?.rowsScanned || row.rows_scanned || undefined,
+      rowsReturned: metaStep?.rowsReturned || row.rows_returned || undefined,
+      cpuUsage: metaStep?.cpuUsage || row.cpu_usage || undefined,
+      memoryUsage: metaStep?.memoryUsage || row.memory_usage || undefined,
+      indexesUsed: row.indexes_used || undefined,
+      timeline: realTimeline.length > 0 ? realTimeline : undefined,
+    };
+  });
 }
 
 export async function clearHistory(): Promise<void> {
