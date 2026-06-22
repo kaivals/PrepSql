@@ -119,7 +119,8 @@ export function SchemaEditor({
         <Table2 className="mb-4 h-12 w-12 text-muted-foreground/60" />
         <h2 className="text-xl font-semibold tracking-tight">Schema Editor</h2>
         <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          Select a table from the sidebar schema explorer to view, add, modify, or delete columns and constraints.
+          Click the <span className="font-medium text-foreground">Schema Editor</span> button in the
+          header and pick a table to view, add, modify, or delete columns and constraints.
         </p>
       </div>
     );
