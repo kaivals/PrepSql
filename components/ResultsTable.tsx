@@ -75,8 +75,8 @@ export function ResultsTable({ result, isLoading = false }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-secondary">
-              {result.columns.map((col) => (
-                <th key={col} className="px-4 py-2 text-left font-medium text-foreground">
+              {result.columns.map((col, ci) => (
+                <th key={`${col}-${ci}`} className="px-4 py-2 text-left font-medium text-foreground">
                   {col}
                 </th>
               ))}
@@ -85,8 +85,8 @@ export function ResultsTable({ result, isLoading = false }: Props) {
           <tbody>
             {paginatedRows.map((row, idx) => (
               <tr key={idx} className="border-b border-border hover:bg-muted/50">
-                {result.columns.map((col) => (
-                  <td key={`${idx}-${col}`} className="px-4 py-2 text-foreground max-w-xs truncate">
+                {result.columns.map((col, ci) => (
+                  <td key={`${idx}-${ci}`} className="px-4 py-2 text-foreground max-w-xs truncate">
                     {typeof row[col] === 'object'
                       ? JSON.stringify(row[col])
                       : String(row[col] ?? 'NULL')}

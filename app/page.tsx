@@ -435,6 +435,9 @@ export default function Home() {
           onLogout={handleLogout}
           onOpenSettings={() => setShowSettings(true)}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          connectionId={activeConnection?.id}
+          refreshTrigger={historyRefresh}
+          onPickTable={(tableName) => setSelectedTable(tableName)}
         />
         <Toast
           message={toast}
@@ -483,6 +486,7 @@ export default function Home() {
               }}
               onSelectTable={(tbl) => setSelectedTable(tbl)}
               refreshTrigger={historyRefresh}
+              selectedTable={selectedTable}
             />
             {/* Resize Handle */}
             {sidebarOpen && (

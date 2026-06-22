@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   ArrowLeft,
   ChevronRight,
@@ -19,6 +19,7 @@ interface SchemaSidebarProps {
   onSelectQuery: (sql: string) => void;
   onSelectTable?: (tableName: string) => void;
   refreshTrigger?: number;
+  selectedTable?: string | null;
 }
 
 export function SchemaSidebar({
@@ -27,6 +28,7 @@ export function SchemaSidebar({
   onSelectQuery,
   onSelectTable,
   refreshTrigger,
+  selectedTable,
 }: SchemaSidebarProps) {
   const [tab, setTab] = useState<'schema' | 'history' | 'indexes'>('schema');
   const [tables, setTables] = useState<SchemaTable[]>([]);
@@ -37,6 +39,10 @@ export function SchemaSidebar({
   const HISTORY_PAGE_SIZE = 5;
   const [loading, setLoading] = useState(true);
 
+  // Refs for scrolling table items into view
+  const tableItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  // Fetch schema tables
   useEffect(() => {
     const loadSchema = async () => {
       try {
@@ -53,6 +59,23 @@ export function SchemaSidebar({
     };
     loadSchema();
   }, [connection.id, refreshTrigger]);
+
+  // Auto-expand and scroll when selectedTable changes
+  useEffect(() => {
+    if (selectedTable) {
+      setExpanded((prev) => {
+        if (prev.has(selectedTable)) return prev;
+        const next = new Set(prev);
+        next.add(selectedTable);
+        return next;
+      });
+      // Scroll the table item into view after React renders
+      requestAnimationFrame(() => {
+        const el = tableItemRefs.current.get(selectedTable);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+  }, [selectedTable]);
 
   // Read history from the localStorage-backed queue. The first page (newest
   // 5) is loaded whenever the user runs a query (refreshTrigger) or the queue
@@ -162,6 +185,9 @@ export function SchemaSidebar({
               {tables.map((table) => (
                 <div key={table.name}>
                   <button
+                    ref={(el) => {
+                      if (el) tableItemRefs.current.set(table.name, el);
+                    }}
                     type="button"
                     onClick={() => {
                       toggleTable(table.name);
@@ -169,7 +195,12 @@ export function SchemaSidebar({
                     }}
                     onDoubleClick={() => onSelectQuery(buildSelectPreview(table, connection.type))}
                     title="Click to select & expand · Double-click to preview rows"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+                      selectedTable === table.name
+                        ? 'bg-primary/10 font-medium text-foreground'
+                        : 'hover:bg-muted/60'
+                    )}
                   >
                     <ChevronRight
                       className={cn(
@@ -183,9 +214,9 @@ export function SchemaSidebar({
                   </button>
                   {expanded.has(table.name) && (
                     <div className="ml-7 space-y-0.5 pb-1">
-                      {table.columns.map((col) => (
+                      {table.columns.map((col, ci) => (
                         <div
-                          key={col.name}
+                          key={`${table.name}-${col.name}-${ci}`}
                           className="flex items-center justify-between px-2 py-0.5 text-xs text-muted-foreground"
                         >
                           <span>{col.name}</span>
