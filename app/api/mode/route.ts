@@ -1,37 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getConnection, getQueryMode, setQueryMode } from '@/lib/session';
+import { NextRequest } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
-export async function GET() {
-  try {
-    const mode = await getQueryMode();
-    return NextResponse.json({ mode });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to get mode' },
-      { status: 500 }
-    );
-  }
+export async function GET(request: NextRequest) {
+  return proxyToBackend(request, '/api/mode');
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { mode } = body;
-
-    if (!['crud', 'analytics', 'schema'].includes(mode)) {
-      return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
-    }
-
-    if (!(await getConnection())) {
-      return NextResponse.json({ error: 'No database connection' }, { status: 400 });
-    }
-
-    await setQueryMode(mode);
-    return NextResponse.json({ mode });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to set mode' },
-      { status: 500 }
-    );
-  }
+  return proxyToBackend(request, '/api/mode');
 }

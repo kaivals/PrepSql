@@ -9,7 +9,6 @@ import {
   Key,
 } from 'lucide-react';
 import type { DatabaseConnection, QueryHistoryItem, SchemaTable } from '@/lib/types';
-import { buildSelectPreview } from '@/lib/schema-format';
 import { cn } from '@/lib/utils';
 
 interface SchemaSidebarProps {
@@ -18,6 +17,12 @@ interface SchemaSidebarProps {
   onSelectQuery: (sql: string) => void;
   onSelectTable?: (tableName: string) => void;
   refreshTrigger?: number;
+}
+
+function buildSelectPreview(table: SchemaTable, dbType: string, limit = 10): string {
+  const isPg = dbType === 'postgresql';
+  const tableRef = isPg ? `"${table.name.replace(/"/g, '""')}"` : table.name;
+  return `SELECT * FROM ${tableRef} LIMIT ${limit}`;
 }
 
 export function SchemaSidebar({

@@ -1,20 +1,6 @@
-import { NextResponse } from 'next/server';
-import { getConnection } from '@/lib/session';
-import { introspectSchema } from '@/lib/schema';
+import { NextRequest } from 'next/server';
+import { proxyToBackend } from '@/lib/backend-proxy';
 
-export async function GET() {
-  try {
-    const connection = await getConnection();
-    if (!connection) {
-      return NextResponse.json({ error: 'No database connection' }, { status: 400 });
-    }
-
-    const tables = await introspectSchema(connection);
-    return NextResponse.json({ tables });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to load schema' },
-      { status: 500 }
-    );
-  }
+export async function GET(request: NextRequest) {
+  return proxyToBackend(request, '/api/schema');
 }
