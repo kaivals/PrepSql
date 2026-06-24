@@ -5,8 +5,10 @@ import {
   getPendingTimeline,
   setPendingTimeline,
   clearPendingTimeline,
+  addToHistory,
 } from '@/lib/app-state';
 import { runWithQueryLogger } from '@/lib/query-logger';
+import { classifyQuery } from '@/lib/history-classify';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,27 +42,30 @@ export async function POST(request: NextRequest) {
         await clearPendingTimeline();
       } else if (response.type === 'sql') {
         const rowsCount = response.result?.rows?.length ?? 0;
-        // History is now persisted client-side. Include meta so the
-        // client can enqueue the record into the localStorage queue.
-        response.historyMeta = {
+        // Persist this AI-generated execution to MongoDB as query history.
+        await addToHistory({
           prompt: prompt || 'AI Query',
           sql: response.sql || '',
+          timestamp: Date.now(),
           success: true,
+          queryType: classifyQuery(response.sql || ''),
           executionTime: response.result?.executionTime || 0,
           rowsAffected: response.result?.rowsAffected || 0,
           rowsScanned: rowsCount,
           rowsReturned: rowsCount,
           indexesUsed: response.sql?.toUpperCase().includes('WHERE') ? ['pk_index'] : [],
           timeline: allSteps,
-        };
+        });
         await clearPendingTimeline();
       } else if (response.type === 'error') {
-        // Failed queries are also recorded by the client.
-        response.historyMeta = {
+        // Failed queries are recorded as well so they appear in history.
+        await addToHistory({
           prompt: prompt || 'AI Query',
           sql: response.sql || '',
+          timestamp: Date.now(),
           success: false,
           error: response.message || 'Execution failed',
+          queryType: classifyQuery(response.sql || ''),
           executionTime: 0,
           rowsScanned: 0,
           rowsReturned: 0,
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest) {
           memoryUsage: 0,
           indexesUsed: [],
           timeline: allSteps,
-        };
+        });
         await clearPendingTimeline();
       }
     }

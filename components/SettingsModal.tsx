@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { saveStoredApiKey } from '@/lib/api-key-storage';
 
 interface SettingsModalProps {
   open: boolean;
@@ -64,7 +63,6 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save API key');
 
-      saveStoredApiKey(apiKey.trim());
       setApiKey('');
       setSuccess('API key saved successfully.');
       setInfo(data);
@@ -91,7 +89,6 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to remove API key');
 
-      saveStoredApiKey('');
       setSuccess(data.configured ? 'Saved key removed. Falling back to .env.local key.' : 'API key removed.');
       setInfo({
         configured: data.configured,

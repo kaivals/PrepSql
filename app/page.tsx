@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { ConnectionsPage } from '@/components/ConnectionsPage';
 import { SchemaSidebar } from '@/components/SchemaSidebar';
@@ -10,41 +10,45 @@ import { AnalyticsPage } from '@/components/AnalyticsPage';
 import { Toast } from '@/components/Toast';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ensureServerConnection } from '@/lib/client-connection';
-import { syncApiKeyToServer } from '@/lib/api-key-storage';
-import { loadSavedConnection, clearSavedConnection } from '@/lib/connection-defaults';
-import { historyQueue } from '@/lib/history-queue';
-import { classifyQuery } from '@/lib/history-classify';
-import type { DatabaseConnection, QueryHistoryItem, QueryMode, QueryResult } from '@/lib/types';
+import type { DatabaseConnection, QueryMode, QueryResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 type View = 'connections' | 'workspace';
 
-if (typeof window !== 'undefined' && !((window as any).__prepsql_fetch_overridden)) {
-  (window as any).__prepsql_fetch_overridden = true;
-  const originalFetch = window.fetch;
-  window.fetch = async function (input, init) {
-    const CLIENT_KEY = 'prepsql-client-id';
-    let clientId = localStorage.getItem(CLIENT_KEY);
-    if (!clientId) {
-      // One-time migration: move legacy key so existing users keep their
-      // correlation to server-side query_history / analysis_results rows.
-      const legacyId = localStorage.getItem('prepsql-session-id');
-      if (legacyId) {
-        clientId = legacyId;
-        localStorage.removeItem('prepsql-session-id');
-      } else {
-        clientId = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
-      }
-      localStorage.setItem(CLIENT_KEY, clientId);
+// ── Client-side helpers for preferences (backed by /api/preferences) ─────────
+
+async function loadPreferences(): Promise<Record<string, any>> {
+  try {
+    const res = await fetch('/api/preferences', { credentials: 'same-origin' });
+    if (res.ok) {
+      const data = await res.json();
+      return data.preferences || {};
     }
+  } catch {
+    // ignore
+  }
+  return {};
+}
 
-    const newInit = { ...init } as RequestInit;
-    const headers = new Headers(newInit.headers || {});
-    headers.set('x-prepsql-client-id', clientId);
-    newInit.headers = headers;
+function savePreference(key: string, value: any): void {
+  try {
+    fetch('/api/preferences', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ preferences: { [key]: value } }),
+    });
+  } catch {
+    // fire-and-forget
+  }
+}
 
-    return originalFetch(input, newInit);
-  };
+function clearSavedConnectionAPI(): void {
+  try {
+    fetch('/api/saved-connection', { method: 'DELETE', credentials: 'same-origin' });
+  } catch {
+    // fire-and-forget
+  }
 }
 
 export default function Home() {
@@ -69,15 +73,19 @@ export default function Home() {
   const [userEmail] = useState('user@example.com');
   const [isResizing, setIsResizing] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [initializing, setInitializing] = useState(true);
+  const saveWidthTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Load sidebar width from server-side preferences on mount
   useEffect(() => {
-    const saved = localStorage.getItem('sidebarWidth');
-    if (saved) {
-      const width = parseInt(saved, 10);
-      if (width >= 240 && width <= 600) {
-        setSidebarWidth(width);
+    loadPreferences().then((prefs) => {
+      if (prefs.sidebarWidth) {
+        const width = parseInt(prefs.sidebarWidth, 10);
+        if (width >= 240 && width <= 600) {
+          setSidebarWidth(width);
+        }
       }
-    }
+    });
   }, []);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
@@ -94,7 +102,11 @@ export default function Home() {
     const newWidth = e.clientX;
     if (newWidth >= 240 && newWidth <= 600) {
       setSidebarWidth(newWidth);
-      localStorage.setItem('sidebarWidth', String(newWidth));
+      // Debounce saving to API
+      if (saveWidthTimer.current) clearTimeout(saveWidthTimer.current);
+      saveWidthTimer.current = setTimeout(() => {
+        savePreference('sidebarWidth', String(newWidth));
+      }, 500);
     }
   }, [isResizing]);
 
@@ -152,10 +164,8 @@ export default function Home() {
       const res = await fetch('/api/mode');
       if (res.ok) {
         const data = await res.json();
-        const mode = data.mode || 'readonly';
-        // The top-level History tab was removed; fall back to CRUD for any
-        // client whose persisted mode still points at it.
-        setMode(mode === 'history' ? 'crud' : mode);
+        const m = data.mode || 'readonly';
+        setMode(m === 'history' ? 'crud' : m);
       }
     } catch (err) {
       console.error('Failed to load mode:', err);
@@ -164,71 +174,15 @@ export default function Home() {
 
   useEffect(() => {
     const init = async () => {
-      // Restore the history queue from localStorage and resume syncing any
-      // records left pending from a previous session (refresh / restart).
-      historyQueue.init();
-      await syncApiKeyToServer();
-      const savedView = typeof window !== 'undefined' ? localStorage.getItem('prepsql-view') : null;
+      const prefs = await loadPreferences();
+      const savedView = prefs['prepsql-view'];
       const shouldRedirect = savedView === 'workspace';
       await loadConnections(shouldRedirect, true);
       await loadMode();
+      setInitializing(false);
     };
     init();
   }, [loadConnections, loadMode]);
-
-  /**
-   * Persist an executed query to the localStorage history queue. The record
-   * is saved synchronously (survives refresh/restart) and the background sync
-   * loop pushes it to the database. Called for BOTH successful and failed runs.
-   */
-  const recordHistory = useCallback(
-    (params: {
-      sql: string;
-      prompt?: string;
-      success: boolean;
-      error?: string;
-      executionTime?: number;
-      rowsAffected?: number;
-      rowsScanned?: number;
-      rowsReturned?: number;
-      cpuUsage?: number;
-      memoryUsage?: number;
-      indexesUsed?: string[];
-      timeline?: QueryHistoryItem['timeline'];
-    }) => {
-      console.debug('[history] recording query:', {
-        sql: params.sql.slice(0, 60),
-        success: params.success,
-        executionTime: params.executionTime,
-        rowsScanned: params.rowsScanned,
-        rowsReturned: params.rowsReturned,
-        cpuUsage: params.cpuUsage,
-        memoryUsage: params.memoryUsage,
-        indexesUsed: params.indexesUsed,
-      });
-      historyQueue.enqueue({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-        prompt: params.prompt || '',
-        sql: params.sql,
-        timestamp: Date.now(),
-        success: params.success,
-        error: params.error,
-        queryType: classifyQuery(params.sql),
-        connectionId: activeConnection?.id,
-        connectionName: activeConnection?.name,
-        executionTime: params.executionTime,
-        rowsAffected: params.rowsAffected,
-        rowsScanned: params.rowsScanned,
-        rowsReturned: params.rowsReturned,
-        cpuUsage: params.cpuUsage,
-        memoryUsage: params.memoryUsage,
-        indexesUsed: params.indexesUsed,
-        timeline: params.timeline,
-      });
-      setHistoryRefresh((prev) => prev + 1);
-    },
-    [activeConnection],
-  );
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setToast(message);
@@ -247,6 +201,11 @@ export default function Home() {
     setShowToast(true);
   };
 
+  const setViewPref = (newView: View) => {
+    setView(newView);
+    savePreference('prepsql-view', newView);
+  };
+
   const handleSelectConnection = async (connection: DatabaseConnection) => {
     await fetch('/api/connection', {
       method: 'PATCH',
@@ -257,31 +216,14 @@ export default function Home() {
     setActiveConnection(connection);
     setResult(null);
     setSelectedTable(null);
-    setView('workspace');
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('prepsql-view', 'workspace');
-    }
+    setViewPref('workspace');
   };
 
   const handleDeleteConnection = async (id: string) => {
     if (!confirm('Remove this connection?')) return;
 
-    // Clear from localStorage if it matches the saved connection or if it's the last connection
-    const connToDelete = connections.find((c) => c.id === id);
-    if (connToDelete) {
-      const saved = loadSavedConnection();
-      if (saved) {
-        const isMatch =
-          saved.type === connToDelete.type &&
-          (connToDelete.type === 'sqlite'
-            ? saved.filepath === connToDelete.filepath
-            : saved.host === connToDelete.host &&
-              saved.database === connToDelete.database &&
-              saved.user === connToDelete.user);
-        if (isMatch || connections.length <= 1) {
-          clearSavedConnection();
-        }
-      }
+    if (connections.length <= 1) {
+      clearSavedConnectionAPI();
     }
 
     await fetch(`/api/connection?id=${id}`, { method: 'DELETE' });
@@ -298,10 +240,7 @@ export default function Home() {
       await loadConnections(false, false);
       if (data.connection) {
         setActiveConnection(data.connection);
-        setView('workspace');
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('prepsql-view', 'workspace');
-        }
+        setViewPref('workspace');
       }
     } catch (err) {
       console.error(err);
@@ -311,9 +250,6 @@ export default function Home() {
   };
 
   const handleConnected = async (_connection: DatabaseConnection) => {
-    // Stay on the connections page so the user can see ALL their connections
-    // and choose which one to open. Navigating to workspace happens only when
-    // the user explicitly clicks a connection card (handleSelectConnection).
     await loadConnections(false, false);
   };
 
@@ -345,7 +281,6 @@ export default function Home() {
   const executeQueryInternal = async (sql: string, prompt?: string) => {
     setLoading(true);
     setResult(null);
-    const startedAt = performance.now();
 
     try {
       await ensureServerConnection();
@@ -365,21 +300,9 @@ export default function Home() {
       const data = await res.json();
       setResult(data);
 
-      // Persist to the localStorage history queue immediately. The background
-      // sync loop forwards it to the database; metrics come from the server.
-      recordHistory({
-        sql,
-        prompt,
-        success: true,
-        executionTime: data.executionTime ?? Math.round(performance.now() - startedAt),
-        rowsAffected: data.rowsAffected,
-        rowsScanned: data.rowsScanned,
-        rowsReturned: data.rowCount,
-        cpuUsage: data.cpuUsage,
-        memoryUsage: data.memoryUsage,
-        indexesUsed: data.indexesUsed,
-        timeline: data.timeline,
-      });
+      // History is now persisted server-side by /api/execute.
+      // Trigger a refresh so the sidebar and analytics pick up the new entry.
+      setHistoryRefresh((prev) => prev + 1);
 
       const upperSql = sql.toUpperCase();
       if (upperSql.includes('UPDATE ') || upperSql.includes('DELETE ')) {
@@ -389,21 +312,6 @@ export default function Home() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Query execution failed';
       setResult({ columns: [], rows: [], rowCount: 0 });
-
-      // Failed queries are recorded too — no history is ever lost.
-      recordHistory({
-        sql,
-        prompt,
-        success: false,
-        error: errorMsg,
-        executionTime: Math.round(performance.now() - startedAt),
-        rowsAffected: 0,
-        rowsScanned: 0,
-        rowsReturned: 0,
-        cpuUsage: 0,
-        memoryUsage: 0,
-        indexesUsed: [],
-      });
 
       const upperSql = sql.toUpperCase();
       if (upperSql.includes('UPDATE ') || upperSql.includes('DELETE ')) {
@@ -416,13 +324,21 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    setView('connections');
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('prepsql-view', 'connections');
-    }
+    setViewPref('connections');
     setActiveConnection(null);
     setResult(null);
   };
+
+  if (initializing) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+          <p className="text-sm text-muted-foreground">Loading PrepSQL...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (view === 'workspace' && activeConnection) {
     return (
@@ -474,10 +390,7 @@ export default function Home() {
             <SchemaSidebar
               connection={activeConnection}
               onBack={() => {
-                setView('connections');
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem('prepsql-view', 'connections');
-                }
+                setViewPref('connections');
                 setResult(null);
               }}
               onSelectQuery={(sql) => {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConnection } from '@/lib/app-state';
+import { getConnection, addToHistory } from '@/lib/app-state';
 import { getOrCreatePool, executeQuery } from '@/lib/database';
 import { runWithQueryLogger, getLoggedSteps } from '@/lib/query-logger';
+import { classifyQuery } from '@/lib/history-classify';
 
 export async function POST(request: NextRequest) {
   const { result, steps } = await runWithQueryLogger(async () => {
@@ -70,17 +71,24 @@ export async function POST(request: NextRequest) {
 
       const timeline = getLoggedSteps();
 
-      // History persistence is now client-side (localStorage queue → /api/history/sync).
-      // We return the metrics here so the client can build the history record.
-      console.debug('[api/execute] metrics captured:', {
+      // Persist this execution to MongoDB as query history — the single
+      // source of truth for the History sidebar and the Analytics tab.
+      await addToHistory({
+        prompt: '',
+        sql,
+        timestamp: Date.now(),
+        success: true,
+        queryType: classifyQuery(sql),
+        connectionId: connection.id,
+        connectionName: connection.name,
+        rowsAffected: queryResult.rowsAffected || 0,
         executionTime,
         rowsScanned,
         rowsReturned,
-        rowsAffected: queryResult.rowsAffected || 0,
         cpuUsage,
         memoryUsage,
         indexesUsed,
-        timelineSteps: timeline.length,
+        timeline,
       });
 
       return {
@@ -90,7 +98,6 @@ export async function POST(request: NextRequest) {
           rowsAffected: queryResult.rowsAffected || 0,
           rowCount: queryResult.rows.length,
           truncated: originalRowCount > 1000,
-          // Metrics for client-side history enqueue
           executionTime,
           rowsScanned,
           cpuUsage,
@@ -102,6 +109,27 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to execute query';
       console.error('[api/execute] execution failed:', errorMessage);
+
+      // Persist failed executions too, so they appear in history.
+      if (sql) {
+        try {
+          const connection = await getConnection();
+          await addToHistory({
+            prompt: '',
+            sql,
+            timestamp: Date.now(),
+            success: false,
+            error: errorMessage,
+            queryType: classifyQuery(sql),
+            connectionId: connection?.id,
+            connectionName: connection?.name,
+            executionTime: 0,
+            timeline: getLoggedSteps(),
+          });
+        } catch {
+          // Don't let history persistence mask the original error.
+        }
+      }
 
       return { error: errorMessage, status: 400 };
     }

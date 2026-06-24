@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { historyQueue } from '@/lib/history-queue';
 
 interface AnalyticsPageProps {
   connection: DatabaseConnection;
@@ -110,7 +109,9 @@ export function AnalyticsPage({
   const [auditingDb, setAuditingDb] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Persist analysis result to Supabase
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Persist analysis result to MongoDB via API
   const saveAnalysis = async (action: string, targetSql: string | null, result: Record<string, unknown>) => {
     try {
       await fetch('/api/analysis', {
@@ -123,42 +124,34 @@ export function AnalyticsPage({
     }
   };
 
-  // Load history from the localStorage-backed historyQueue, which is the
-  // source of truth for metrics (the server-side query_history table lacks
-  // dedicated columns for execution_time, rows_scanned, cpu_usage, etc.).
-  // The queue restores from localStorage on init and survives refresh.
-  const loadHistory = () => {
-    const items = historyQueue.getItems();
-    console.debug(
-      '[analytics] loaded history from localStorage queue:',
-      items.length,
-      'records | metrics sample:',
-      items[0]
-        ? {
-            executionTime: items[0].executionTime,
-            rowsScanned: items[0].rowsScanned,
-            rowsReturned: items[0].rowsReturned,
-            cpuUsage: items[0].cpuUsage,
-            memoryUsage: items[0].memoryUsage,
-            indexesUsed: items[0].indexesUsed,
-          }
-        : null,
-    );
-    setHistory(items);
-    setLoadingHistory(false);
+  // Load history from MongoDB via API. This is the single source of truth for
+  // execution metrics (execution_time, rows_scanned, cpu_usage, etc.) and
+  // survives page reloads because it is persisted server-side.
+  const loadHistory = async () => {
+    setLoadingHistory(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch('/api/history?limit=500', { credentials: 'same-origin' });
+      if (!res.ok) {
+        throw new Error('Failed to load history');
+      }
+      const data = await res.json();
+      const items: QueryHistoryItem[] = data.history || [];
+      setHistory(items);
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : 'Failed to load history');
+      setHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   useEffect(() => {
-    // Make sure the queue is initialised (restores from localStorage).
-    historyQueue.init();
     loadHistory();
-    // Re-render whenever the queue changes (new query enqueued, sync, clear).
-    const unsubscribe = historyQueue.subscribe(loadHistory);
-    return unsubscribe;
   }, [connection.id]);
 
   // Aggregate metrics for the summary cards. Computed from the real,
-  // complete data held in the history queue.
+  // complete data fetched from the server-side query_history collection.
   const metrics = useMemo(() => {
     const successful = history.filter((h) => h.success);
     const total = history.length;
@@ -252,9 +245,8 @@ export function AnalyticsPage({
 
           showNotification('Optimization DDL executed successfully!', 'success');
           onRefreshSchema();
-          // The DDL ran through /api/execute, which records into the history
-          // queue. We're subscribed to the queue, but reload explicitly to be
-          // safe in case the subscription fired during render.
+          // The DDL ran through /api/execute, which records into history
+          // server-side. Reload explicitly to refresh the metrics.
           loadHistory();
           setAnalysisResult(null);
           setSelectedQueryForAI(null);
@@ -317,7 +309,7 @@ export function AnalyticsPage({
       </div>
 
       {/* Execution Metrics Summary Cards — computed from real data in the
-          localStorage history queue. */}
+          server-side query_history collection. */}
       <div className="mb-6 grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
         {[
           { label: 'Total Queries', value: metrics.total.toLocaleString(), icon: FileText, color: 'text-foreground' },
@@ -614,6 +606,17 @@ export function AnalyticsPage({
         </h3>
         {loadingHistory ? (
           <p className="text-xs text-muted-foreground">Loading log entries...</p>
+        ) : historyError ? (
+          <div className="flex flex-col items-start gap-2 py-2">
+            <p className="text-xs text-red-600">{historyError}</p>
+            <button
+              type="button"
+              onClick={loadHistory}
+              className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+            >
+              Retry
+            </button>
+          </div>
         ) : slowQueries.length === 0 ? (
           <p className="text-xs text-muted-foreground py-2">
             Excellent! No queries exceeded the 100ms latency threshold.
@@ -662,6 +665,17 @@ export function AnalyticsPage({
         </h3>
         {loadingHistory ? (
           <p className="text-xs text-muted-foreground">Loading dashboard data...</p>
+        ) : historyError ? (
+          <div className="flex flex-col items-start gap-2 py-2">
+            <p className="text-xs text-red-600">{historyError}</p>
+            <button
+              type="button"
+              onClick={loadHistory}
+              className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+            >
+              Retry
+            </button>
+          </div>
         ) : history.length === 0 ? (
           <p className="text-xs text-muted-foreground py-2">No query execution history found on this session.</p>
         ) : (
