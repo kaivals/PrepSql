@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowUp, Loader2, AlertTriangle, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ResultsTable } from '@/components/ResultsTable';
 import { ApiKeySetup } from '@/components/ApiKeySetup';
 import { ensureServerConnection } from '@/lib/client-connection';
-import { historyQueue } from '@/lib/history-queue';
-import { classifyQuery } from '@/lib/history-classify';
 import type { QueryResult, TokenUsage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -96,38 +94,67 @@ export function QueryInterface({
   const [error, setError] = useState('');
   const [hasQueried, setHasQueried] = useState(false);
 
-  // Chat message history for Natural Language mode
+  // Chat message history for Natural Language mode (persisted via /api/chat)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load chat messages from localStorage on connectionId change
+  // Load chat messages from the server-side store (MongoDB) on connectionId change
   useEffect(() => {
     if (!connectionId) return;
-    const key = `prepsql-chat-${connectionId}`;
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      try {
-        setChatMessages(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse saved chat messages:', e);
-      }
-    } else {
-      setChatMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: "Hi! I'm your SQL assistant. Ask me to query your database, explore your tables, or modify data in natural language, or switch to 'Run SQL' to execute raw queries.",
-        },
-      ]);
-    }
+    let cancelled = false;
+    setChatLoading(true);
+    fetch(`/api/chat?connectionId=${encodeURIComponent(connectionId)}`, { credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.json() : { messages: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const messages: ChatMessage[] = data.messages || [];
+        setChatMessages(
+          messages.length > 0
+            ? messages
+            : [
+                {
+                  id: 'welcome',
+                  role: 'assistant',
+                  content: "Hi! I'm your SQL assistant. Ask me to query your database, explore your tables, or modify data in natural language, or switch to 'Run SQL' to execute raw queries.",
+                },
+              ],
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setChatMessages([]);
+      })
+      .finally(() => {
+        if (!cancelled) setChatLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [connectionId]);
 
-  // Persist chat messages to localStorage whenever they change
+  // Persist chat messages to the server-side store whenever they change
+  const persistChat = useCallback(
+    (messages: ChatMessage[]) => {
+      if (!connectionId || messages.length === 0) return;
+      try {
+        fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ connectionId, messages }),
+        });
+      } catch {
+        // fire-and-forget
+      }
+    },
+    [connectionId],
+  );
+
   useEffect(() => {
-    if (!connectionId || chatMessages.length === 0) return;
-    const key = `prepsql-chat-${connectionId}`;
-    localStorage.setItem(key, JSON.stringify(chatMessages));
-  }, [chatMessages, connectionId]);
+    if (inputMode === 'natural' && connectionId && chatMessages.length > 0) {
+      persistChat(chatMessages);
+    }
+  }, [chatMessages, connectionId, inputMode, persistChat]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -208,16 +235,6 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(data.result);
-
-        // Persist to the localStorage history queue immediately.
-        if (data.historyMeta) {
-          historyQueue.enqueue({
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            ...data.historyMeta,
-            timestamp: Date.now(),
-            queryType: classifyQuery(data.historyMeta.sql),
-          });
-        }
       } else if (data.type === 'pending_approval') {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
@@ -239,16 +256,6 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(null);
-
-        // Failed queries are recorded too.
-        if (data.historyMeta) {
-          historyQueue.enqueue({
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            ...data.historyMeta,
-            timestamp: Date.now(),
-            queryType: data.historyMeta.sql ? classifyQuery(data.historyMeta.sql) : undefined,
-          });
-        }
       } else {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
@@ -313,16 +320,6 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(data.result);
-
-        // Persist to the localStorage history queue.
-        if (data.historyMeta) {
-          historyQueue.enqueue({
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            ...data.historyMeta,
-            timestamp: Date.now(),
-            queryType: classifyQuery(data.historyMeta.sql),
-          });
-        }
       } else if (data.type === 'error') {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
@@ -333,15 +330,6 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(null);
-
-        if (data.historyMeta) {
-          historyQueue.enqueue({
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            ...data.historyMeta,
-            timestamp: Date.now(),
-            queryType: data.historyMeta.sql ? classifyQuery(data.historyMeta.sql) : undefined,
-          });
-        }
       } else {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),

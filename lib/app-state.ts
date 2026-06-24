@@ -1,16 +1,12 @@
 import { cookies, headers } from 'next/headers';
 import { randomBytes } from 'crypto';
 import type { DatabaseConnection, QueryHistoryItem, QueryMode, TimelineStep } from './types';
-import { loadPersistedState, persistState, type PersistedAppState } from './app-state-persist';
-import { supabase } from './supabase';
+import * as db from './db';
 
-interface AppState extends PersistedAppState { }
-
-const appStates = loadPersistedState();
-
-function saveState(): void {
-  persistState(appStates);
-}
+// ── Client / session identification ───────────────────────────────────────────
+//
+// A stable clientId (stored in an httpOnly cookie) identifies the browser
+// session. All persistent data is partitioned by this id inside MongoDB.
 
 export async function getClientId(): Promise<string> {
   const headerStore = await headers();
@@ -41,33 +37,17 @@ export function stripPassword(connection: DatabaseConnection): DatabaseConnectio
   return rest;
 }
 
-export async function getAppState(): Promise<AppState> {
-  const clientId = await getClientId();
-
-  if (!appStates.has(clientId)) {
-    appStates.set(clientId, {
-      connections: [],
-      queryMode: 'crud',
-      history: [],
-    });
-    saveState();
-  }
-
-  return appStates.get(clientId)!;
-}
+// ── Connections ───────────────────────────────────────────────────────────────
 
 export async function getConnections(): Promise<DatabaseConnection[]> {
-  const state = await getAppState();
-  return state.connections;
+  const clientId = await getClientId();
+  const docs = await db.getConnections(clientId);
+  return docs.map(docToConnection);
 }
 
 export async function addConnection(connection: Omit<DatabaseConnection, 'id'>): Promise<DatabaseConnection> {
-  const state = await getAppState();
-
-  // Match duplicates by credentials only (NOT by name).
-  // Same DB credentials = reconnect to existing entry (update password/name if changed).
-  // Different credentials (different host, port, db, or user) = always a brand-new entry.
-  const existing = state.connections.find((c) => {
+  const clientId = await getClientId();
+  const existing = (await db.getConnections(clientId)).find((c) => {
     if (c.type !== connection.type) return false;
     if (c.type === 'sqlite') return c.filepath === connection.filepath;
     return (
@@ -80,215 +60,136 @@ export async function addConnection(connection: Omit<DatabaseConnection, 'id'>):
 
   if (existing) {
     // Update mutable fields (password may have changed, user may have renamed it)
-    if (connection.password !== undefined) existing.password = connection.password;
-    if (connection.name && connection.name !== existing.name) existing.name = connection.name;
-    state.activeConnectionId = existing.id;
-    saveState();
-    return existing;
+    const updates: Partial<db.ConnectionDoc> = {};
+    if (connection.password !== undefined) updates.password = connection.password;
+    if (connection.name && connection.name !== existing.name) updates.name = connection.name;
+    if (Object.keys(updates).length > 0) {
+      await db.updateConnection(clientId, existing.id, updates);
+    }
+    await db.saveSessionData(clientId, { activeConnectionId: existing.id });
+
+    const updated: DatabaseConnection = {
+      ...docToConnection(existing),
+      ...updates,
+    } as DatabaseConnection;
+    return updated;
   }
 
   const id = randomBytes(8).toString('hex');
   const newConnection: DatabaseConnection = { ...connection, id };
-  state.connections.push(newConnection);
-  state.activeConnectionId = id;
-  saveState();
+  await db.addConnection(clientId, connectionToDoc(newConnection, id));
+  await db.saveSessionData(clientId, { activeConnectionId: id });
   return newConnection;
 }
 
 export async function removeConnection(id: string): Promise<void> {
-  const state = await getAppState();
-  state.connections = state.connections.filter((c) => c.id !== id);
-  if (state.activeConnectionId === id) {
-    state.activeConnectionId = state.connections[0]?.id;
+  const clientId = await getClientId();
+  await db.removeConnection(clientId, id);
+
+  // Reassign active connection if the removed one was active
+  const session = await db.getSessionData(clientId);
+  if (session?.activeConnectionId === id) {
+    const remaining = await db.getConnections(clientId);
+    await db.saveSessionData(clientId, {
+      activeConnectionId: remaining[0]?.id,
+    });
   }
-  saveState();
 }
 
 export async function setActiveConnection(id: string): Promise<void> {
-  const state = await getAppState();
-  if (state.connections.some((c) => c.id === id)) {
-    state.activeConnectionId = id;
-    saveState();
+  const clientId = await getClientId();
+  const connections = await db.getConnections(clientId);
+  if (connections.some((c) => c.id === id)) {
+    await db.saveSessionData(clientId, { activeConnectionId: id });
   }
 }
 
 export async function getConnection(): Promise<DatabaseConnection | undefined> {
-  const state = await getAppState();
-  if (!state.activeConnectionId) {
-    return state.connections[0];
+  const clientId = await getClientId();
+  const [session, connections] = await Promise.all([
+    db.getSessionData(clientId),
+    db.getConnections(clientId),
+  ]);
+
+  if (!session?.activeConnectionId) {
+    return connections.length > 0 ? docToConnection(connections[0]) : undefined;
   }
-  return state.connections.find((c) => c.id === state.activeConnectionId);
+  const active = connections.find((c) => c.id === session.activeConnectionId);
+  return active ? docToConnection(active) : undefined;
 }
 
 export async function setConnection(connection: DatabaseConnection): Promise<void> {
-  const state = await getAppState();
-  const idx = state.connections.findIndex((c) => c.id === connection.id);
-  if (idx >= 0) {
-    state.connections[idx] = connection;
+  const clientId = await getClientId();
+  const existing = (await db.getConnections(clientId)).find((c) => c.id === connection.id);
+  if (existing) {
+    await db.updateConnection(clientId, connection.id, connectionToDoc(connection, connection.id));
   } else {
-    state.connections.push(connection);
+    await db.addConnection(clientId, connectionToDoc(connection, connection.id));
   }
-  state.activeConnectionId = connection.id;
-  saveState();
+  await db.saveSessionData(clientId, { activeConnectionId: connection.id });
 }
 
+// ── Query Mode ────────────────────────────────────────────────────────────────
+
 export async function getQueryMode(): Promise<QueryMode> {
-  const state = await getAppState();
-  return state.queryMode;
+  const clientId = await getClientId();
+  const session = await db.getSessionData(clientId);
+  return session?.queryMode || 'crud';
 }
 
 export async function setQueryMode(mode: QueryMode): Promise<void> {
-  const state = await getAppState();
-  state.queryMode = mode;
-  saveState();
+  const clientId = await getClientId();
+  await db.saveSessionData(clientId, { queryMode: mode });
 }
 
-/**
- * Persist a query history record to the `query_history` Supabase table.
- * Called by /api/history/sync when the client queue drains a record.
- *
- * NOTE: The `session_id` column name is retained for compatibility with
- * existing rows — the DB column is intentionally NOT renamed (see
- * migration notes in the "session → app-state" refactor).
- */
+// ── Query History (MongoDB-backed) ────────────────────────────────────────────
+//
+// Query history is the single source of truth for execution metrics
+// (executionTime, rowsScanned, cpuUsage, etc.) and survives page reloads
+// because it is persisted server-side in MongoDB.
+
 export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<void> {
   const clientId = await getClientId();
-
-  // Only write columns that exist in the Supabase table.
-  // The following columns are missing and will need to be added via a
-  // migration (see comment below): query_type, connection_id,
-  // connection_name, rows_affected, execution_time, rows_scanned,
-  // rows_returned, cpu_usage, memory_usage.
-  // Until those are added, we store their values inside a single JSON
-  // `meta` object in the `error` column won't work — instead we put them
-  // in the `timeline` array's first entry as metadata. Actually, the
-  // simplest approach: store extra fields inside the `timeline` array.
-  //
-  // For now, just write the columns that exist so sync succeeds.
-
-  // Build the insert payload with only known-good columns.
-  const row: Record<string, unknown> = {
-    session_id: clientId,
-    prompt: item.prompt || '',
-    sql: item.sql,
-    timestamp: new Date(item.timestamp).toISOString(),
-    success: item.success,
-    error: item.error || null,
-    indexes_used: item.indexesUsed || [],
-    timeline: item.timeline || [],
-  };
-
-  // Bundle the metrics that have no dedicated column into the timeline
-  // as a synthetic "meta" step so they aren't lost. This is backwards-
-  // compatible: readers that only care about real timeline steps can
-  // filter by type !== 'meta'.
-  const metrics: Record<string, unknown> = {};
-  if (item.queryType) metrics.queryType = item.queryType;
-  if (item.connectionId) metrics.connectionId = item.connectionId;
-  if (item.connectionName) metrics.connectionName = item.connectionName;
-  if (item.rowsAffected) metrics.rowsAffected = item.rowsAffected;
-  if (item.executionTime) metrics.executionTime = item.executionTime;
-  if (item.rowsScanned) metrics.rowsScanned = item.rowsScanned;
-  if (item.rowsReturned) metrics.rowsReturned = item.rowsReturned;
-  if (item.cpuUsage) metrics.cpuUsage = item.cpuUsage;
-  if (item.memoryUsage) metrics.memoryUsage = item.memoryUsage;
-  if (Object.keys(metrics).length > 0) {
-    const existingTimeline = (row.timeline as unknown[]) || [];
-    row.timeline = [
-      { id: 'meta', type: 'meta', sql: '', timestamp: item.timestamp, success: true, ...metrics },
-      ...existingTimeline,
-    ];
-  }
-
-  const { error } = await supabase.from('query_history').insert(row);
-
-  if (error) {
-    // Surface the error so /api/history/sync returns 500 and the client
-    // queue retries. Previously this was silently swallowed, which made a
-    // failed insert look successful and removed the record from the pending
-    // queue (losing the server-side copy).
-    throw new Error(`Failed to insert query history: ${error.message}`);
-  }
+  await db.insertQueryHistory(clientId, item);
 }
 
-export async function getHistory(): Promise<QueryHistoryItem[]> {
+export async function getHistory(
+  options?: { limit?: number; offset?: number },
+): Promise<{ items: QueryHistoryItem[]; total: number }> {
   const clientId = await getClientId();
-
-  const { data, error } = await supabase
-    .from('query_history')
-    .select('*')
-    .eq('session_id', clientId)
-    .order('timestamp', { ascending: false })
-    .limit(50);
-
-  if (error) {
-    console.error('[supabase] Failed to fetch history:', error.message);
-    return [];
-  }
-
-  return (data || []).map((row) => {
-    // Extract metrics from the synthetic "meta" timeline step that was
-    // inserted by addToHistory (for columns that don't exist in the table).
-    const timeline: unknown[] = row.timeline || [];
-    const metaStep = timeline.find((s: any) => s && s.type === 'meta');
-    const realTimeline = timeline.filter((s: any) => s && s.type !== 'meta');
-
-    return {
-      id: row.id,
-      prompt: row.prompt || '',
-      sql: row.sql,
-      timestamp: new Date(row.timestamp).getTime(),
-      success: row.success,
-      error: row.error || undefined,
-      queryType: metaStep?.queryType || row.query_type || undefined,
-      connectionId: metaStep?.connectionId || row.connection_id || undefined,
-      connectionName: metaStep?.connectionName || row.connection_name || undefined,
-      rowsAffected: metaStep?.rowsAffected || row.rows_affected || undefined,
-      executionTime: metaStep?.executionTime || row.execution_time || undefined,
-      rowsScanned: metaStep?.rowsScanned || row.rows_scanned || undefined,
-      rowsReturned: metaStep?.rowsReturned || row.rows_returned || undefined,
-      cpuUsage: metaStep?.cpuUsage || row.cpu_usage || undefined,
-      memoryUsage: metaStep?.memoryUsage || row.memory_usage || undefined,
-      indexesUsed: row.indexes_used || undefined,
-      timeline: realTimeline.length > 0 ? realTimeline : undefined,
-    };
-  });
+  return db.getQueryHistory(clientId, options);
 }
 
 export async function clearHistory(): Promise<void> {
   const clientId = await getClientId();
-
-  const { error } = await supabase
-    .from('query_history')
-    .delete()
-    .eq('session_id', clientId);
-
-  if (error) {
-    console.error('[supabase] Failed to clear history:', error.message);
-  }
+  await db.clearQueryHistory(clientId);
 }
 
+// ── Pending Timeline (for mutation approval flow) ─────────────────────────────
+
 export async function getPendingTimeline(): Promise<TimelineStep[] | undefined> {
-  const state = await getAppState();
-  return state.pendingTimeline;
+  const clientId = await getClientId();
+  const session = await db.getSessionData(clientId);
+  return session?.pendingTimeline;
 }
 
 export async function setPendingTimeline(timeline: TimelineStep[]): Promise<void> {
-  const state = await getAppState();
-  state.pendingTimeline = timeline;
-  saveState();
+  const clientId = await getClientId();
+  await db.saveSessionData(clientId, { pendingTimeline: timeline });
 }
 
 export async function clearPendingTimeline(): Promise<void> {
-  const state = await getAppState();
-  delete state.pendingTimeline;
-  saveState();
+  const clientId = await getClientId();
+  await db.saveSessionData(clientId, { pendingTimeline: undefined });
 }
 
+// ── API Keys ──────────────────────────────────────────────────────────────────
+
 export async function getAnthropicApiKey(): Promise<string | undefined> {
-  const state = await getAppState();
-  if (state.anthropicApiKey?.trim()) {
-    return state.anthropicApiKey.trim();
+  const clientId = await getClientId();
+  const keys = await db.getApiKeys(clientId);
+  if (keys?.anthropicApiKey?.trim()) {
+    return keys.anthropicApiKey.trim();
   }
   if (process.env.ANTHROPIC_API_KEY) {
     return process.env.ANTHROPIC_API_KEY;
@@ -297,15 +198,13 @@ export async function getAnthropicApiKey(): Promise<string | undefined> {
 }
 
 export async function setAnthropicApiKey(apiKey: string): Promise<void> {
-  const state = await getAppState();
-  state.anthropicApiKey = apiKey;
-  saveState();
+  const clientId = await getClientId();
+  await db.saveApiKeys(clientId, { anthropicApiKey: apiKey });
 }
 
 export async function clearAnthropicApiKey(): Promise<void> {
-  const state = await getAppState();
-  delete state.anthropicApiKey;
-  saveState();
+  const clientId = await getClientId();
+  await db.saveApiKeys(clientId, { anthropicApiKey: undefined });
 }
 
 export async function getAnthropicKeyInfo(): Promise<{
@@ -321,8 +220,9 @@ export async function getAnthropicKeyInfo(): Promise<{
     };
   }
 
-  const state = await getAppState();
-  const clientKey = state.anthropicApiKey?.trim();
+  const clientId = await getClientId();
+  const keys = await db.getApiKeys(clientId);
+  const clientKey = keys?.anthropicApiKey?.trim();
   if (clientKey) {
     return {
       configured: true,
@@ -340,9 +240,10 @@ function maskApiKey(key: string): string {
 }
 
 export async function getGroqApiKey(): Promise<string | undefined> {
-  const state = await getAppState();
-  if (state.groqApiKey?.trim()) {
-    return state.groqApiKey.trim();
+  const clientId = await getClientId();
+  const keys = await db.getApiKeys(clientId);
+  if (keys?.groqApiKey?.trim()) {
+    return keys.groqApiKey.trim();
   }
   if (process.env.GROQ_API_KEY?.trim()) {
     return process.env.GROQ_API_KEY.trim();
@@ -351,15 +252,13 @@ export async function getGroqApiKey(): Promise<string | undefined> {
 }
 
 export async function setGroqApiKey(apiKey: string): Promise<void> {
-  const state = await getAppState();
-  state.groqApiKey = apiKey;
-  saveState();
+  const clientId = await getClientId();
+  await db.saveApiKeys(clientId, { groqApiKey: apiKey });
 }
 
 export async function clearGroqApiKey(): Promise<void> {
-  const state = await getAppState();
-  delete state.groqApiKey;
-  saveState();
+  const clientId = await getClientId();
+  await db.saveApiKeys(clientId, { groqApiKey: undefined });
 }
 
 export async function getAiApiKey(): Promise<
@@ -384,8 +283,10 @@ export async function getAiKeyInfo(): Promise<{
   source: 'env' | 'client' | 'none';
   maskedKey?: string;
 }> {
-  const state = await getAppState();
-  const groqKey = state.groqApiKey?.trim();
+  const clientId = await getClientId();
+  const keys = await db.getApiKeys(clientId);
+
+  const groqKey = keys?.groqApiKey?.trim();
   if (groqKey) {
     return {
       configured: true,
@@ -395,7 +296,7 @@ export async function getAiKeyInfo(): Promise<{
     };
   }
 
-  const clientKey = state.anthropicApiKey?.trim();
+  const clientKey = keys?.anthropicApiKey?.trim();
   if (clientKey) {
     return {
       configured: true,
@@ -451,6 +352,8 @@ export async function isAiConfigured(): Promise<boolean> {
   return !!config?.key;
 }
 
+// ── Validation ────────────────────────────────────────────────────────────────
+
 export function validateConnection(connection: Partial<DatabaseConnection>): { valid: boolean; error?: string } {
   if (!connection.type) {
     return { valid: false, error: 'Database type is required' };
@@ -473,4 +376,34 @@ export function validateConnection(connection: Partial<DatabaseConnection>): { v
   }
 
   return { valid: true };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function docToConnection(doc: db.ConnectionDoc): DatabaseConnection {
+  return {
+    id: doc.id,
+    type: doc.type,
+    name: doc.name,
+    host: doc.host,
+    port: doc.port,
+    user: doc.user,
+    password: doc.password,
+    database: doc.database,
+    filepath: doc.filepath,
+  };
+}
+
+function connectionToDoc(connection: DatabaseConnection, id: string): Omit<db.ConnectionDoc, 'sessionId' | 'updatedAt'> {
+  return {
+    id,
+    type: connection.type,
+    name: connection.name,
+    host: connection.host,
+    port: connection.port,
+    user: connection.user,
+    password: connection.password,
+    database: connection.database,
+    filepath: connection.filepath,
+  };
 }

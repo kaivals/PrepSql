@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClientId } from '@/lib/app-state';
-import { supabase } from '@/lib/supabase';
+import * as db from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,17 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const clientId = await getClientId();
-
-    const { error } = await supabase.from('analysis_results').insert({
-      session_id: clientId,
-      action,
-      target_sql: targetSql || null,
-      result,
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
+    await db.insertAnalysisResult(clientId, action, targetSql || null, result);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -39,19 +29,8 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     const clientId = await getClientId();
-
-    const { data, error } = await supabase
-      .from('analysis_results')
-      .select('*')
-      .eq('session_id', clientId)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return NextResponse.json({ analyses: data || [] });
+    const analyses = await db.getAnalysisResults(clientId, 10);
+    return NextResponse.json({ analyses });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to load analyses' },

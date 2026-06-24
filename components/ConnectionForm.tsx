@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { POSTGRES_DEFAULTS, loadSavedConnection, saveConnection } from '@/lib/connection-defaults';
+import { POSTGRES_DEFAULTS } from '@/lib/connection-defaults';
 import type { DatabaseConnection } from '@/lib/types';
 
 interface Props {
   onConnected: (connection: DatabaseConnection) => void;
   isLoading?: boolean;
   autoConnect?: boolean;
-  /** When true, pre-fill form from saved localStorage credentials (for auto-reconnect).
+  /** When true, pre-fill form from server-side saved credentials (for auto-reconnect).
    *  When false (default), start with a blank/generic form for a brand-new connection. */
   prefillSaved?: boolean;
 }
@@ -35,26 +35,13 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
   };
 
   useEffect(() => {
-    if (prefillSaved) {
-      // Auto-reconnect path: restore from saved credentials
-      const saved = loadSavedConnection();
-      if (saved) {
-        setDbType(saved.type);
-        setName(saved.name || POSTGRES_DEFAULTS.name);
-        setHost(saved.host || POSTGRES_DEFAULTS.host);
-        setPort(String(saved.port || POSTGRES_DEFAULTS.port));
-        setUser(saved.user || POSTGRES_DEFAULTS.user);
-        setDatabase(saved.database || POSTGRES_DEFAULTS.database);
-        setPassword(saved.password || '');
-        if (saved.filepath) setFilepath(saved.filepath);
-      }
-    } else {
-      // New connection path: start completely blank so user must fill in fresh details.
-      // Keep the POSTGRES_DEFAULTS for host/port/user as hints, but clear name, password, database.
-      setName('');
-      setPassword('');
-      setDatabase('');
-    }
+    // New connection path: start blank so the user must fill in fresh details.
+    // Keep the POSTGRES_DEFAULTS for host/port/user as hints, but clear name,
+    // password, and database. Credentials are persisted server-side via
+    // /api/connection (which calls db.saveSavedConnection in MongoDB).
+    setName('');
+    setPassword('');
+    setDatabase('');
     setReady(true);
   }, [prefillSaved]);
 
@@ -108,16 +95,8 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
       }
 
       const data = await res.json();
-      saveConnection({
-        type: dbType,
-        name: payload.name,
-        host: payload.host,
-        port: payload.port,
-        user: payload.user,
-        password: payload.password,
-        database: payload.database,
-        filepath: payload.filepath,
-      });
+      // Connection credentials are persisted server-side by /api/connection
+      // (app-state.addConnection -> db.saveSavedConnection in MongoDB).
       onConnected(data.connection);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
