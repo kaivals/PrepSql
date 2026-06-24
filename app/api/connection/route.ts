@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  getClientId,
   getConnections,
   addConnection,
   removeConnection,
@@ -7,8 +8,9 @@ import {
   getConnection,
   validateConnection,
   stripPassword,
-} from '@/lib/session';
+} from '@/lib/app-state';
 import { testConnection } from '@/lib/database';
+import { saveSavedConnection } from '@/lib/db';
 import type { DatabaseConnection } from '@/lib/types';
 
 export async function GET() {
@@ -51,6 +53,19 @@ export async function POST(request: NextRequest) {
       password: typeof body.password === 'string' ? body.password : '',
       database: body.database,
       filepath: body.filepath,
+    });
+
+    // Persist credentials for auto-reconnect on page reload.
+    const clientId = await getClientId();
+    await saveSavedConnection(clientId, {
+      type: connection.type,
+      name: connection.name,
+      host: connection.host,
+      port: connection.port,
+      user: connection.user,
+      password: connection.password,
+      database: connection.database,
+      filepath: connection.filepath,
     });
 
     return NextResponse.json({

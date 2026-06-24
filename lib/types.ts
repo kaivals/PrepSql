@@ -1,6 +1,17 @@
 export type DatabaseType = 'sqlite' | 'postgresql' | 'mysql' | 'mariadb'
 export type QueryMode = 'crud' | 'analytics' | 'schema'
 
+/** Coarse classification of an executed statement, derived from the SQL verb. */
+export type QueryType =
+  | 'select'
+  | 'insert'
+  | 'update'
+  | 'delete'
+  | 'create'
+  | 'alter'
+  | 'drop'
+  | 'other'
+
 export interface TokenUsage {
   promptTokens: number
   completionTokens: number
@@ -48,6 +59,17 @@ export interface QueryResult {
   truncated?: boolean
 }
 
+export interface TimelineStep {
+  id: string
+  type: 'initial_ai' | 'validation' | 'schema_discovery' | 'optimization_rewrite' | 'final_executed'
+  sql: string
+  timestamp: number
+  success: boolean
+  executionTime?: number
+  rowsAffected?: number
+  error?: string
+}
+
 export interface QueryHistoryItem {
   id: string
   prompt: string
@@ -55,6 +77,11 @@ export interface QueryHistoryItem {
   timestamp: number
   success: boolean
   error?: string
+  /** Classified statement type (select / insert / update / delete / create / alter / drop / other). */
+  queryType?: QueryType
+  /** Connection the query ran against, captured at execution time. */
+  connectionId?: string
+  connectionName?: string
   rowsAffected?: number
   executionTime?: number
   rowsScanned?: number
@@ -62,4 +89,12 @@ export interface QueryHistoryItem {
   cpuUsage?: number
   memoryUsage?: number
   indexesUsed?: string[]
+  timeline?: TimelineStep[]
+  principlesValidation?: {
+    dry: { status: 'follows' | 'violates' | 'n/a'; description: string }
+    yagni: { status: 'follows' | 'violates' | 'n/a'; description: string }
+    kiss: { status: 'follows' | 'violates' | 'n/a'; description: string }
+    solid: { status: 'follows' | 'violates' | 'n/a'; description: string }
+    concerns: string[]
+  }
 }

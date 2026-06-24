@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { saveStoredApiKey } from '@/lib/api-key-storage';
 
 interface SettingsModalProps {
   open: boolean;
@@ -14,7 +13,7 @@ interface SettingsModalProps {
 interface KeyInfo {
   configured: boolean;
   provider?: 'groq' | 'anthropic';
-  source: 'env' | 'session' | 'none';
+  source: 'env' | 'client' | 'none';
   maskedKey?: string;
 }
 
@@ -64,7 +63,6 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save API key');
 
-      saveStoredApiKey(apiKey.trim());
       setApiKey('');
       setSuccess('API key saved successfully.');
       setInfo(data);
@@ -77,7 +75,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
   };
 
   const handleRemove = async () => {
-    if (!confirm('Remove the saved API key from this session?')) return;
+    if (!confirm('Remove the saved API key?')) return;
 
     setSaving(true);
     setError('');
@@ -91,8 +89,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to remove API key');
 
-      saveStoredApiKey('');
-      setSuccess(data.configured ? 'Session key removed. Falling back to .env.local key.' : 'API key removed.');
+      setSuccess(data.configured ? 'Saved key removed. Falling back to .env.local key.' : 'API key removed.');
       setInfo({
         configured: data.configured,
         source: data.source,
@@ -185,7 +182,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                   <Button type="submit" disabled={saving || !apiKey.trim()}>
                     {saving ? 'Saving...' : info?.configured ? 'Update key' : 'Save key'}
                   </Button>
-                  {info?.configured && info.source === 'session' && (
+                  {info?.configured && info.source === 'client' && (
                     <Button
                       type="button"
                       variant="outline"

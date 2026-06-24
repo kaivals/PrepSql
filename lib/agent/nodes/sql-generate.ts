@@ -2,8 +2,9 @@ import { ChatGroq } from '@langchain/groq';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { buildSystemPrompt } from '../prompts/system';
 import { getFewShotExamples } from '../prompts/few-shot';
-import { getQueryMode, getGroqApiKey } from '../../session';
+import { getQueryMode, getGroqApiKey } from '../../app-state';
 import type { AgentStateType } from '../state';
+import { logQueryStep } from '../../query-logger';
 
 export async function sqlGenerateNode(
   state: AgentStateType
@@ -72,6 +73,12 @@ export async function sqlGenerateNode(
       }
     ).usage_metadata;
 
+    logQueryStep({
+      type: state.retryCount > 0 ? 'optimization_rewrite' : 'initial_ai',
+      sql: generatedSQL,
+      success: true,
+    });
+
     return {
       generatedSQL,
       explanation,
@@ -90,6 +97,14 @@ export async function sqlGenerateNode(
     };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'LLM call failed';
+
+    logQueryStep({
+      type: state.retryCount > 0 ? 'optimization_rewrite' : 'initial_ai',
+      sql: `-- Failed to generate SQL: ${errMsg}`,
+      success: false,
+      error: errMsg,
+    });
+
     return {
       error: errMsg,
       finalResponse: {

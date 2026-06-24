@@ -88,7 +88,9 @@ PrepSQL is a modern web application that uses Claude AI to generate SQL queries 
 
 ### Backend Modules
 
-- **lib/session.ts** - Session management and credential storage
+- **lib/app-state.ts** - Session management and credential storage (MongoDB-backed)
+- **lib/db.ts** - MongoDB data access layer (query history, analysis, chat, connections, API keys, settings)
+- **lib/mongodb.ts** - MongoDB connection singleton
 - **lib/database.ts** - Database connection handling for multiple databases
 - **lib/claude.ts** - Anthropic Claude API integration
 

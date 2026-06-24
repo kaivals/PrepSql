@@ -3,7 +3,7 @@ import {
   clearAiApiKey,
   getAiKeyInfo,
   setAiApiKey,
-} from '@/lib/session';
+} from '@/lib/app-state';
 
 export async function GET() {
   const info = await getAiKeyInfo();

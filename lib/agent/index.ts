@@ -1,7 +1,7 @@
 import { Command } from '@langchain/langgraph';
 import { HumanMessage } from '@langchain/core/messages';
 import { graph } from './graph';
-import { getConnection } from '../session';
+import { getConnection } from '../app-state';
 
 export interface RunAgentInput {
   prompt: string;

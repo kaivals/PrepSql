@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { addConnection, getConnections } from '@/lib/session';
+import { addConnection, getConnections } from '@/lib/app-state';
 import { testConnection } from '@/lib/database';
 import { ensureDemoDatabase, getDemoConnection, DEMO_DB_NAME } from '@/lib/demo-db';
 

@@ -3,6 +3,7 @@
 import { validateAndCorrectSQL } from '../../sql-validator';
 import type { AgentStateType } from '../state';
 import type { SchemaTable } from '../../types';
+import { logQueryStep } from '../../query-logger';
 
 const MUTATION_PATTERNS = /\b(DELETE|UPDATE|DROP|ALTER|INSERT)\b/i;
 
@@ -32,6 +33,13 @@ export async function validateAndSafetyNode(
       ?.map(t => `- ${t.name} (${t.columns.map(c => c.name).join(', ')})`)
       .join('\n') ?? '';
 
+    logQueryStep({
+      type: 'validation',
+      sql: `-- Validation Failed: Unknown tables: ${validation.unknownTables.join(', ')}`,
+      success: false,
+      error: `Unknown tables: ${validation.unknownTables.join(', ')}`,
+    });
+
     return {
       generatedSQL: "",
       error: `Unknown tables: ${validation.unknownTables.join(', ')}`,
@@ -58,6 +66,12 @@ export async function validateAndSafetyNode(
     identifierCorrections: result.corrections,
     unmatchedIdentifiers: result.unmatchedIdentifiers,
   };
+
+  logQueryStep({
+    type: 'validation',
+    sql: `-- Validation Check: Standardizing identifiers & safety check\n-- Corrected SQL Casing/Quotes: ${standardizedSQL}${result.corrections.length > 0 ? `\n-- Corrections applied: ${result.corrections.join(', ')}` : ''}`,
+    success: true,
+  });
 
   if (state.finalResponse) {
     update.finalResponse = {

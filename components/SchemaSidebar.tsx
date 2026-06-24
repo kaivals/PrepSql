@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   ArrowLeft,
   ChevronRight,
   Clock,
   Table2,
   Key,
+  AlertCircle,
 } from 'lucide-react';
 import type { DatabaseConnection, QueryHistoryItem, SchemaTable } from '@/lib/types';
 import { buildSelectPreview } from '@/lib/schema-format';
@@ -18,6 +19,7 @@ interface SchemaSidebarProps {
   onSelectQuery: (sql: string) => void;
   onSelectTable?: (tableName: string) => void;
   refreshTrigger?: number;
+  selectedTable?: string | null;
 }
 
 export function SchemaSidebar({
@@ -26,13 +28,23 @@ export function SchemaSidebar({
   onSelectQuery,
   onSelectTable,
   refreshTrigger,
+  selectedTable,
 }: SchemaSidebarProps) {
   const [tab, setTab] = useState<'schema' | 'history' | 'indexes'>('schema');
   const [tables, setTables] = useState<SchemaTable[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // History is fetched from the server-side MongoDB store via /api/history.
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const HISTORY_PAGE_SIZE = 5;
   const [loading, setLoading] = useState(true);
 
+  // Refs for scrolling table items into view
+  const tableItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  // Fetch schema tables
   useEffect(() => {
     const loadSchema = async () => {
       try {
@@ -50,20 +62,55 @@ export function SchemaSidebar({
     loadSchema();
   }, [connection.id, refreshTrigger]);
 
+  // Auto-expand and scroll when selectedTable changes
   useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const res = await fetch('/api/history');
-        if (res.ok) {
-          const data = await res.json();
-          setHistory(data.history || []);
-        }
-      } catch (err) {
-        console.error('Failed to load history:', err);
+    if (selectedTable) {
+      setExpanded((prev) => {
+        if (prev.has(selectedTable)) return prev;
+        const next = new Set(prev);
+        next.add(selectedTable);
+        return next;
+      });
+      requestAnimationFrame(() => {
+        const el = tableItemRefs.current.get(selectedTable);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+  }, [selectedTable]);
+
+  // Fetch history from the server-side MongoDB store.
+  const loadHistoryPage = useCallback(async (offset: number, append = false) => {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch(
+        `/api/history?limit=${HISTORY_PAGE_SIZE}&offset=${offset}`,
+        { credentials: 'same-origin' },
+      );
+      if (!res.ok) {
+        throw new Error('Failed to load history');
       }
-    };
-    loadHistory();
-  }, [refreshTrigger]);
+      const data = await res.json();
+      const items: QueryHistoryItem[] = data.history || [];
+      setHasMoreHistory(items.length >= HISTORY_PAGE_SIZE);
+      setHistory((prev) => (append ? [...prev, ...items] : items));
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : 'Failed to load history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  // Load history page when switching to history tab or when refreshTrigger changes
+  useEffect(() => {
+    if (tab === 'history') {
+      loadHistoryPage(0);
+    }
+  }, [tab, refreshTrigger, loadHistoryPage]);
+
+  const loadMoreHistory = () => {
+    loadHistoryPage(history.length, true);
+  };
 
   const toggleTable = (name: string) => {
     setExpanded((prev) => {
@@ -152,6 +199,9 @@ export function SchemaSidebar({
               {tables.map((table) => (
                 <div key={table.name}>
                   <button
+                    ref={(el) => {
+                      if (el) tableItemRefs.current.set(table.name, el);
+                    }}
                     type="button"
                     onClick={() => {
                       toggleTable(table.name);
@@ -159,7 +209,12 @@ export function SchemaSidebar({
                     }}
                     onDoubleClick={() => onSelectQuery(buildSelectPreview(table, connection.type))}
                     title="Click to select & expand · Double-click to preview rows"
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+                      selectedTable === table.name
+                        ? 'bg-primary/10 font-medium text-foreground'
+                        : 'hover:bg-muted/60'
+                    )}
                   >
                     <ChevronRight
                       className={cn(
@@ -173,9 +228,9 @@ export function SchemaSidebar({
                   </button>
                   {expanded.has(table.name) && (
                     <div className="ml-7 space-y-0.5 pb-1">
-                      {table.columns.map((col) => (
+                      {table.columns.map((col, ci) => (
                         <div
-                          key={col.name}
+                          key={`${table.name}-${col.name}-${ci}`}
                           className="flex items-center justify-between px-2 py-0.5 text-xs text-muted-foreground"
                         >
                           <span>{col.name}</span>
@@ -232,28 +287,58 @@ export function SchemaSidebar({
                 ))}
             </div>
           )
-        ) : history.length === 0 ? (
-          <p className="p-3 text-sm text-muted-foreground">No queries yet</p>
-        ) : (
-          <div className="space-y-1 p-1">
-            {history.map((item) => (
+        ) : tab === 'history' ? (
+          // History tab — server-driven with loading/error/empty states
+          historyLoading && history.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+              <p className="text-xs text-muted-foreground">Loading history...</p>
+            </div>
+          ) : historyError && history.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8">
+              <AlertCircle className="h-5 w-5 text-red-400" />
+              <p className="text-xs text-muted-foreground">{historyError}</p>
               <button
-                key={item.id}
                 type="button"
-                onClick={() => onSelectQuery(item.sql)}
-                className={cn(
-                  'w-full rounded-md border p-2 text-left text-xs transition-colors',
-                  item.success
-                    ? 'border-border hover:bg-muted/50'
-                    : 'border-red-200 bg-red-50 hover:bg-red-100'
-                )}
+                onClick={() => loadHistoryPage(0)}
+                className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
               >
-                <div className="truncate font-mono">{item.sql.substring(0, 50)}</div>
-                <div className="mt-1 text-muted-foreground">{formatTime(item.timestamp)}</div>
+                Retry
               </button>
-            ))}
-          </div>
-        )}
+            </div>
+          ) : history.length === 0 ? (
+            <p className="p-3 text-sm text-muted-foreground">No queries yet</p>
+          ) : (
+            <div className="space-y-1 p-1">
+              {history.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelectQuery(item.sql)}
+                  className={cn(
+                    'w-full rounded-md border p-2 text-left text-xs transition-colors',
+                    item.success
+                      ? 'border-border hover:bg-muted/50'
+                      : 'border-red-200 bg-red-50 hover:bg-red-100'
+                  )}
+                >
+                  <div className="truncate font-mono">{item.sql.substring(0, 50)}</div>
+                  <div className="mt-1 text-muted-foreground">{formatTime(item.timestamp)}</div>
+                </button>
+              ))}
+              {hasMoreHistory && (
+                <button
+                  type="button"
+                  onClick={loadMoreHistory}
+                  disabled={historyLoading}
+                  className="w-full rounded-md border border-dashed border-border py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:opacity-50"
+                >
+                  {historyLoading ? 'Loading...' : 'Load more'}
+                </button>
+              )}
+            </div>
+          )
+        ) : null}
       </div>
     </aside>
   );

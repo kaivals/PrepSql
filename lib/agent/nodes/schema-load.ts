@@ -2,7 +2,7 @@ import type { AgentStateType } from '../state';
 import type { SchemaTable } from '../../types';
 import { introspectSchema } from '../../schema';
 import { formatSchemaForPrompt } from '../../schema-format';
-import { getConnection } from '../../session';
+import { getConnection } from '../../app-state';
 
 // ---------------------------------------------------------------------------
 // Simple in-memory cache with 5-minute TTL

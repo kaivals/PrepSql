@@ -1,5 +1,5 @@
 import type { DatabaseConnection } from './types';
-import { loadSavedConnection, type SavedConnection } from './connection-defaults';
+import type { SavedConnection } from './connection-defaults';
 
 export function canAutoConnect(saved: SavedConnection | null): boolean {
   if (!saved) return false;
@@ -41,6 +41,22 @@ export async function connectWithCredentials(
   return data.connection as DatabaseConnection;
 }
 
+/**
+ * Load the saved connection credentials from the server-side store (MongoDB).
+ * Returns null if no saved connection exists or on error.
+ */
+async function loadSavedConnectionFromServer(): Promise<SavedConnection | null> {
+  try {
+    const res = await fetch('/api/saved-connection', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.connection) return null;
+    return data.connection as SavedConnection;
+  } catch {
+    return null;
+  }
+}
+
 export async function ensureServerConnection(): Promise<DatabaseConnection | null> {
   const statusRes = await fetch('/api/connection', { credentials: 'same-origin' });
   if (!statusRes.ok) return null;
@@ -55,13 +71,13 @@ export async function ensureServerConnection(): Promise<DatabaseConnection | nul
     await fetch('/api/connection', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
       body: JSON.stringify({ id: first.id }),
     });
     return first;
   }
 
-  const saved = loadSavedConnection();
+  // Fallback: try to auto-reconnect using server-side saved credentials
+  const saved = await loadSavedConnectionFromServer();
   if (!canAutoConnect(saved)) return null;
 
   try {

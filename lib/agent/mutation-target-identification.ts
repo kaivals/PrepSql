@@ -1,7 +1,7 @@
 import type { BaseMessage } from '@langchain/core/messages';
 import type { SchemaTable } from '../types';
 import { getOrCreatePool, executeQuery } from '../database';
-import { getConnection } from '../session';
+import { getConnection } from '../app-state';
 import { quotePgTable, quotePgColumn } from '../pg-identifiers';
 
 export interface TargetIdentifiers {

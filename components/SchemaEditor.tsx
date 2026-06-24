@@ -1,9 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, Key, Table2, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, Save, Key, Table2, ShieldAlert, AlertTriangle } from 'lucide-react';
 import type { DatabaseConnection, SchemaColumn, SchemaTable } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+/** Result from the server-side NULL check endpoint. */
+interface NullColumnInfo {
+  column: string;
+  columnName: string;
+  nullCount: number;
+  type: string;
+  backfillSql: string;
+  description: string;
+}
+
+interface NullCheckResult {
+  columns: NullColumnInfo[];
+  needsBackfill: boolean;
+}
 
 interface SchemaEditorProps {
   connection: DatabaseConnection;
@@ -65,6 +80,8 @@ export function SchemaEditor({
   const [originalColumns, setOriginalColumns] = useState<SchemaColumn[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [nullWarnings, setNullWarnings] = useState<NullColumnInfo[]>([]);
+  const [checkingNulls, setCheckingNulls] = useState(false);
 
   // Load schema for selected table
   useEffect(() => {
@@ -102,7 +119,8 @@ export function SchemaEditor({
         <Table2 className="mb-4 h-12 w-12 text-muted-foreground/60" />
         <h2 className="text-xl font-semibold tracking-tight">Schema Editor</h2>
         <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          Select a table from the sidebar schema explorer to view, add, modify, or delete columns and constraints.
+          Click the <span className="font-medium text-foreground">Schema Editor</span> button in the
+          header and pick a table to view, add, modify, or delete columns and constraints.
         </p>
       </div>
     );
@@ -161,11 +179,59 @@ export function SchemaEditor({
     setColumns(updated);
   };
 
+  /**
+   * Identify columns being changed from nullable to NOT NULL.
+   * These are the candidates that need a NULL-value check.
+   */
+  const getNotNullCandidates = (): { columnName: string; type: string }[] => {
+    const candidates: { columnName: string; type: string }[] = [];
+    columns.forEach((c) => {
+      if (c.isNew || c.isDeleted) return;
+      const origName = c.originalName || c.name;
+      const origCol = originalColumns.find((o) => o.name === origName);
+      if (origCol && origCol.nullable && !c.nullable) {
+        candidates.push({ columnName: c.name, type: c.type });
+      }
+    });
+    return candidates;
+  };
+
+  /**
+   * Query the server to check whether any of the given columns contain NULL values.
+   */
+  const fetchNullCheck = async (
+    candidates: { columnName: string; type: string }[]
+  ): Promise<NullColumnInfo[]> => {
+    if (candidates.length === 0 || connection.type === 'sqlite') return [];
+
+    setCheckingNulls(true);
+    try {
+      const res = await fetch('/api/schema/null-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table: selectedTable, columns: candidates }),
+      });
+      if (!res.ok) return [];
+      const data: NullCheckResult = await res.json();
+      return data.columns || [];
+    } catch {
+      return [];
+    } finally {
+      setCheckingNulls(false);
+    }
+  };
+
   // Generate DDL statements
-  const getMigrationStatements = (): string[] => {
+  const getMigrationStatements = (backfillColumns: NullColumnInfo[] = []): string[] => {
     const sqls: string[] = [];
     const dbType = connection.type;
     const activeCols = columns.filter((c) => !c.isDeleted);
+
+    // Build a set of column names that need backfill, for quick lookup.
+    const backfillSet = new Map<string, string>();
+    for (const bc of backfillColumns) {
+      backfillSet.set(bc.columnName, bc.backfillSql);
+    }
 
     if (dbType === 'sqlite') {
       // Table recreate pattern for SQLite due to ALTER TABLE limits
@@ -187,6 +253,15 @@ export function SchemaEditor({
       const tempTableName = `${selectedTable}_temp_migration`;
       sqls.push(`PRAGMA foreign_keys=OFF;`);
       sqls.push(`BEGIN TRANSACTION;`);
+
+      // Before recreating the table, backfill NULLs in columns becoming NOT NULL
+      // so the INSERT INTO ... SELECT doesn't fail.
+      if (backfillColumns.length > 0) {
+        for (const bc of backfillColumns) {
+          sqls.push(bc.backfillSql.replace(/`/g, '"').replace(/"/g, '"'));
+        }
+      }
+
       sqls.push(`CREATE TABLE "${tempTableName}" (\n  ${colDefs.join(',\n  ')}\n);`);
 
       // Copy matching data columns
@@ -272,9 +347,21 @@ export function SchemaEditor({
                 if (c.nullable) {
                   sqls.push(`ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} DROP NOT NULL;`);
                 } else {
+                  // Before adding NOT NULL, backfill any existing NULLs
+                  const backfill = backfillSet.get(c.name);
+                  if (backfill) {
+                    sqls.push(backfill);
+                  }
                   sqls.push(`ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} SET NOT NULL;`);
                 }
               } else {
+                if (!c.nullable) {
+                  // Before MODIFY COLUMN ... NOT NULL, backfill any existing NULLs
+                  const backfill = backfillSet.get(c.name);
+                  if (backfill) {
+                    sqls.push(backfill);
+                  }
+                }
                 sqls.push(`ALTER TABLE ${tblEscaped} MODIFY COLUMN ${colEscaped} ${c.type} ${c.nullable ? 'NULL' : 'NOT NULL'};`);
               }
             }
@@ -300,7 +387,7 @@ export function SchemaEditor({
     return sqls;
   };
 
-  const handleSaveSchema = () => {
+  const handleSaveSchema = async () => {
     const statements = getMigrationStatements();
 
     if (statements.length === 0) {
@@ -308,10 +395,31 @@ export function SchemaEditor({
       return;
     }
 
-    const migrationSql = statements.join('\n');
+    // Check for NULL values in columns that are becoming NOT NULL
+    const candidates = getNotNullCandidates();
+    let backfillColumns: NullColumnInfo[] = [];
+    if (candidates.length > 0) {
+      backfillColumns = await fetchNullCheck(candidates);
+      setNullWarnings(backfillColumns);
+    } else {
+      setNullWarnings([]);
+    }
+
+    // Regenerate migration SQL with backfill statements included
+    const finalStatements = getMigrationStatements(backfillColumns);
+    const migrationSql = finalStatements.join('\n');
+
+    // Build a warning message if backfill is needed
+    let warningSuffix = '';
+    if (backfillColumns.length > 0) {
+      const lines = backfillColumns.map(
+        (bc) => `• ${bc.description}`
+      );
+      warningSuffix = `\n\n⚠️ NULL Value Backfill Required:\n${lines.join('\n')}\n\nThe UPDATE statements above will run automatically before applying the NOT NULL constraint.`;
+    }
 
     showConfirmation(
-      `Confirm schema changes for "${selectedTable}"?\n\nThe following statements will be executed:\n\n${migrationSql}`,
+      `Confirm schema changes for "${selectedTable}"?\n\nThe following statements will be executed:\n\n${migrationSql}${warningSuffix}`,
       async () => {
         setSaving(true);
         try {
@@ -327,6 +435,7 @@ export function SchemaEditor({
           }
 
           showNotification('Schema changes saved successfully!', 'success');
+          setNullWarnings([]);
           onRefreshSchema();
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -362,11 +471,11 @@ export function SchemaEditor({
           <button
             type="button"
             onClick={handleSaveSchema}
-            disabled={saving || loading}
+            disabled={saving || loading || checkingNulls}
             className="flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-xs font-semibold text-background hover:bg-foreground/90 disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" />
-            {saving ? 'Saving...' : 'Save Schema'}
+            {checkingNulls ? 'Checking...' : saving ? 'Saving...' : 'Save Schema'}
           </button>
         </div>
       </div>
@@ -554,6 +663,31 @@ export function SchemaEditor({
           </table>
         )}
       </div>
+
+      {/* NULL Value Warnings */}
+      {nullWarnings.length > 0 && (
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-semibold text-amber-800">
+              NULL Values Detected — Auto-Backfill Will Apply
+            </p>
+            <p className="mt-0.5 text-amber-700">
+              The following columns contain NULL values. Before adding the NOT NULL constraint,
+              the migration will automatically update these rows:
+            </p>
+            <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-amber-700">
+              {nullWarnings.map((w) => (
+                <li key={w.columnName}>
+                  <span className="font-mono font-medium">{w.columnName}</span>
+                  {' '}(type: {w.type}): {w.nullCount} row(s) will be set to{' '}
+                  <code className="rounded bg-amber-100 px-1">{w.backfillSql.match(/=\s*(.+)/)?.[1]?.replace(';', '').trim()}</code>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* Warnings / Hints */}
       <div className="mt-4 flex items-start gap-2 rounded-xl bg-muted/40 p-4 text-xs text-muted-foreground leading-relaxed">
