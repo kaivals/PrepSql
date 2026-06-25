@@ -63,17 +63,17 @@ function SqlBlock({ sql }: { sql: string }) {
   };
   return (
     <div className="relative mt-3 group">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Generated SQL</p>
-      <pre className="overflow-x-auto rounded-xl border border-primary/25 bg-primary/5 p-4 pr-12 font-mono text-xs text-foreground shadow-inner">
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Generated SQL</p>
+      <pre className="overflow-x-auto rounded-xl bg-slate-900 p-4 pr-12 font-mono text-xs text-slate-50">
         <code>{sql}</code>
       </pre>
       <button
         onClick={handleCopy}
         type="button"
-        className="absolute right-2.5 top-9 rounded-lg bg-card border border-border p-1.5 text-muted-foreground opacity-0 shadow-sm transition-all group-hover:opacity-100 hover:text-primary hover:border-primary/30 cursor-pointer"
+        className="absolute right-2.5 top-9 rounded-lg bg-slate-800 p-1.5 text-slate-400 opacity-0 transition-all group-hover:opacity-100 hover:text-white"
         title="Copy SQL"
       >
-        {copied ? <Check className="h-3.5 w-3.5 text-emerald-500 animate-in fade-in" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
     </div>
   );
@@ -390,7 +390,7 @@ export function QueryInterface({
                     setPrompt(s);
                     handleSubmit(s);
                   }}
-                  className="rounded-full border border-border bg-card px-4 py-2 text-sm text-foreground shadow-sm transition-all hover:bg-muted/50 hover:shadow-sm"
+                  className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
                 >
                   {s}
                 </button>
@@ -411,10 +411,10 @@ export function QueryInterface({
                   >
                     <div
                       className={cn(
-                        'max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm',
+                        'max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed',
                         msg.role === 'user'
                           ? 'bg-primary text-white rounded-br-md'
-                          : 'rounded-bl-md border border-border bg-card text-foreground'
+                          : 'rounded-bl-md border border-slate-200/80 bg-slate-50 text-slate-800'
                       )}
                     >
                       {/* Natural Language Response Content */}
@@ -452,7 +452,7 @@ export function QueryInterface({
                               type="button"
                               onClick={() => handleApproval(msg.id, 'reject')}
                               disabled={generating}
-                              className="rounded-lg border border-amber-300 bg-card px-4 py-2 text-xs font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50/50 disabled:opacity-50"
+                              className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-xs font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50 disabled:opacity-50"
                             >
                               Reject
                             </button>
@@ -489,7 +489,7 @@ export function QueryInterface({
 
                 {generating && (
                   <div className="flex justify-start">
-                    <div className="flex items-center gap-2.5 rounded-2xl rounded-bl-md border border-border bg-card px-5 py-3.5 text-sm text-muted-foreground shadow-sm">
+                    <div className="flex items-center gap-2.5 rounded-2xl rounded-bl-md border border-slate-200/80 bg-slate-50 px-5 py-3.5 text-sm text-slate-500">
                       <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       <span>Thinking...</span>
                     </div>
@@ -509,11 +509,11 @@ export function QueryInterface({
                 )}
 
                 {generatedSql && (
-                  <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <div className="card-surface p-5">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                       SQL Query
                     </p>
-                    <pre className="overflow-x-auto rounded-xl border border-primary/25 bg-primary/5 p-4 font-mono text-sm text-foreground shadow-inner">
+                    <pre className="overflow-x-auto rounded-xl bg-slate-900 p-4 font-mono text-sm text-slate-50">
                       <code>{generatedSql}</code>
                     </pre>
                   </div>
@@ -531,17 +531,17 @@ export function QueryInterface({
       </div>
 
       {/* Input area */}
-      <div className="border-t border-border bg-card p-4 shrink-0">
+      <div className="border-t border-slate-200/80 bg-white p-4">
         <div className="mx-auto mb-3 flex max-w-3xl justify-center">
-          <div className="flex rounded-xl border border-border bg-muted/40 p-1">
+          <div className="flex rounded-xl border border-slate-200 bg-slate-100 p-1">
             <button
               type="button"
               onClick={() => setInputMode('natural')}
               className={cn(
                 'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150',
                 inputMode === 'natural'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
               )}
             >
               Natural language
@@ -552,8 +552,8 @@ export function QueryInterface({
               className={cn(
                 'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150',
                 inputMode === 'sql'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
               )}
             >
               Run SQL
@@ -584,7 +584,7 @@ export function QueryInterface({
               }
               rows={inputMode === 'sql' ? 6 : 3}
               disabled={generating || isLoading}
-              className="w-full resize-none rounded-xl border border-border bg-input px-4 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-primary focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+              className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
             />
           </div>
           <Button

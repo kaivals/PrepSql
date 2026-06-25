@@ -59,7 +59,7 @@ export function NavigationSidebar({
   onOpenSettings,
 }: NavigationSidebarProps) {
   return (
-    <div className="flex h-full w-[68px] shrink-0 select-none flex-col items-center border-r border-sidebar-border bg-sidebar py-3">
+    <div className="flex h-full w-[68px] shrink-0 select-none flex-col items-center border-r border-slate-200/80 bg-[#F8F8F8] py-3">
       {/* Nav items */}
       <div className="flex flex-1 flex-col items-center gap-0.5 w-full px-2">
         {NAV_ITEMS.map((item) => {
@@ -70,17 +70,17 @@ export function NavigationSidebar({
               type="button"
               onClick={() => onSectionChange(item.id)}
               className={cn(
-                'flex w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 transition-all duration-150 cursor-pointer',
+                'flex w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 transition-all duration-150',
                 active
-                  ? 'bg-card text-primary shadow-sm border border-border'
-                  : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground'
+                  ? 'bg-white text-primary shadow-sm ring-1 ring-black/[0.06]'
+                  : 'text-slate-400 hover:bg-white/70 hover:text-slate-700'
               )}
             >
               {item.icon}
               <span
                 className={cn(
                   'text-[9.5px] font-semibold leading-none tracking-wide',
-                  active ? 'text-primary' : 'text-muted-foreground'
+                  active ? 'text-primary' : 'text-slate-400'
                 )}
               >
                 {item.label}
@@ -94,11 +94,11 @@ export function NavigationSidebar({
       <button
         type="button"
         onClick={onOpenSettings}
-        className="flex w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 text-muted-foreground transition-all duration-150 hover:bg-sidebar-accent/50 hover:text-foreground mx-2 cursor-pointer"
+        className="flex w-full flex-col items-center justify-center gap-1 rounded-xl px-1 py-2.5 text-slate-400 transition-all duration-150 hover:bg-white/70 hover:text-slate-700 mx-2"
         style={{ width: 'calc(100% - 16px)' }}
       >
         <Settings className="h-5 w-5" />
-        <span className="text-[9.5px] font-semibold leading-none tracking-wide text-muted-foreground">
+        <span className="text-[9.5px] font-semibold leading-none tracking-wide text-slate-400">
           Settings
         </span>
       </button>

@@ -376,8 +376,6 @@ export default function Home() {
           onLogout={handleLogout}
           onOpenSettings={() => setShowSettings(true)}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          connectionId={activeConnection?.id}
-          refreshTrigger={historyRefresh}
         />
         <Toast
           message={toast}
@@ -402,24 +400,36 @@ export default function Home() {
 
           {/* ── Schema/History sidebar (only shown in crud/history mode) ── */}
           {(navSection === 'crud' || navSection === 'history') && (
-            <>
-              {sidebarOpen && (
-                <div
-                  className="absolute inset-0 z-30 bg-black/20 md:hidden"
-                  onClick={() => setSidebarOpen(false)}
-                />
+            <div
+              className={cn(
+                'relative shrink-0 border-r border-border',
+                isResizing ? 'transition-none' : 'transition-all duration-300',
+                sidebarOpen
+                  ? 'w-[var(--schema-sidebar-width)]'
+                  : 'hidden'
               )}
+              style={{
+                '--schema-sidebar-width': `${sidebarWidth}px`,
+              } as React.CSSProperties}
+            >
+              <SchemaSidebar
+                connection={activeConnection}
+                onBack={() => {
+                  setViewPref('connections');
+                  setResult(null);
+                }}
+                onSelectQuery={(sql) => {
+                  handleExecuteQuery(sql);
+                }}
+                onSelectTable={(tbl) => setSelectedTable(tbl)}
+                refreshTrigger={historyRefresh}
+                selectedTable={selectedTable}
+                defaultTab={navSection === 'history' ? 'history' : 'schema'}
+              />
+              {/* Resize Handle */}
               <div
-                className={cn(
-                  'absolute inset-y-0 left-0 z-40 md:static md:overflow-hidden relative max-w-[85vw] md:max-w-none border-r border-border bg-sidebar',
-                  isResizing ? 'transition-none' : 'transition-all duration-300',
-                  sidebarOpen
-                    ? 'translate-x-0 w-72 md:w-[var(--sidebar-width)]'
-                    : '-translate-x-full w-72 md:translate-x-0 md:w-0 md:border-r-0'
-                )}
-                style={{
-                  '--sidebar-width': `${sidebarWidth}px`,
-                } as React.CSSProperties}
+                onMouseDown={startResizing}
+                className="absolute top-0 right-0 bottom-0 w-2 -mr-1 cursor-col-resize group z-50"
               >
                 <SchemaSidebar
                   connection={activeConnection}
@@ -450,7 +460,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {/* ── Main Content Area ── */}
@@ -462,7 +472,6 @@ export default function Home() {
                 showConfirmation={showConfirmation}
                 showNotification={showNotification}
                 onRefreshSchema={() => setHistoryRefresh((prev) => prev + 1)}
-                onClose={() => handleModeChange('crud')}
                 onSelectTable={(tbl) => setSelectedTable(tbl)}
               />
             ) : mode === 'analytics' ? (

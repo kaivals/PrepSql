@@ -1,16 +1,18 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
+  display: 'swap',
 })
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const jetbrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
   subsets: ['latin'],
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -32,15 +34,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="font-sans antialiased relative min-h-screen">
-        {/* Aurora blobs background */}
-        <div className="fixed inset-0 -z-10 overflow-hidden bg-[#EEF9F7] pointer-events-none">
-          <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full bg-[#80E8D8]/25 blur-[120px]" />
-          <div className="absolute -bottom-[10%] -right-[10%] w-[60%] h-[60%] rounded-full bg-[#A8F0E8]/25 blur-[150px]" />
-          <div className="absolute top-[30%] left-[20%] w-[40%] h-[40%] rounded-full bg-[#B8F5E0]/20 blur-[100px]" />
-          <div className="absolute top-[10%] right-[20%] w-[35%] h-[35%] rounded-full bg-[#C4E8F4]/20 blur-[90px]" />
-        </div>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

@@ -79,19 +79,19 @@ export function ConnectionsPage({
 
       {/* Connection cards */}
       {connections.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card py-20 text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-            <Database className="h-7 w-7 text-primary" />
+        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white py-20">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+            <Database className="h-7 w-7 text-slate-400" />
           </div>
-          <p className="text-sm font-medium text-foreground">No connections yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">Try the demo DB or add a new connection.</p>
+          <p className="text-sm font-medium text-slate-500">No connections yet</p>
+          <p className="mt-1 text-xs text-slate-400">Try the demo DB or add a new connection.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {connections.map((conn) => (
             <div
               key={conn.id}
-              className="group relative cursor-pointer rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-200 hover:shadow-md"
+              className="group relative cursor-pointer card-surface p-6 transition-all duration-200 hover:shadow-md"
               onClick={() => onSelect(conn)}
               onKeyDown={(e) => e.key === 'Enter' && onSelect(conn)}
               role="button"
@@ -132,12 +132,12 @@ export function ConnectionsPage({
 
       {/* New Connection Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xl">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">New connection</h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">Connect to your database</p>
+                <h2 className="text-lg font-semibold text-slate-900">New connection</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Connect to your database</p>
               </div>
               <button
                 type="button"
