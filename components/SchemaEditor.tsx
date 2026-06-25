@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Trash2, Save, Key, Table2, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, Plus, Trash2, Save, Key, Table2, ShieldAlert, AlertTriangle, ChevronDown, Search } from 'lucide-react';
 import type { DatabaseConnection, SchemaColumn, SchemaTable } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +27,7 @@ interface SchemaEditorProps {
   showNotification: (message: string, type: 'success' | 'error') => void;
   onRefreshSchema: () => void;
   onClose: () => void;
+  onSelectTable?: (tableName: string) => void;
 }
 
 type EditableColumn = SchemaColumn & {
@@ -77,6 +78,7 @@ export function SchemaEditor({
   showNotification,
   onRefreshSchema,
   onClose,
+  onSelectTable,
 }: SchemaEditorProps) {
   const [columns, setColumns] = useState<EditableColumn[]>([]);
   const [originalColumns, setOriginalColumns] = useState<SchemaColumn[]>([]);
@@ -84,6 +86,47 @@ export function SchemaEditor({
   const [saving, setSaving] = useState(false);
   const [nullWarnings, setNullWarnings] = useState<NullColumnInfo[]>([]);
   const [checkingNulls, setCheckingNulls] = useState(false);
+
+  // Table picker state
+  const [allTables, setAllTables] = useState<SchemaTable[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const pickerBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Fetch all tables for the picker dropdown
+  useEffect(() => {
+    const fetchTables = async () => {
+      try {
+        const res = await fetch('/api/schema');
+        if (res.ok) {
+          const data = await res.json();
+          setAllTables(data.tables || []);
+        }
+      } catch {}
+    };
+    fetchTables();
+  }, [connection.id]);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const handle = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (
+        pickerBtnRef.current && !pickerBtnRef.current.contains(t) &&
+        pickerRef.current && !pickerRef.current.contains(t)
+      ) {
+        setPickerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [pickerOpen]);
+
+  const filteredPickerTables = allTables.filter((t) =>
+    t.name.toLowerCase().includes(pickerSearch.toLowerCase())
+  );
 
   // Load schema for selected table
   useEffect(() => {
@@ -115,18 +158,6 @@ export function SchemaEditor({
     fetchTableSchema();
   }, [selectedTable]);
 
-  if (!selectedTable) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center bg-muted/20 p-8 text-center">
-        <Table2 className="mb-4 h-12 w-12 text-muted-foreground/60" />
-        <h2 className="text-xl font-semibold tracking-tight">Schema Editor</h2>
-        <p className="mt-2 max-w-md text-sm text-muted-foreground">
-          Click the <span className="font-medium text-foreground">Schema Editor</span> button in the
-          header and pick a table to view, add, modify, or delete columns and constraints.
-        </p>
-      </div>
-    );
-  }
 
   const dataTypes = DB_DATA_TYPES[connection.type] || DB_DATA_TYPES.sqlite;
 
@@ -450,7 +481,7 @@ export function SchemaEditor({
   };
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-background p-6">
+    <div className="flex flex-1 flex-col overflow-hidden bg-background">
       <div className="flex-1 flex flex-col min-h-0">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between border-b border-border pb-4 shrink-0">
@@ -463,10 +494,86 @@ export function SchemaEditor({
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <Table2 className="h-5 w-5 text-muted-foreground" />
+            <Table2 className="h-5 w-5 text-muted-foreground shrink-0" />
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Editing Table: {selectedTable}</h1>
-              <p className="text-xs text-muted-foreground capitalize">Dialect: {connection.type}</p>
+              {/* Table picker trigger */}
+              <div className="relative">
+                <button
+                  ref={pickerBtnRef}
+                  type="button"
+                  onClick={() => {
+                    setPickerOpen((v) => !v);
+                    setPickerSearch('');
+                  }}
+                  className={cn(
+                    'group flex items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-muted/50',
+                    !selectedTable && 'text-muted-foreground'
+                  )}
+                >
+                  <h1 className="text-lg font-semibold text-foreground">
+                    {selectedTable ? `Editing Table: ${selectedTable}` : 'Pick a table…'}
+                  </h1>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 text-muted-foreground/60 transition-transform duration-200',
+                      pickerOpen && 'rotate-180'
+                    )}
+                  />
+                </button>
+
+                {/* Dropdown */}
+                {pickerOpen && (
+                  <div
+                    ref={pickerRef}
+                    className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-xl border border-border bg-popover shadow-xl"
+                  >
+                    {/* Search */}
+                    <div className="border-b border-border p-2">
+                      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/10 px-2.5 py-1.5">
+                        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                        <input
+                          type="text"
+                          autoFocus
+                          placeholder="Search tables…"
+                          value={pickerSearch}
+                          onChange={(e) => setPickerSearch(e.target.value)}
+                          className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    {/* Table list */}
+                    <div className="max-h-60 overflow-y-auto p-1.5">
+                      {filteredPickerTables.length === 0 ? (
+                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">No tables found</p>
+                      ) : (
+                        filteredPickerTables.map((t) => (
+                          <button
+                            key={t.name}
+                            type="button"
+                            onClick={() => {
+                              if (onSelectTable) onSelectTable(t.name);
+                              setPickerOpen(false);
+                            }}
+                            className={cn(
+                              'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted/20',
+                              selectedTable === t.name && 'bg-primary/10 text-primary'
+                            )}
+                          >
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                              <Table2 className="h-3 w-3 text-primary" />
+                            </div>
+                            <span className="flex-1 truncate font-medium text-foreground text-[13px]">{t.name}</span>
+                            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{t.rowCount}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <p className="mt-0.5 px-1 text-xs text-muted-foreground capitalize">
+                {selectedTable ? `Dialect: ${connection.type}` : 'Click to select a table'}
+              </p>
             </div>
           </div>
 
@@ -474,7 +581,8 @@ export function SchemaEditor({
             <button
               type="button"
               onClick={handleAddColumn}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted/50"
+              disabled={!selectedTable}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus className="h-3.5 w-3.5" />
               Add Column
@@ -482,7 +590,7 @@ export function SchemaEditor({
             <button
               type="button"
               onClick={handleSaveSchema}
-              disabled={saving || loading || checkingNulls}
+              disabled={saving || loading || checkingNulls || !selectedTable}
               className="flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-xs font-semibold text-background hover:bg-foreground/90 disabled:opacity-50"
             >
               <Save className="h-3.5 w-3.5" />
@@ -493,7 +601,17 @@ export function SchemaEditor({
 
         {/* Grid Container */}
         <div className="overflow-auto rounded-xl border border-border bg-card h-auto max-h-[calc(100vh-320px)] mb-4">
-          {loading ? (
+          {!selectedTable ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 p-12 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                <Table2 className="h-7 w-7 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">No table selected</p>
+                <p className="mt-1 text-sm text-muted-foreground">Click the table name above or use sidebar to pick a table and start editing its schema.</p>
+              </div>
+            </div>
+          ) : loading ? (
             <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
               Loading schema definitions...
             </div>
@@ -551,6 +669,7 @@ export function SchemaEditor({
                         ))}
                       </select>
                     </td>
+
 
                     {/* Nullable */}
                     <td className="p-3">

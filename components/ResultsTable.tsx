@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { QueryResult } from '@/lib/types';
 
 interface Props {
@@ -19,8 +20,13 @@ export function ResultsTable({ result, isLoading = false }: Props) {
 
   if (result.rows.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-lg p-8 text-center">
-        <p className="text-muted-foreground">
+      <div className="card-surface flex flex-col items-center justify-center py-10">
+        <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+          <svg className="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <p className="text-sm text-slate-600">
           {result.rowsAffected !== undefined && result.rowsAffected > 0
             ? `Query executed successfully. ${result.rowsAffected} row(s) affected.`
             : 'Query executed successfully. No results returned.'}
@@ -59,24 +65,30 @@ export function ResultsTable({ result, isLoading = false }: Props) {
   };
 
   return (
-    <div className="space-y-3 bg-card border border-border rounded-lg p-4">
+    <div className="card-surface space-y-4 p-5">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-slate-500">
           {result.truncated && `Showing first 1000 of `}
-          {result.rowCount} row{result.rowCount !== 1 ? 's' : ''}
-          {result.truncated && ' (truncated)'}
+          <span className="font-medium text-slate-700">{result.rowCount}</span> row{result.rowCount !== 1 ? 's' : ''}
+          {result.truncated && <span className="ml-1 text-slate-400">(truncated)</span>}
         </div>
-        <Button onClick={exportCSV} variant="outline" size="sm">
+        <Button
+          onClick={exportCSV}
+          variant="outline"
+          size="sm"
+          className="gap-1.5 rounded-lg text-xs"
+        >
+          <Download className="h-3.5 w-3.5" />
           Export CSV
         </Button>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-border">
+      <div className="overflow-x-auto rounded-xl border border-slate-200/80">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-secondary">
+            <tr className="border-b border-slate-200 bg-slate-50/80">
               {result.columns.map((col, ci) => (
-                <th key={`${col}-${ci}`} className="px-4 py-2 text-left font-medium text-foreground">
+                <th key={`${col}-${ci}`} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                   {col}
                 </th>
               ))}
@@ -84,12 +96,12 @@ export function ResultsTable({ result, isLoading = false }: Props) {
           </thead>
           <tbody>
             {paginatedRows.map((row, idx) => (
-              <tr key={idx} className="border-b border-border hover:bg-muted/50">
+              <tr key={idx} className="border-b border-slate-100 transition-colors hover:bg-slate-50/80">
                 {result.columns.map((col, ci) => (
-                  <td key={`${idx}-${ci}`} className="px-4 py-2 text-foreground max-w-xs truncate">
+                  <td key={`${idx}-${ci}`} className="max-w-xs truncate px-4 py-3 text-slate-700">
                     {typeof row[col] === 'object'
                       ? JSON.stringify(row[col])
-                      : String(row[col] ?? 'NULL')}
+                      : String(row[col] ?? <span className="text-slate-300 italic">NULL</span>)}
                   </td>
                 ))}
               </tr>
@@ -100,16 +112,18 @@ export function ResultsTable({ result, isLoading = false }: Props) {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs text-slate-400">
             Page {currentPage + 1} of {totalPages}
           </span>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
               disabled={currentPage === 0}
               variant="outline"
               size="sm"
+              className="gap-1 rounded-lg text-xs"
             >
+              <ChevronLeft className="h-3 w-3" />
               Previous
             </Button>
             <Button
@@ -117,8 +131,10 @@ export function ResultsTable({ result, isLoading = false }: Props) {
               disabled={currentPage === totalPages - 1}
               variant="outline"
               size="sm"
+              className="gap-1 rounded-lg text-xs"
             >
               Next
+              <ChevronRight className="h-3 w-3" />
             </Button>
           </div>
         </div>

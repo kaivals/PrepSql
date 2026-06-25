@@ -21,14 +21,19 @@ Here is an overview of the key directories and files in the codebase:
 │   ├── layout.tsx               # Next.js Root Layout
 │   └── page.tsx                 # Main application client component
 ├── components/
-│   ├── AppHeader.tsx            # Header including user credentials & mode switches
-│   ├── ConnectionForm.tsx       # Database credentials input form
-│   ├── ConnectionsPage.tsx      # Database connection overview and selection UI
-│   ├── HistorySidebar.tsx       # Sidebar containing executed queries history
-│   ├── QueryInterface.tsx       # SQL editor, instructions input, and output table
-│   ├── ResultsTable.tsx         # Display for query execution results (with CSV export)
-│   ├── SQLEditor.tsx            # Custom SQL editor for previewing generated queries
-│   └── SchemaSidebar.tsx        # Side panel showing tables/columns, with inline schema editing triggers
+│   ├── AnalyticsPage.tsx        # Dashboard showing query efficiency, latencies, and slow query logs
+│   ├── ApiKeySetup.tsx          # Warning state inline card for missing Groq/Anthropic API keys
+│   ├── AppHeader.tsx            # Header showing logo and user settings avatar
+│   ├── ConnectionForm.tsx       # Form input for MySQL, PostgreSQL, SQLite (local and remote Turso)
+│   ├── ConnectionsPage.tsx      # Overview of active connection list with trigger modal
+│   ├── NavigationSidebar.tsx    # Framer-style left navigation bar to switch app view sections
+│   ├── QueryInterface.tsx       # AI prompt chat input, raw SQL execution tab, and results table
+│   ├── ResultsTable.tsx         # Interactive data grid for query results with CSV export option
+│   ├── SQLEditor.tsx            # Code snippet box displaying generated SQL queries
+│   ├── SchemaEditor.tsx         # Database table schema builder, supporting column add/edit/delete
+│   ├── SchemaSidebar.tsx        # Multi-tab (Schema, Indexes, History) panel with Pencil edit triggers
+│   ├── SettingsModal.tsx        # Modal overlay configuration for LLM provider API keys
+│   └── Toast.tsx                # Translucent toast overlay notifications for alerts/success/confirmations
 ├── lib/
 │   ├── api-key-storage.ts       # Utility to sync LLM API keys with server cookies
 │   ├── claude.ts                # Main AI integration (System prompts, Groq/Anthropic APIs)
@@ -150,8 +155,8 @@ PrepSQL implements a cohesive developer-focused interface tailored for high read
 - **Background**:
   - Base Layout: Soft Teal-White base (`#EEF9F7`)
   - Backdrops: Soft teal (`#80E8D8`), pale aqua (`#A8F0E8`), light mint (`#B8F5E0`), and whisper lavender (`#C4E8F4`) ambient background blobs at low opacity (`0.2-0.25`) and heavily blurred (`blur-[100px]+`).
-- **Glass Panels (Sidebars, Header, Cards)**:
-  - Background: Semi-translucent white (`rgba(255, 255, 255, 0.50)`)
+- **Glass Panels (Sidebars, Header, Cards, Popovers)**:
+  - Background: Semi-translucent white (`rgba(255, 255, 255, 0.50)`) for static cards and sidebars, and highly opaque white (`rgba(255, 255, 255, 0.95)`) for floating popovers and dropdowns to block underlying text and table data from bleeding through.
   - Blur Effect: `backdrop-filter: blur(24px)`
   - Border Edge: White translucent borders (`rgba(255, 255, 255, 0.75)`)
   - Shadow: Soft teal-shadow (`0 8px 32px rgba(60, 180, 160, 0.10)`)
@@ -170,3 +175,10 @@ PrepSQL implements a cohesive developer-focused interface tailored for high read
 
 ### C. Sidebar Integration
 - Schema edits are initiated inline by clicking the **Pencil (Edit)** icon next to any table in the `SchemaSidebar.tsx`. The icon is always visible (at a lower opacity) to make the feature easily discoverable, and highlights to full opacity on hover, launching the `SchemaEditor.tsx` in the main workspace panel.
+
+### D. Integrated User Profile Dropdown
+- The upper-right portion of the header features a unified, click-outside-aware user avatar dropdown trigger.
+- Instead of multiple separate profile and logout buttons, the interface provides a single, cohesive menu with exactly two selections:
+  - **Profile**: Triggers the `SettingsModal` to manage AI API configurations (uses the Lucide `User` icon).
+  - **Sign out**: Closes the active session and redirects the user back to the connection page (uses the Lucide `LogOut` icon).
+- Both options are styled with corresponding Lucide icons and hover states matching the light teal glassmorphic theme.

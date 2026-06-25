@@ -62,18 +62,18 @@ function SqlBlock({ sql }: { sql: string }) {
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <div className="relative mt-3 space-y-2 group">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Generated SQL</p>
-      <pre className="overflow-x-auto rounded-lg bg-muted/70 p-3 pr-10 font-mono text-xs text-foreground">
+    <div className="relative mt-3 group">
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Generated SQL</p>
+      <pre className="overflow-x-auto rounded-xl border border-primary/25 bg-primary/5 p-4 pr-12 font-mono text-xs text-foreground shadow-inner">
         <code>{sql}</code>
       </pre>
       <button
         onClick={handleCopy}
         type="button"
-        className="absolute right-2 top-8 rounded bg-muted border border-border p-1 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute right-2.5 top-9 rounded-lg bg-card border border-border p-1.5 text-muted-foreground opacity-0 shadow-sm transition-all group-hover:opacity-100 hover:text-primary hover:border-primary/30 cursor-pointer"
         title="Copy SQL"
       >
-        {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? <Check className="h-3.5 w-3.5 text-emerald-500 animate-in fade-in" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
     </div>
   );
@@ -370,16 +370,16 @@ export function QueryInterface({
       <div className="flex flex-1 flex-col overflow-y-auto">
         {showWelcome ? (
           <div className="flex flex-1 flex-col items-center justify-center px-8 pb-32">
-            <p className="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
               {inputMode === 'sql' ? 'Run SQL' : 'Ask anything'}
             </p>
-            <h1 className="mb-4 text-center text-3xl font-semibold tracking-tight">
+            <h1 className="mb-4 text-center text-3xl font-bold tracking-tight text-slate-900">
               {inputMode === 'sql' ? 'Write SQL directly' : 'What do you want to know?'}
             </h1>
-            <p className="mb-8 max-w-md text-center text-muted-foreground">
+            <p className="mb-10 max-w-md text-center text-sm leading-relaxed text-slate-500">
               {inputMode === 'sql'
                 ? 'Run queries against your connected database without using Claude AI.'
-                : 'Type a question in plain English. PrepSQL grounds it in your schema, generates SQL, validates it against the current mode, then executes.'}
+                : 'Type a question in plain English. PrepSQL grounds it in your schema, generates SQL, validates it, then executes.'}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {suggestions.map((s) => (
@@ -390,7 +390,7 @@ export function QueryInterface({
                     setPrompt(s);
                     handleSubmit(s);
                   }}
-                  className="rounded-full border border-border bg-card px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted/50"
+                  className="rounded-full border border-border bg-card px-4 py-2 text-sm text-foreground shadow-sm transition-all hover:bg-muted/50 hover:shadow-sm"
                 >
                   {s}
                 </button>
@@ -398,23 +398,23 @@ export function QueryInterface({
             </div>
           </div>
         ) : (
-          <div className="flex-1 space-y-4 p-6">
+          <div className="flex-1 space-y-5 p-6 lg:p-8">
             {inputMode === 'natural' ? (
               <div className="space-y-6">
                 {chatMessages.map((msg) => (
                   <div
                     key={msg.id}
                     className={cn(
-                      'flex flex-col gap-2 max-w-full',
+                      'flex max-w-full flex-col gap-2',
                       msg.role === 'user' ? 'items-end' : 'items-start'
                     )}
                   >
                     <div
                       className={cn(
-                        'rounded-2xl px-4 py-3 text-sm max-w-[85%]',
+                        'max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm',
                         msg.role === 'user'
-                          ? 'bg-foreground text-background'
-                          : 'bg-muted/40 border border-border text-foreground'
+                          ? 'bg-primary text-white rounded-br-md'
+                          : 'rounded-bl-md border border-border bg-card text-foreground'
                       )}
                     >
                       {/* Natural Language Response Content */}
@@ -424,8 +424,8 @@ export function QueryInterface({
 
                       {/* Error Alert */}
                       {msg.error && (
-                        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
-                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                           <span>{msg.error}</span>
                         </div>
                       )}
@@ -435,16 +435,16 @@ export function QueryInterface({
 
                       {/* Approval controls */}
                       {msg.pendingApproval && (
-                        <div className="mt-4 flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                        <div className="mt-4 space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
                           <p className="text-xs font-medium text-amber-800">
                             Safety Check: This query requires your approval to modify database records.
                           </p>
-                          <div className="flex gap-2 mt-1">
+                          <div className="mt-1 flex gap-2">
                             <button
                               type="button"
                               onClick={() => handleApproval(msg.id, 'approve')}
                               disabled={generating}
-                              className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-500 transition-colors disabled:opacity-50"
+                              className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-amber-500 disabled:opacity-50"
                             >
                               Approve & Execute
                             </button>
@@ -452,7 +452,7 @@ export function QueryInterface({
                               type="button"
                               onClick={() => handleApproval(msg.id, 'reject')}
                               disabled={generating}
-                              className="rounded-md bg-card border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-sm hover:bg-amber-50 transition-colors disabled:opacity-50"
+                              className="rounded-lg border border-amber-300 bg-card px-4 py-2 text-xs font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50/50 disabled:opacity-50"
                             >
                               Reject
                             </button>
@@ -462,18 +462,15 @@ export function QueryInterface({
 
                       {/* Token Usage details */}
                       {msg.usage && (
-                        <div className="mt-3 flex items-center gap-4 border-t border-border/60 pt-2 text-[10px] text-muted-foreground">
+                        <div className="mt-3 flex items-center gap-4 border-t border-slate-200/60 pt-3 text-[10px] text-slate-400">
                           <span>
-                            Prompt tokens:{' '}
-                            <strong className="font-medium text-foreground">{msg.usage.promptTokens}</strong>
+                            Prompt: <strong className="font-medium text-slate-600">{msg.usage.promptTokens}</strong>
                           </span>
                           <span>
-                            Completion tokens:{' '}
-                            <strong className="font-medium text-foreground">{msg.usage.completionTokens}</strong>
+                            Completion: <strong className="font-medium text-slate-600">{msg.usage.completionTokens}</strong>
                           </span>
                           <span>
-                            Total:{' '}
-                            <strong className="font-medium text-foreground">
+                            Total: <strong className="font-medium text-slate-600">
                               {msg.usage.promptTokens + msg.usage.completionTokens}
                             </strong>
                           </span>
@@ -483,7 +480,7 @@ export function QueryInterface({
 
                     {/* Results Table inside bubble */}
                     {msg.result && (
-                      <div className="w-full mt-1">
+                      <div className="mt-1 w-full">
                         <ResultsTable result={msg.result} />
                       </div>
                     )}
@@ -492,8 +489,8 @@ export function QueryInterface({
 
                 {generating && (
                   <div className="flex justify-start">
-                    <div className="rounded-2xl bg-muted/40 border border-border px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-foreground" />
+                    <div className="flex items-center gap-2.5 rounded-2xl rounded-bl-md border border-border bg-card px-5 py-3.5 text-sm text-muted-foreground shadow-sm">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       <span>Thinking...</span>
                     </div>
                   </div>
@@ -503,19 +500,20 @@ export function QueryInterface({
               </div>
             ) : (
               // SQL Mode layout
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {error && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {error}
+                  <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{error}</span>
                   </div>
                 )}
 
                 {generatedSql && (
-                  <div className="rounded-xl border border-border bg-card p-4">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       SQL Query
                     </p>
-                    <pre className="overflow-x-auto rounded-lg bg-muted/40 p-3 font-mono text-sm">
+                    <pre className="overflow-x-auto rounded-xl border border-primary/25 bg-primary/5 p-4 font-mono text-sm text-foreground shadow-inner">
                       <code>{generatedSql}</code>
                     </pre>
                   </div>
@@ -532,14 +530,15 @@ export function QueryInterface({
         )}
       </div>
 
-      <div className="border-t border-border bg-card p-4">
+      {/* Input area */}
+      <div className="border-t border-border bg-card p-4 shrink-0">
         <div className="mx-auto mb-3 flex max-w-3xl justify-center">
-          <div className="flex rounded-lg border border-border bg-muted/40 p-0.5">
+          <div className="flex rounded-xl border border-border bg-muted/40 p-1">
             <button
               type="button"
               onClick={() => setInputMode('natural')}
               className={cn(
-                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150',
                 inputMode === 'natural'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -551,7 +550,7 @@ export function QueryInterface({
               type="button"
               onClick={() => setInputMode('sql')}
               className={cn(
-                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150',
                 inputMode === 'sql'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -566,7 +565,7 @@ export function QueryInterface({
             e.preventDefault();
             handleSubmit();
           }}
-          className="mx-auto flex max-w-3xl items-end gap-2"
+          className="mx-auto flex max-w-3xl items-end gap-2.5"
         >
           <div className="flex-1">
             <textarea
@@ -585,7 +584,7 @@ export function QueryInterface({
               }
               rows={inputMode === 'sql' ? 6 : 3}
               disabled={generating || isLoading}
-              className="w-full resize-none rounded-xl border border-border bg-muted/30 px-4 py-3 font-mono text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+              className="w-full resize-none rounded-xl border border-border bg-input px-4 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-primary focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
             />
           </div>
           <Button

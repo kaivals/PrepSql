@@ -107,45 +107,54 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Settings className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-lg font-semibold">Settings</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0D3D35]/20 backdrop-blur-[6px] p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden transition-all duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-6 py-5 bg-white/20">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[#80E8D8] text-white shadow-sm shadow-primary/20 group">
+              <Settings className="h-5 w-5 text-white transition-transform duration-500 hover:rotate-90" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-foreground tracking-tight">Settings</h2>
+              <p className="text-[11px] text-muted-foreground">Manage your AI API configurations</p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-muted"
+            className="rounded-xl p-2 text-muted-foreground transition-all duration-200 hover:bg-red-500/10 hover:text-red-500 cursor-pointer"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4.5 w-4.5" />
           </button>
         </div>
 
-        <div className="space-y-6 p-6">
+        {/* Body */}
+        <div className="space-y-5 p-6">
           <section>
-            <div className="mb-3 flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">AI API key</h3>
+            <div className="mb-3.5 flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <KeyRound className="h-4 w-4" />
+              </div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-foreground/80">AI API Key</h3>
             </div>
 
-            <p className="mb-4 text-sm text-muted-foreground">
-              Required for natural language → SQL. Use a free Groq key from{' '}
+            <p className="mb-5 text-xs leading-relaxed text-muted-foreground/90">
+              Required for natural language to SQL queries. Provide a free Groq key from{' '}
               <a
                 href="https://console.groq.com/keys"
                 target="_blank"
                 rel="noreferrer"
-                className="text-primary underline"
+                className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
               >
                 console.groq.com
               </a>{' '}
-              (recommended, model: llama-3.3-70b-versatile) or an Anthropic key from{' '}
+              (recommended) or an Anthropic key from{' '}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
                 rel="noreferrer"
-                className="text-primary underline"
+                className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
               >
                 console.anthropic.com
               </a>
@@ -153,52 +162,67 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
             </p>
 
             {info?.configured && (
-              <div className="mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                <p className="text-muted-foreground">
-                  Current key:{' '}
-                  <span className="font-mono text-foreground">{info.maskedKey}</span>
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Provider: {info.provider === 'groq' ? 'Groq' : 'Anthropic'}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Source:{' '}
-                  {info.source === 'env'
-                    ? '.env.local (restart server to change)'
-                    : 'Saved in app settings'}
-                </p>
+              <div className="mb-5 space-y-3 rounded-xl border border-white/60 bg-white/40 p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">Current key</span>
+                  <span className="font-mono text-xs text-foreground font-semibold px-2 py-0.5 rounded bg-primary/10 border border-primary/20 shadow-sm">{info.maskedKey}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-primary/5 pt-2.5">
+                  <span className="text-[11px] font-medium text-muted-foreground">Provider</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">{info.provider === 'groq' ? 'Groq' : 'Anthropic'}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-primary/5 pt-2.5">
+                  <span className="text-[11px] font-medium text-muted-foreground">Source</span>
+                  <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {info.source === 'env'
+                      ? '.env.local key'
+                      : 'Saved in app settings'}
+                  </span>
+                </div>
               </div>
             )}
 
-            <form onSubmit={handleSave} className="space-y-3">
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                  <KeyRound className="h-4 w-4 text-muted-foreground/60" />
+                </div>
                 <input
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="gsk_... or sk-ant-..."
-                  className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-border bg-white/60 pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 transition-all focus:bg-white focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 focus:shadow-sm"
                 />
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={saving || !apiKey.trim()}>
-                    {saving ? 'Saving...' : info?.configured ? 'Update key' : 'Save key'}
+              </div>
+              <div className="flex gap-2.5">
+                <Button
+                  type="submit"
+                  disabled={saving || !apiKey.trim()}
+                  className="rounded-xl bg-gradient-to-r from-primary to-[#25A691] text-primary-foreground hover:shadow-lg hover:shadow-primary/20 active:scale-[0.98] transition-all px-5 py-2.5 text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {saving ? 'Saving...' : info?.configured ? 'Update key' : 'Save key'}
+                </Button>
+                {info?.configured && info.source === 'client' && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={handleRemove}
+                    className="rounded-xl border border-border bg-white/40 hover:bg-red-500/5 hover:text-red-500 hover:border-red-500/20 active:scale-[0.98] text-muted-foreground transition-all px-5 py-2.5 text-xs font-semibold cursor-pointer"
+                  >
+                    Remove key
                   </Button>
-                  {info?.configured && info.source === 'client' && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={saving}
-                      onClick={handleRemove}
-                    >
-                      Remove key
-                    </Button>
-                  )}
-                </div>
-              </form>
+                )}
+              </div>
+            </form>
 
-            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-            {success && <p className="mt-2 text-sm text-emerald-600">{success}</p>}
+            {error && <p className="mt-3 text-xs font-medium text-red-600 animate-pulse">{error}</p>}
+            {success && <p className="mt-3 text-xs font-medium text-emerald-600">{success}</p>}
           </section>
         </div>
+
       </div>
     </div>
   );

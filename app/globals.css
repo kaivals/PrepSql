@@ -59,7 +59,7 @@
   --card: rgba(255, 255, 255, 0.50);
   --card-foreground: #0D3D35;
   
-  --popover: rgba(255, 255, 255, 0.80);
+  --popover: rgba(255, 255, 255, 0.95);
   --popover-foreground: #0D3D35;
   
   --primary: #2AB8A0;
@@ -110,9 +110,34 @@
   }
   
   /* Glassmorphism global rules */
-  header, aside, .bg-card, .bg-sidebar, .rounded-xl, .rounded-2xl {
+  header, aside, .bg-card, .bg-sidebar, .bg-popover, .rounded-xl, .rounded-2xl {
     backdrop-filter: blur(24px) !important;
     -webkit-backdrop-filter: blur(24px) !important;
     box-shadow: 0 8px 32px rgba(60, 180, 160, 0.10) !important;
+  }
+}
+
+/* Utility: consistent card surface */
+@layer components {
+  .card-surface {
+    @apply rounded-xl border border-slate-200/80 bg-white shadow-sm;
+  }
+}
+
+/* Smooth scrollbar styling */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.8 0 0);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.7 0 0);
   }
 }

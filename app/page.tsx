@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppHeader } from '@/components/AppHeader';
+import { NavigationSidebar } from '@/components/NavigationSidebar';
 import { ConnectionsPage } from '@/components/ConnectionsPage';
 import { SchemaSidebar } from '@/components/SchemaSidebar';
 import { QueryInterface } from '@/components/QueryInterface';
@@ -14,6 +15,7 @@ import type { DatabaseConnection, QueryMode, QueryResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 type View = 'connections' | 'workspace';
+type NavSection = QueryMode | 'connections' | 'history';
 
 // ── Client-side helpers for preferences (backed by /api/preferences) ─────────
 
@@ -55,7 +57,7 @@ export default function Home() {
   const [view, setView] = useState<View>('connections');
   const [connections, setConnections] = useState<DatabaseConnection[]>([]);
   const [activeConnection, setActiveConnection] = useState<DatabaseConnection | null>(null);
-  const [mode, setMode] = useState<QueryMode>('crud');
+  const [navSection, setNavSection] = useState<NavSection>('crud');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
@@ -75,6 +77,10 @@ export default function Home() {
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [initializing, setInitializing] = useState(true);
   const saveWidthTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derive query mode from navSection (history tab shown in SchemaSidebar)
+  const mode: QueryMode =
+    navSection === 'connections' || navSection === 'history' ? 'crud' : (navSection as QueryMode);
 
   // Load sidebar width from server-side preferences on mount
   useEffect(() => {
@@ -165,7 +171,8 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         const m = data.mode || 'readonly';
-        setMode(m === 'history' ? 'crud' : m);
+        const mapped: QueryMode = m === 'history' ? 'crud' : m;
+        setNavSection(mapped);
       }
     } catch (err) {
       console.error('Failed to load mode:', err);
@@ -204,6 +211,26 @@ export default function Home() {
   const setViewPref = (newView: View) => {
     setView(newView);
     savePreference('prepsql-view', newView);
+  };
+
+  const handleNavSectionChange = async (section: NavSection) => {
+    if (section === 'connections') {
+      setViewPref('connections');
+      setResult(null);
+      return;
+    }
+    // For history: keep mode as crud, but open sidebar on history tab
+    if (section === 'history') {
+      setNavSection('history');
+      return;
+    }
+    setNavSection(section as QueryMode);
+    // Persist the mode server-side
+    await fetch('/api/mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: section }),
+    });
   };
 
   const handleSelectConnection = async (connection: DatabaseConnection) => {
@@ -254,7 +281,7 @@ export default function Home() {
   };
 
   const handleModeChange = async (newMode: QueryMode) => {
-    setMode(newMode);
+    setNavSection(newMode);
     await fetch('/api/mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -325,6 +352,7 @@ export default function Home() {
 
   const handleLogout = () => {
     setViewPref('connections');
+    setNavSection('crud');
     setActiveConnection(null);
     setResult(null);
   };
@@ -345,9 +373,6 @@ export default function Home() {
       <div className="flex h-screen flex-col bg-background">
         <AppHeader
           userEmail={userEmail}
-          showModeSwitcher
-          mode={mode}
-          onModeChange={handleModeChange}
           onLogout={handleLogout}
           onOpenSettings={() => setShowSettings(true)}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -367,54 +392,69 @@ export default function Home() {
           open={showSettings}
           onClose={() => setShowSettings(false)}
         />
-        <div className="flex flex-1 overflow-hidden relative">
-          {sidebarOpen && (
-            <div
-              className="absolute inset-0 z-30 bg-black/20 md:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-          <div
-            className={cn(
-              'absolute inset-y-0 left-0 z-40 md:static md:overflow-hidden relative max-w-[85vw] md:max-w-none',
-              isResizing ? 'transition-none' : 'transition-all duration-300',
-              sidebarOpen
-                ? 'translate-x-0 w-72 md:w-[var(--sidebar-width)] border-r border-border'
-                : '-translate-x-full w-72 md:translate-x-0 md:w-0 md:border-r-0'
-            )}
-            style={{
-              '--sidebar-width': `${sidebarWidth}px`,
-            } as React.CSSProperties}
-          >
-            <SchemaSidebar
-              connection={activeConnection}
-              onBack={() => {
-                setViewPref('connections');
-                setResult(null);
-              }}
-              onSelectQuery={(sql) => {
-                handleExecuteQuery(sql);
-                if (window.innerWidth < 768) setSidebarOpen(false);
-              }}
-              onSelectTable={(tbl) => setSelectedTable(tbl)}
-              onEditTable={(tbl) => {
-                setSelectedTable(tbl);
-                handleModeChange('schema');
-              }}
-              refreshTrigger={historyRefresh}
-              selectedTable={selectedTable}
-            />
-            {/* Resize Handle */}
-            {sidebarOpen && (
+        <div className="flex flex-1 overflow-hidden">
+          {/* ── Framer-style Navigation Sidebar ── */}
+          <NavigationSidebar
+            activeSection={navSection === 'crud' || navSection === 'analytics' || navSection === 'schema' ? navSection : navSection === 'history' ? 'history' : 'connections'}
+            onSectionChange={handleNavSectionChange}
+            onOpenSettings={() => setShowSettings(true)}
+          />
+
+          {/* ── Schema/History sidebar (only shown in crud/history mode) ── */}
+          {(navSection === 'crud' || navSection === 'history') && (
+            <>
+              {sidebarOpen && (
+                <div
+                  className="absolute inset-0 z-30 bg-black/20 md:hidden"
+                  onClick={() => setSidebarOpen(false)}
+                />
+              )}
               <div
-                onMouseDown={startResizing}
-                className="absolute top-0 right-0 bottom-0 w-2 -mr-1 cursor-col-resize group z-50 md:block hidden"
+                className={cn(
+                  'absolute inset-y-0 left-0 z-40 md:static md:overflow-hidden relative max-w-[85vw] md:max-w-none border-r border-border bg-sidebar',
+                  isResizing ? 'transition-none' : 'transition-all duration-300',
+                  sidebarOpen
+                    ? 'translate-x-0 w-72 md:w-[var(--sidebar-width)]'
+                    : '-translate-x-full w-72 md:translate-x-0 md:w-0 md:border-r-0'
+                )}
+                style={{
+                  '--sidebar-width': `${sidebarWidth}px`,
+                } as React.CSSProperties}
               >
-                <div className="w-[2px] h-full mx-auto bg-transparent group-hover:bg-primary/40 group-active:bg-primary transition-colors" />
+                <SchemaSidebar
+                  connection={activeConnection}
+                  onBack={() => {
+                    setViewPref('connections');
+                    setResult(null);
+                  }}
+                  onSelectQuery={(sql) => {
+                    handleExecuteQuery(sql);
+                    if (window.innerWidth < 768) setSidebarOpen(false);
+                  }}
+                  onSelectTable={(tbl) => setSelectedTable(tbl)}
+                  onEditTable={(tbl) => {
+                    setSelectedTable(tbl);
+                    handleModeChange('schema');
+                  }}
+                  refreshTrigger={historyRefresh}
+                  selectedTable={selectedTable}
+                  defaultTab={navSection === 'history' ? 'history' : 'schema'}
+                />
+                {/* Resize Handle */}
+                {sidebarOpen && (
+                  <div
+                    onMouseDown={startResizing}
+                    className="absolute top-0 right-0 bottom-0 w-2 -mr-1 cursor-col-resize group z-50"
+                  >
+                    <div className="w-[2px] h-full mx-auto bg-transparent group-hover:bg-primary/40 group-active:bg-primary transition-colors" />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="flex-1 min-w-0 flex flex-col">
+            </>
+          )}
+
+          {/* ── Main Content Area ── */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
             {mode === 'schema' ? (
               <SchemaEditor
                 connection={activeConnection}
@@ -423,6 +463,7 @@ export default function Home() {
                 showNotification={showNotification}
                 onRefreshSchema={() => setHistoryRefresh((prev) => prev + 1)}
                 onClose={() => handleModeChange('crud')}
+                onSelectTable={(tbl) => setSelectedTable(tbl)}
               />
             ) : mode === 'analytics' ? (
               <AnalyticsPage
