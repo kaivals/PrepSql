@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, Key, Table2, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Key, Table2, ShieldAlert, AlertTriangle } from 'lucide-react';
 import type { DatabaseConnection, SchemaColumn, SchemaTable } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +26,7 @@ interface SchemaEditorProps {
   showConfirmation: (message: string, onConfirm: () => void) => void;
   showNotification: (message: string, type: 'success' | 'error') => void;
   onRefreshSchema: () => void;
+  onClose: () => void;
 }
 
 type EditableColumn = SchemaColumn & {
@@ -75,6 +76,7 @@ export function SchemaEditor({
   showConfirmation,
   showNotification,
   onRefreshSchema,
+  onClose,
 }: SchemaEditorProps) {
   const [columns, setColumns] = useState<EditableColumn[]>([]);
   const [originalColumns, setOriginalColumns] = useState<SchemaColumn[]>([]);
@@ -449,248 +451,258 @@ export function SchemaEditor({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-background p-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
-        <div className="flex items-center gap-2.5">
-          <Table2 className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Editing Table: {selectedTable}</h1>
-            <p className="text-xs text-muted-foreground capitalize">Dialect: {connection.type}</p>
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between border-b border-border pb-4 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="mr-1 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title="Back to CRUD"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <Table2 className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <h1 className="text-lg font-semibold text-foreground">Editing Table: {selectedTable}</h1>
+              <p className="text-xs text-muted-foreground capitalize">Dialect: {connection.type}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAddColumn}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted/50"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Column
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveSchema}
+              disabled={saving || loading || checkingNulls}
+              className="flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-xs font-semibold text-background hover:bg-foreground/90 disabled:opacity-50"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {checkingNulls ? 'Checking...' : saving ? 'Saving...' : 'Save Schema'}
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleAddColumn}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold hover:bg-muted/50"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Column
-          </button>
-          <button
-            type="button"
-            onClick={handleSaveSchema}
-            disabled={saving || loading || checkingNulls}
-            className="flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-xs font-semibold text-background hover:bg-foreground/90 disabled:opacity-50"
-          >
-            <Save className="h-3.5 w-3.5" />
-            {checkingNulls ? 'Checking...' : saving ? 'Saving...' : 'Save Schema'}
-          </button>
-        </div>
-      </div>
+        {/* Grid Container */}
+        <div className="overflow-auto rounded-xl border border-border bg-card h-auto max-h-[calc(100vh-320px)] mb-4">
+          {loading ? (
+            <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+              Loading schema definitions...
+            </div>
+          ) : (
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/30 font-medium text-muted-foreground">
+                  <th className="p-3">Name</th>
+                  <th className="p-3">Type</th>
+                  <th className="p-3">Nullable</th>
+                  <th className="p-3">Default</th>
+                  <th className="p-3 text-center">PK</th>
+                  <th className="p-3 text-center">Unique</th>
+                  {connection.type !== 'sqlite' && <th className="p-3 text-center">Auto Inc</th>}
+                  <th className="p-3">Foreign Key</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {columns.map((col, idx) => (
+                  <tr
+                    key={idx}
+                    className={cn(
+                      'border-b border-border hover:bg-muted/10 transition-colors',
+                      col.isDeleted && 'bg-red-50/50 opacity-60 line-through',
+                      col.isNew && 'bg-emerald-50/20'
+                    )}
+                  >
+                    {/* Name */}
+                    <td className="p-3">
+                      <input
+                        type="text"
+                        value={col.name}
+                        disabled={col.isDeleted}
+                        onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
+                        className={cn(
+                          'w-full rounded border border-border bg-muted/10 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary',
+                          col.isNew && 'font-semibold text-emerald-800'
+                        )}
+                      />
+                    </td>
 
-      {/* Grid Container */}
-      <div className="flex-1 overflow-auto rounded-xl border border-border bg-white">
-        {loading ? (
-          <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-            Loading schema definitions...
-          </div>
-        ) : (
-          <table className="w-full border-collapse text-left text-xs">
-            <thead>
-              <tr className="border-b border-border bg-muted/30 font-medium text-muted-foreground">
-                <th className="p-3">Name</th>
-                <th className="p-3">Type</th>
-                <th className="p-3">Nullable</th>
-                <th className="p-3">Default</th>
-                <th className="p-3 text-center">PK</th>
-                <th className="p-3 text-center">Unique</th>
-                {connection.type !== 'sqlite' && <th className="p-3 text-center">Auto Inc</th>}
-                <th className="p-3">Foreign Key</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {columns.map((col, idx) => (
-                <tr
-                  key={idx}
-                  className={cn(
-                    'border-b border-border hover:bg-muted/10 transition-colors',
-                    col.isDeleted && 'bg-red-50/50 opacity-60 line-through',
-                    col.isNew && 'bg-emerald-50/20'
-                  )}
-                >
-                  {/* Name */}
-                  <td className="p-3">
-                    <input
-                      type="text"
-                      value={col.name}
-                      disabled={col.isDeleted}
-                      onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
-                      className={cn(
-                        'w-full rounded border border-border bg-muted/10 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary',
-                        col.isNew && 'font-semibold text-emerald-800'
-                      )}
-                    />
-                  </td>
+                    {/* Type */}
+                    <td className="p-3">
+                      <select
+                        value={col.type.toUpperCase()}
+                        disabled={col.isDeleted}
+                        onChange={(e) => handleUpdateField(idx, 'type', e.target.value)}
+                        className="rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:ring-1"
+                      >
+                        {dataTypes.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
 
-                  {/* Type */}
-                  <td className="p-3">
-                    <select
-                      value={col.type.toUpperCase()}
-                      disabled={col.isDeleted}
-                      onChange={(e) => handleUpdateField(idx, 'type', e.target.value)}
-                      className="rounded border border-border bg-white px-1.5 py-1 focus:outline-none focus:ring-1"
-                    >
-                      {dataTypes.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
-                  {/* Nullable */}
-                  <td className="p-3">
-                    <input
-                      type="checkbox"
-                      checked={col.nullable}
-                      disabled={col.isDeleted || col.primaryKey}
-                      onChange={(e) => handleUpdateField(idx, 'nullable', e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-border"
-                    />
-                  </td>
-
-                  {/* Default Value */}
-                  <td className="p-3">
-                    <input
-                      type="text"
-                      value={col.defaultValue || ''}
-                      placeholder="NULL"
-                      disabled={col.isDeleted}
-                      onChange={(e) => handleUpdateField(idx, 'defaultValue', e.target.value || null)}
-                      className="w-24 rounded border border-border bg-white px-2 py-1 focus:outline-none"
-                    />
-                  </td>
-
-                  {/* Primary Key */}
-                  <td className="p-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={col.primaryKey}
-                      disabled={col.isDeleted}
-                      onChange={(e) => handleUpdateField(idx, 'primaryKey', e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-border"
-                    />
-                  </td>
-
-                  {/* Unique */}
-                  <td className="p-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={col.unique}
-                      disabled={col.isDeleted}
-                      onChange={(e) => handleUpdateField(idx, 'unique', e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-border"
-                    />
-                  </td>
-
-                  {/* Auto Increment */}
-                  {connection.type !== 'sqlite' && (
-                    <td className="p-3 text-center">
+                    {/* Nullable */}
+                    <td className="p-3">
                       <input
                         type="checkbox"
-                        checked={col.autoIncrement}
-                        disabled={col.isDeleted || !col.primaryKey}
-                        onChange={(e) => handleUpdateField(idx, 'autoIncrement', e.target.checked)}
+                        checked={col.nullable}
+                        disabled={col.isDeleted || col.primaryKey}
+                        onChange={(e) => handleUpdateField(idx, 'nullable', e.target.checked)}
                         className="h-3.5 w-3.5 rounded border-border"
                       />
                     </td>
-                  )}
 
-                  {/* Foreign Key */}
-                  <td className="p-3">
-                    <div className="flex items-center gap-1.5">
+                    {/* Default Value */}
+                    <td className="p-3">
                       <input
                         type="text"
-                        placeholder="Table"
-                        value={col.foreignKey?.table || ''}
+                        value={col.defaultValue || ''}
+                        placeholder="NULL"
                         disabled={col.isDeleted}
-                        onChange={(e) => {
-                          const table = e.target.value;
-                          const column = col.foreignKey?.column || 'id';
-                          handleUpdateField(
-                            idx,
-                            'foreignKey',
-                            table ? { table, column } : null
-                          );
-                        }}
-                        className="w-16 rounded border border-border bg-white px-1.5 py-0.5 focus:outline-none text-[11px]"
+                        onChange={(e) => handleUpdateField(idx, 'defaultValue', e.target.value || null)}
+                        className="w-24 rounded border border-border bg-background px-2 py-1 focus:outline-none"
                       />
-                      <input
-                        type="text"
-                        placeholder="Col"
-                        value={col.foreignKey?.column || ''}
-                        disabled={col.isDeleted}
-                        onChange={(e) => {
-                          const column = e.target.value;
-                          const table = col.foreignKey?.table || '';
-                          handleUpdateField(
-                            idx,
-                            'foreignKey',
-                            table ? { table, column } : null
-                          );
-                        }}
-                        className="w-12 rounded border border-border bg-white px-1.5 py-0.5 focus:outline-none text-[11px]"
-                      />
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Actions */}
-                  <td className="p-3 text-right">
-                    {col.isDeleted ? (
-                      <button
-                        type="button"
-                        onClick={() => handleUndoDelete(idx)}
-                        className="text-xs font-semibold text-primary hover:underline"
-                      >
-                        Undo
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteColumn(idx)}
-                        className="rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                    {/* Primary Key */}
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={col.primaryKey}
+                        disabled={col.isDeleted}
+                        onChange={(e) => handleUpdateField(idx, 'primaryKey', e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-border"
+                      />
+                    </td>
+
+                    {/* Unique */}
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={col.unique}
+                        disabled={col.isDeleted}
+                        onChange={(e) => handleUpdateField(idx, 'unique', e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-border"
+                      />
+                    </td>
+
+                    {/* Auto Increment */}
+                    {connection.type !== 'sqlite' && (
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={col.autoIncrement}
+                          disabled={col.isDeleted || !col.primaryKey}
+                          onChange={(e) => handleUpdateField(idx, 'autoIncrement', e.target.checked)}
+                          className="h-3.5 w-3.5 rounded border-border"
+                        />
+                      </td>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+                    {/* Foreign Key */}
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="Table"
+                          value={col.foreignKey?.table || ''}
+                          disabled={col.isDeleted}
+                          onChange={(e) => {
+                            const table = e.target.value;
+                            const column = col.foreignKey?.column || 'id';
+                            handleUpdateField(
+                              idx,
+                              'foreignKey',
+                              table ? { table, column } : null
+                            );
+                          }}
+                          className="w-16 rounded border border-border bg-background px-1.5 py-0.5 focus:outline-none text-[11px]"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Col"
+                          value={col.foreignKey?.column || ''}
+                          disabled={col.isDeleted}
+                          onChange={(e) => {
+                            const column = e.target.value;
+                            const table = col.foreignKey?.table || '';
+                            handleUpdateField(
+                              idx,
+                              'foreignKey',
+                              table ? { table, column } : null
+                            );
+                          }}
+                          className="w-12 rounded border border-border bg-background px-1.5 py-0.5 focus:outline-none text-[11px]"
+                        />
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="p-3 text-right">
+                      {col.isDeleted ? (
+                        <button
+                          type="button"
+                          onClick={() => handleUndoDelete(idx)}
+                          className="text-xs font-semibold text-primary hover:underline"
+                        >
+                          Undo
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteColumn(idx)}
+                          className="rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* NULL Value Warnings */}
+        {nullWarnings.length > 0 && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed shrink-0">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            <div>
+              <p className="font-semibold text-amber-800">
+                NULL Values Detected — Auto-Backfill Will Apply
+              </p>
+              <p className="mt-0.5 text-amber-700">
+                The following columns contain NULL values. Before adding the NOT NULL constraint,
+                the migration will automatically update these rows:
+              </p>
+              <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-amber-700">
+                {nullWarnings.map((w) => (
+                  <li key={w.columnName}>
+                    <span className="font-mono font-medium">{w.columnName}</span>
+                    {' '}(type: {w.type}): {w.nullCount} row(s) will be set to{' '}
+                    <code className="rounded bg-amber-100 px-1">{w.backfillSql.match(/=\s*(.+)/)?.[1]?.replace(';', '').trim()}</code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* NULL Value Warnings */}
-      {nullWarnings.length > 0 && (
-        <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed">
-          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-          <div>
-            <p className="font-semibold text-amber-800">
-              NULL Values Detected — Auto-Backfill Will Apply
-            </p>
-            <p className="mt-0.5 text-amber-700">
-              The following columns contain NULL values. Before adding the NOT NULL constraint,
-              the migration will automatically update these rows:
-            </p>
-            <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-amber-700">
-              {nullWarnings.map((w) => (
-                <li key={w.columnName}>
-                  <span className="font-mono font-medium">{w.columnName}</span>
-                  {' '}(type: {w.type}): {w.nullCount} row(s) will be set to{' '}
-                  <code className="rounded bg-amber-100 px-1">{w.backfillSql.match(/=\s*(.+)/)?.[1]?.replace(';', '').trim()}</code>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
       {/* Warnings / Hints */}
-      <div className="mt-4 flex items-start gap-2 rounded-xl bg-muted/40 p-4 text-xs text-muted-foreground leading-relaxed">
+      <div className="mt-4 flex items-start gap-2 rounded-xl bg-muted/40 p-4 text-xs text-muted-foreground leading-relaxed shrink-0">
         <ShieldAlert className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div>
           <p className="font-semibold text-foreground">Safety Advisory</p>

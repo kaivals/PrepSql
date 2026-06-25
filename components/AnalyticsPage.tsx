@@ -320,7 +320,7 @@ export function AnalyticsPage({
           { label: 'Avg Memory', value: `${metrics.avgMem}MB`, icon: MemoryStick, color: 'text-foreground' },
           { label: 'Index Hit', value: `${metrics.indexHitRatio}%`, icon: Key, color: metrics.indexHitRatio > 50 ? 'text-emerald-600' : 'text-amber-600' },
         ].map((card) => (
-          <div key={card.label} className="rounded-xl border border-border bg-white p-3.5">
+          <div key={card.label} className="rounded-xl border border-border bg-card p-3.5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {card.label}
@@ -335,7 +335,7 @@ export function AnalyticsPage({
       {/* Grid: Health Score Dial & Recommendations */}
       <div className="mb-6 grid gap-6 md:grid-cols-3">
         {/* Health Dial */}
-        <div className="rounded-xl border border-border bg-white p-5 flex flex-col items-center justify-center">
+        <div className="rounded-xl border border-border bg-card p-5 flex flex-col items-center justify-center">
           <div className="relative flex h-28 w-28 items-center justify-center">
             {/* Custom SVG Dial */}
             <svg className="absolute h-full w-full -rotate-90">
@@ -386,7 +386,7 @@ export function AnalyticsPage({
         </div>
 
         {/* AI Health Recommendations */}
-        <div className="md:col-span-2 rounded-xl border border-border bg-white p-5 flex flex-col justify-between">
+        <div className="md:col-span-2 rounded-xl border border-border bg-card p-5 flex flex-col justify-between">
           <div>
             <div className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-700">
               <Gauge className="h-4 w-4" />
@@ -410,7 +410,7 @@ export function AnalyticsPage({
       {/* Section: Custom SVG Visualizations */}
       <div className="mb-6 grid gap-6 md:grid-cols-2">
         {/* SVG Query Execution Trend */}
-        <div className="rounded-xl border border-border bg-white p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <TrendingUp className="h-4 w-4" />
             Query Latencies (Last 10 Queries)
@@ -451,7 +451,7 @@ export function AnalyticsPage({
         </div>
 
         {/* SVG Table Usage */}
-        <div className="rounded-xl border border-border bg-white p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <Database className="h-4 w-4" />
             Most Consulted Tables
@@ -502,7 +502,7 @@ export function AnalyticsPage({
           <div className="space-y-4">
             <div>
               <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Target Query</p>
-              <pre className="mt-1.5 overflow-x-auto rounded bg-white border border-amber-200 p-3 font-mono text-xs text-amber-950">
+              <pre className="mt-1.5 overflow-x-auto rounded bg-background border border-amber-200 p-3 font-mono text-xs text-amber-950">
                 <code>{selectedQueryForAI.sql}</code>
               </pre>
             </div>
@@ -560,7 +560,7 @@ export function AnalyticsPage({
                     <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide block mb-2">
                       Side-By-Side Projection
                     </span>
-                    <div className="overflow-hidden rounded-lg border border-amber-200 bg-white">
+                    <div className="overflow-hidden rounded-lg border border-amber-200 bg-background">
                       <table className="w-full border-collapse text-left text-xs">
                         <thead>
                           <tr className="border-b border-amber-100 bg-amber-50/20 font-medium">
@@ -599,7 +599,7 @@ export function AnalyticsPage({
       )}
 
       {/* Section: Slow Queries Logs */}
-      <div className="mb-6 rounded-xl border border-border bg-white p-5">
+      <div className="mb-6 rounded-xl border border-border bg-card p-5">
         <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-red-600 flex items-center gap-1.5">
           <AlertTriangle className="h-4 w-4" />
           Slow Query Detection ({'>'}100ms)
@@ -658,7 +658,7 @@ export function AnalyticsPage({
       </div>
 
       {/* Section: Performance Dashboard Table */}
-      <div className="rounded-xl border border-border bg-white p-5">
+      <div className="rounded-xl border border-border bg-card p-5">
         <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <FileText className="h-4 w-4" />
           Recent Executions Dashboard (Click any row to analyze query lifecycle)
@@ -747,7 +747,7 @@ export function AnalyticsPage({
 
       {/* Execution Timeline Lifecycle Analyzer panel */}
       {selectedRun && (
-        <div className="mt-6 rounded-xl border border-border bg-white p-5 shadow-sm space-y-6">
+        <div className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border pb-4 gap-4">
             <div>
               <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
@@ -903,7 +903,7 @@ export function AnalyticsPage({
                               <strong className="text-foreground">Tables Involved:</strong>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {q.tablesInvolved?.map((t: string) => (
-                                  <span key={t} className="px-1.5 py-0.2 bg-white text-foreground border border-border rounded text-[10px] font-medium">{t}</span>
+                                  <span key={t} className="px-1.5 py-0.2 bg-background text-foreground border border-border rounded text-[10px] font-medium">{t}</span>
                                 )) || <span className="text-muted-foreground text-[11px]">-</span>}
                               </div>
                             </div>
@@ -938,7 +938,7 @@ export function AnalyticsPage({
                         if (val.status === 'violates') badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
 
                         return (
-                          <div key={p} className="rounded-lg border border-border bg-white p-3 space-y-1.5 flex flex-col justify-between">
+                          <div key={p} className="rounded-lg border border-border bg-background p-3 space-y-1.5 flex flex-col justify-between">
                             <div>
                               <span className="text-[11px] font-bold uppercase text-foreground">{p}</span>
                               <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">{val.description}</p>

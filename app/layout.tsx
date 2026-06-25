@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: 'light',
-  themeColor: '#ffffff',
+  themeColor: '#EEF9F7',
 }
 
 export default function RootLayout({
@@ -29,7 +29,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased relative min-h-screen">
+        {/* Aurora blobs background */}
+        <div className="fixed inset-0 -z-10 overflow-hidden bg-[#EEF9F7] pointer-events-none">
+          <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full bg-[#80E8D8]/25 blur-[120px]" />
+          <div className="absolute -bottom-[10%] -right-[10%] w-[60%] h-[60%] rounded-full bg-[#A8F0E8]/25 blur-[150px]" />
+          <div className="absolute top-[30%] left-[20%] w-[40%] h-[40%] rounded-full bg-[#B8F5E0]/20 blur-[100px]" />
+          <div className="absolute top-[10%] right-[20%] w-[35%] h-[35%] rounded-full bg-[#C4E8F4]/20 blur-[90px]" />
+        </div>
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

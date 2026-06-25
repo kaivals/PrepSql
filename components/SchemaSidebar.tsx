@@ -8,6 +8,7 @@ import {
   Table2,
   Key,
   AlertCircle,
+  Pencil,
 } from 'lucide-react';
 import type { DatabaseConnection, QueryHistoryItem, SchemaTable } from '@/lib/types';
 import { buildSelectPreview } from '@/lib/schema-format';
@@ -18,6 +19,7 @@ interface SchemaSidebarProps {
   onBack: () => void;
   onSelectQuery: (sql: string) => void;
   onSelectTable?: (tableName: string) => void;
+  onEditTable?: (tableName: string) => void;
   refreshTrigger?: number;
   selectedTable?: string | null;
 }
@@ -27,6 +29,7 @@ export function SchemaSidebar({
   onBack,
   onSelectQuery,
   onSelectTable,
+  onEditTable,
   refreshTrigger,
   selectedTable,
 }: SchemaSidebarProps) {
@@ -130,7 +133,7 @@ export function SchemaSidebar({
   };
 
   return (
-    <aside className="flex h-full w-full shrink-0 flex-col bg-white">
+    <aside className="flex h-full w-full shrink-0 flex-col bg-sidebar">
       <div className="border-b border-border p-4">
         <button
           type="button"
@@ -198,34 +201,52 @@ export function SchemaSidebar({
             <div className="space-y-0.5">
               {tables.map((table) => (
                 <div key={table.name}>
-                  <button
-                    ref={(el) => {
-                      if (el) tableItemRefs.current.set(table.name, el);
-                    }}
-                    type="button"
-                    onClick={() => {
-                      toggleTable(table.name);
-                      if (onSelectTable) onSelectTable(table.name);
-                    }}
-                    onDoubleClick={() => onSelectQuery(buildSelectPreview(table, connection.type))}
-                    title="Click to select & expand · Double-click to preview rows"
+                  <div
                     className={cn(
-                      'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+                      'group/table-row flex items-center justify-between rounded-md transition-colors',
                       selectedTable === table.name
                         ? 'bg-primary/10 font-medium text-foreground'
                         : 'hover:bg-muted/60'
                     )}
                   >
-                    <ChevronRight
-                      className={cn(
-                        'h-3 w-3 shrink-0 text-muted-foreground transition-transform',
-                        expanded.has(table.name) && 'rotate-90'
-                      )}
-                    />
-                    <Table2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="flex-1 truncate text-left">{table.name}</span>
-                    <span className="text-xs text-muted-foreground">{table.rowCount}</span>
-                  </button>
+                    <button
+                      ref={(el) => {
+                        if (el) tableItemRefs.current.set(table.name, el);
+                      }}
+                      type="button"
+                      onClick={() => {
+                        toggleTable(table.name);
+                        if (onSelectTable) onSelectTable(table.name);
+                      }}
+                      onDoubleClick={() => onSelectQuery(buildSelectPreview(table, connection.type))}
+                      title="Click to select & expand · Double-click to preview rows"
+                      className="flex flex-1 items-center gap-2 px-2 py-1.5 text-sm truncate text-left"
+                    >
+                      <ChevronRight
+                        className={cn(
+                          'h-3 w-3 shrink-0 text-muted-foreground transition-transform',
+                          expanded.has(table.name) && 'rotate-90'
+                        )}
+                      />
+                      <Table2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="flex-1 truncate">{table.name}</span>
+                      <span className="text-xs text-muted-foreground">{table.rowCount}</span>
+                    </button>
+                    {onEditTable && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSelectTable) onSelectTable(table.name);
+                          onEditTable(table.name);
+                        }}
+                        title="Edit table schema"
+                        className="mr-1.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground opacity-60 hover:opacity-100 transition-opacity"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                   {expanded.has(table.name) && (
                     <div className="ml-7 space-y-0.5 pb-1">
                       {table.columns.map((col, ci) => (

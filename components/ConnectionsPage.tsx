@@ -71,7 +71,7 @@ export function ConnectionsPage({
       </div>
 
       {connections.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-white p-12 text-center">
+        <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <Database className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
           <p className="text-muted-foreground">No connections yet. Try the demo DB or add a new one.</p>
         </div>
@@ -80,7 +80,7 @@ export function ConnectionsPage({
           {connections.map((conn) => (
             <div
               key={conn.id}
-              className="group relative cursor-pointer rounded-xl border border-border bg-white p-5 transition-shadow hover:shadow-md"
+              className="group relative cursor-pointer rounded-xl border border-border bg-card p-5 transition-shadow hover:shadow-md"
               onClick={() => onSelect(conn)}
               onKeyDown={(e) => e.key === 'Enter' && onSelect(conn)}
               role="button"
@@ -112,7 +112,7 @@ export function ConnectionsPage({
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">New connection</h2>
               <button

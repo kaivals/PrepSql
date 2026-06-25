@@ -390,7 +390,7 @@ export function QueryInterface({
                     setPrompt(s);
                     handleSubmit(s);
                   }}
-                  className="rounded-full border border-border bg-white px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted/50"
+                  className="rounded-full border border-border bg-card px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted/50"
                 >
                   {s}
                 </button>
@@ -452,7 +452,7 @@ export function QueryInterface({
                               type="button"
                               onClick={() => handleApproval(msg.id, 'reject')}
                               disabled={generating}
-                              className="rounded-md bg-white border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-sm hover:bg-amber-50 transition-colors disabled:opacity-50"
+                              className="rounded-md bg-card border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-sm hover:bg-amber-50 transition-colors disabled:opacity-50"
                             >
                               Reject
                             </button>
@@ -511,7 +511,7 @@ export function QueryInterface({
                 )}
 
                 {generatedSql && (
-                  <div className="rounded-xl border border-border bg-white p-4">
+                  <div className="rounded-xl border border-border bg-card p-4">
                     <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       SQL Query
                     </p>
@@ -532,7 +532,7 @@ export function QueryInterface({
         )}
       </div>
 
-      <div className="border-t border-border bg-white p-4">
+      <div className="border-t border-border bg-card p-4">
         <div className="mx-auto mb-3 flex max-w-3xl justify-center">
           <div className="flex rounded-lg border border-border bg-muted/40 p-0.5">
             <button
@@ -541,7 +541,7 @@ export function QueryInterface({
               className={cn(
                 'rounded-md px-3 py-1 text-xs font-medium transition-colors',
                 inputMode === 'natural'
-                  ? 'bg-white text-foreground shadow-sm'
+                  ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -553,7 +553,7 @@ export function QueryInterface({
               className={cn(
                 'rounded-md px-3 py-1 text-xs font-medium transition-colors',
                 inputMode === 'sql'
-                  ? 'bg-white text-foreground shadow-sm'
+                  ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >

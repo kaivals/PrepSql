@@ -353,7 +353,6 @@ export default function Home() {
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           connectionId={activeConnection?.id}
           refreshTrigger={historyRefresh}
-          onPickTable={(tableName) => setSelectedTable(tableName)}
         />
         <Toast
           message={toast}
@@ -398,6 +397,10 @@ export default function Home() {
                 if (window.innerWidth < 768) setSidebarOpen(false);
               }}
               onSelectTable={(tbl) => setSelectedTable(tbl)}
+              onEditTable={(tbl) => {
+                setSelectedTable(tbl);
+                handleModeChange('schema');
+              }}
               refreshTrigger={historyRefresh}
               selectedTable={selectedTable}
             />
@@ -419,6 +422,7 @@ export default function Home() {
                 showConfirmation={showConfirmation}
                 showNotification={showNotification}
                 onRefreshSchema={() => setHistoryRefresh((prev) => prev + 1)}
+                onClose={() => handleModeChange('crud')}
               />
             ) : mode === 'analytics' ? (
               <AnalyticsPage

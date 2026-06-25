@@ -28,7 +28,7 @@ Here is an overview of the key directories and files in the codebase:
 │   ├── QueryInterface.tsx       # SQL editor, instructions input, and output table
 │   ├── ResultsTable.tsx         # Display for query execution results (with CSV export)
 │   ├── SQLEditor.tsx            # Custom SQL editor for previewing generated queries
-│   └── SchemaSidebar.tsx        # Side panel showing introspected schema tables/columns
+│   └── SchemaSidebar.tsx        # Side panel showing tables/columns, with inline schema editing triggers
 ├── lib/
 │   ├── api-key-storage.ts       # Utility to sync LLM API keys with server cookies
 │   ├── claude.ts                # Main AI integration (System prompts, Groq/Anthropic APIs)
@@ -139,3 +139,34 @@ Executes an SQL query against the active database.
     "rowCount": 3
   }
   ```
+
+---
+
+## 5. UI Theme & Design System
+
+PrepSQL implements a cohesive developer-focused interface tailored for high readability and layout density.
+
+### A. Design Aesthetic: "Aurora Teal Glassmorphism (Light & Minimal)"
+- **Background**:
+  - Base Layout: Soft Teal-White base (`#EEF9F7`)
+  - Backdrops: Soft teal (`#80E8D8`), pale aqua (`#A8F0E8`), light mint (`#B8F5E0`), and whisper lavender (`#C4E8F4`) ambient background blobs at low opacity (`0.2-0.25`) and heavily blurred (`blur-[100px]+`).
+- **Glass Panels (Sidebars, Header, Cards)**:
+  - Background: Semi-translucent white (`rgba(255, 255, 255, 0.50)`)
+  - Blur Effect: `backdrop-filter: blur(24px)`
+  - Border Edge: White translucent borders (`rgba(255, 255, 255, 0.75)`)
+  - Shadow: Soft teal-shadow (`0 8px 32px rgba(60, 180, 160, 0.10)`)
+- **Typography / Foregrounds**:
+  - Headings: Deep Teal (`#0D3D35`) for high contrast
+  - Body Text: Mid Teal (`#2E6B5E`)
+  - Muted Labels: Muted teal-gray (`rgba(46, 107, 94, 0.55)`)
+- **CTAs & Accents**:
+  - Active Connection & Primary CTAs: Premium Teal (`#2AB8A0` / `#1FA896`)
+  - Hover Action: Darker Teal (`#178A7A`)
+  - Icon Tints: Soft aqua (`#5DD8C8`) / mint (`#7EEEDD`) accents derived from the background aurora.
+
+### B. Typography Pairings
+- **UI Elements**: **Geist Sans** (with **Inter** fallback) for premium developer-tool layout density and high readability.
+- **SQL Editors & Schemas**: **Geist Mono** (with **JetBrains Mono** / **Fira Code** fallbacks) for vertical spacing and layout precision.
+
+### C. Sidebar Integration
+- Schema edits are initiated inline by clicking the **Pencil (Edit)** icon next to any table in the `SchemaSidebar.tsx`. The icon is always visible (at a lower opacity) to make the feature easily discoverable, and highlights to full opacity on hover, launching the `SchemaEditor.tsx` in the main workspace panel.

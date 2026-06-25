@@ -108,7 +108,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-white shadow-xl">
+      <div className="w-full max-w-lg rounded-xl border border-border bg-card shadow-xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4 text-muted-foreground" />
