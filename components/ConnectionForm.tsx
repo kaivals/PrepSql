@@ -27,6 +27,12 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
+  const isRemoteSqlite = dbType === 'sqlite' && (
+    filepath.startsWith('libsql://') || 
+    filepath.startsWith('https://') || 
+    filepath.startsWith('http://')
+  );
+
   const portDefaults = {
     postgresql: String(POSTGRES_DEFAULTS.port),
     mysql: '3306',
@@ -74,6 +80,9 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
 
       if (dbType === 'sqlite') {
         payload.filepath = filepath;
+        if (isRemoteSqlite) {
+          payload.password = password;
+        }
       } else {
         payload.host = host;
         payload.port = parseInt(port, 10);
@@ -152,15 +161,29 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
       </div>
 
       {dbType === 'sqlite' ? (
-        <div>
-          <label className="mb-1 block text-sm font-medium">File Path</label>
-          <input
-            type="text"
-            value={filepath}
-            onChange={(e) => setFilepath(e.target.value)}
-            placeholder="/path/to/database.db"
-            className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">File Path / URL</label>
+            <input
+              type="text"
+              value={filepath}
+              onChange={(e) => setFilepath(e.target.value)}
+              placeholder="libsql://your-db-name.turso.io or /path/to/database.db"
+              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          {isRemoteSqlite && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">Turso Auth Token (Optional)</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="ey..."
+                className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          )}
         </div>
       ) : (
         <>
