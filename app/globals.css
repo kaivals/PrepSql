@@ -6,8 +6,8 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: var(--font-geist-sans), 'Geist Fallback';
-  --font-mono: var(--font-geist-mono), 'Geist Mono Fallback';
+  --font-sans: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', 'Fira Code', monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -50,38 +50,62 @@
 
 :root {
   color-scheme: light;
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
+
+  /* Core background / foreground */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.171 0.021 261);
+
+  /* Cards */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.171 0.021 261);
+
+  /* Popovers */
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.488 0.243 264.376);
+  --popover-foreground: oklch(0.171 0.021 261);
+
+  /* Primary — Indigo 500 */
+  --primary: oklch(0.585 0.233 277);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+
+  /* Secondary — Slate 100 */
+  --secondary: oklch(0.968 0.007 247);
+  --secondary-foreground: oklch(0.205 0.021 261);
+
+  /* Muted — Slate 50 / Slate 500 */
+  --muted: oklch(0.968 0.007 247);
+  --muted-foreground: oklch(0.554 0.03 256);
+
+  /* Accent — Slate 100 */
+  --accent: oklch(0.968 0.007 247);
+  --accent-foreground: oklch(0.205 0.021 261);
+
+  /* Destructive — Red 500 */
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: oklch(0.488 0.243 264.376);
+
+  /* Borders & inputs — Slate 200 */
+  --border: oklch(0.925 0.008 247);
+  --input: oklch(0.925 0.008 247);
+  --ring: oklch(0.585 0.233 277);
+
+  /* Chart colors */
+  --chart-1: oklch(0.585 0.233 277);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.577 0.245 27.325);
   --chart-4: oklch(0.65 0.15 150);
   --chart-5: oklch(0.55 0.15 45);
-  --radius: 0.5rem;
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+
+  /* Radius — 12px base for Figma card rounding */
+  --radius: 0.75rem;
+
+  /* Sidebar — Dark theme (Slate 950) */
+  --sidebar: oklch(0.129 0.042 265);
+  --sidebar-foreground: oklch(0.871 0.006 247);
+  --sidebar-primary: oklch(0.585 0.233 277);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  --sidebar-accent: oklch(0.205 0.042 265);
+  --sidebar-accent-foreground: oklch(0.871 0.006 247);
+  --sidebar-border: oklch(0.205 0.042 265);
+  --sidebar-ring: oklch(0.585 0.233 277);
 }
 
 @layer base {
@@ -93,5 +117,30 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Utility: consistent card surface */
+@layer components {
+  .card-surface {
+    @apply rounded-xl border border-slate-200/80 bg-white shadow-sm;
+  }
+}
+
+/* Smooth scrollbar styling */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.8 0 0);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.7 0 0);
   }
 }

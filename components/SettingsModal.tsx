@@ -107,45 +107,54 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Settings className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-lg font-semibold">Settings</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200/80 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100">
+              <Settings className="h-4.5 w-4.5 text-slate-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Settings</h2>
+              <p className="text-xs text-slate-500">Manage your API configuration</p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-muted"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
+        {/* Body */}
         <div className="space-y-6 p-6">
           <section>
-            <div className="mb-3 flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold">AI API key</h3>
+            <div className="mb-3 flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                <KeyRound className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900">AI API key</h3>
             </div>
 
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-5 text-sm leading-relaxed text-slate-500">
               Required for natural language → SQL. Use a free Groq key from{' '}
               <a
                 href="https://console.groq.com/keys"
                 target="_blank"
                 rel="noreferrer"
-                className="text-primary underline"
+                className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
               >
                 console.groq.com
               </a>{' '}
-              (recommended, model: llama-3.3-70b-versatile) or an Anthropic key from{' '}
+              (recommended) or an Anthropic key from{' '}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
                 rel="noreferrer"
-                className="text-primary underline"
+                className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
               >
                 console.anthropic.com
               </a>
@@ -153,20 +162,23 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
             </p>
 
             {info?.configured && (
-              <div className="mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                <p className="text-muted-foreground">
-                  Current key:{' '}
-                  <span className="font-mono text-foreground">{info.maskedKey}</span>
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Provider: {info.provider === 'groq' ? 'Groq' : 'Anthropic'}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Source:{' '}
-                  {info.source === 'env'
-                    ? '.env.local (restart server to change)'
-                    : 'Saved in app settings'}
-                </p>
+              <div className="mb-5 space-y-2 rounded-xl border border-slate-200/80 bg-slate-50 px-4 py-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Current key</span>
+                  <span className="font-mono text-xs text-slate-700">{info.maskedKey}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Provider</span>
+                  <span className="text-xs font-medium text-slate-700">{info.provider === 'groq' ? 'Groq' : 'Anthropic'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Source</span>
+                  <span className="text-xs text-slate-500">
+                    {info.source === 'env'
+                      ? '.env.local (restart to change)'
+                      : 'Saved in app settings'}
+                  </span>
+                </div>
               </div>
             )}
 
@@ -176,10 +188,10 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="gsk_... or sk-ant-..."
-                  className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={saving || !apiKey.trim()}>
+                <div className="flex gap-2.5">
+                  <Button type="submit" disabled={saving || !apiKey.trim()} className="rounded-lg px-4 text-sm">
                     {saving ? 'Saving...' : info?.configured ? 'Update key' : 'Save key'}
                   </Button>
                   {info?.configured && info.source === 'client' && (
@@ -188,6 +200,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                       variant="outline"
                       disabled={saving}
                       onClick={handleRemove}
+                      className="rounded-lg px-4 text-sm"
                     >
                       Remove key
                     </Button>
@@ -195,8 +208,8 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                 </div>
               </form>
 
-            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-            {success && <p className="mt-2 text-sm text-emerald-600">{success}</p>}
+            {error && <p className="mt-3 text-sm font-medium text-red-600">{error}</p>}
+            {success && <p className="mt-3 text-sm font-medium text-emerald-600">{success}</p>}
           </section>
         </div>
       </div>

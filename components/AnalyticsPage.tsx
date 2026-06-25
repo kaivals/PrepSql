@@ -288,12 +288,12 @@ export function AnalyticsPage({
     .slice(0, 5);
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto bg-background p-6">
+    <div className="flex flex-1 flex-col overflow-y-auto bg-slate-50/50 p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between border-b border-border pb-4">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground">AI Database Performance Advisor</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">AI Database Performance Advisor</h1>
+          <p className="mt-1 text-sm text-slate-500">
             Monitor query latencies, examine index coverage, and apply AI-driven suggestions.
           </p>
         </div>
@@ -301,123 +301,126 @@ export function AnalyticsPage({
           type="button"
           onClick={handleDbAudit}
           disabled={auditingDb}
-          className="flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-2 text-xs font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
         >
-          <RefreshCw className={cn('h-3.5 w-3.5', auditingDb && 'animate-spin')} />
+          <RefreshCw className={cn('h-4 w-4', auditingDb && 'animate-spin')} />
           Run Health Audit
         </button>
       </div>
 
-      {/* Execution Metrics Summary Cards — computed from real data in the
-          server-side query_history collection. */}
-      <div className="mb-6 grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+      {/* Execution Metrics Summary Cards */}
+      <div className="mb-8 grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
         {[
-          { label: 'Total Queries', value: metrics.total.toLocaleString(), icon: FileText, color: 'text-foreground' },
-          { label: 'Avg Time', value: `${metrics.avgTime}ms`, icon: Clock, color: metrics.avgTime > 100 ? 'text-red-600' : 'text-emerald-600' },
-          { label: 'Avg Scanned', value: metrics.avgScanned.toLocaleString(), icon: Database, color: 'text-foreground' },
-          { label: 'Avg Returned', value: metrics.avgReturned.toLocaleString(), icon: TrendingUp, color: 'text-foreground' },
-          { label: 'Avg CPU', value: `${metrics.avgCpu}%`, icon: Cpu, color: 'text-foreground' },
-          { label: 'Avg Memory', value: `${metrics.avgMem}MB`, icon: MemoryStick, color: 'text-foreground' },
-          { label: 'Index Hit', value: `${metrics.indexHitRatio}%`, icon: Key, color: metrics.indexHitRatio > 50 ? 'text-emerald-600' : 'text-amber-600' },
+          { label: 'Total Queries', value: metrics.total.toLocaleString(), icon: FileText, color: 'text-slate-700', iconBg: 'bg-slate-100' },
+          { label: 'Avg Time', value: `${metrics.avgTime}ms`, icon: Clock, color: metrics.avgTime > 100 ? 'text-red-600' : 'text-emerald-600', iconBg: metrics.avgTime > 100 ? 'bg-red-50' : 'bg-emerald-50' },
+          { label: 'Avg Scanned', value: metrics.avgScanned.toLocaleString(), icon: Database, color: 'text-slate-700', iconBg: 'bg-slate-100' },
+          { label: 'Avg Returned', value: metrics.avgReturned.toLocaleString(), icon: TrendingUp, color: 'text-slate-700', iconBg: 'bg-slate-100' },
+          { label: 'Avg CPU', value: `${metrics.avgCpu}%`, icon: Cpu, color: 'text-slate-700', iconBg: 'bg-slate-100' },
+          { label: 'Avg Memory', value: `${metrics.avgMem}MB`, icon: MemoryStick, color: 'text-slate-700', iconBg: 'bg-slate-100' },
+          { label: 'Index Hit', value: `${metrics.indexHitRatio}%`, icon: Key, color: metrics.indexHitRatio > 50 ? 'text-emerald-600' : 'text-amber-600', iconBg: metrics.indexHitRatio > 50 ? 'bg-emerald-50' : 'bg-amber-50' },
         ].map((card) => (
-          <div key={card.label} className="rounded-xl border border-border bg-white p-3.5">
+          <div key={card.label} className="card-surface p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 {card.label}
               </span>
-              <card.icon className={cn('h-3.5 w-3.5', card.color)} />
+              <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', card.iconBg)}>
+                <card.icon className={cn('h-3.5 w-3.5', card.color)} />
+              </div>
             </div>
-            <p className={cn('mt-1.5 text-lg font-bold', card.color)}>{card.value}</p>
+            <p className={cn('mt-2.5 text-xl font-bold tabular-nums', card.color)}>{card.value}</p>
           </div>
         ))}
       </div>
 
       {/* Grid: Health Score Dial & Recommendations */}
-      <div className="mb-6 grid gap-6 md:grid-cols-3">
+      <div className="mb-8 grid gap-6 md:grid-cols-3">
         {/* Health Dial */}
-        <div className="rounded-xl border border-border bg-white p-5 flex flex-col items-center justify-center">
-          <div className="relative flex h-28 w-28 items-center justify-center">
+        <div className="card-surface flex flex-col items-center justify-center p-6">
+          <div className="relative flex h-32 w-32 items-center justify-center">
             {/* Custom SVG Dial */}
             <svg className="absolute h-full w-full -rotate-90">
               <circle
-                cx="56"
-                cy="56"
-                r="46"
-                className="stroke-muted/20"
+                cx="64"
+                cy="64"
+                r="52"
+                className="stroke-slate-100"
                 strokeWidth="8"
                 fill="none"
               />
               <circle
-                cx="56"
-                cy="56"
-                r="46"
+                cx="64"
+                cy="64"
+                r="52"
                 className={cn(
                   'transition-all duration-1000',
                   healthReport.overallScore > 80 ? 'stroke-emerald-500' : 'stroke-amber-500'
                 )}
                 strokeWidth="8"
                 fill="none"
-                strokeDasharray="289"
-                strokeDashoffset={289 - (289 * healthReport.overallScore) / 100}
+                strokeDasharray="327"
+                strokeDashoffset={327 - (327 * healthReport.overallScore) / 100}
                 strokeLinecap="round"
               />
             </svg>
             <div className="text-center">
-              <span className="text-3xl font-extrabold text-foreground">{healthReport.overallScore}</span>
-              <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="block text-3xl font-extrabold text-slate-900">{healthReport.overallScore}</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Health Score
               </span>
             </div>
           </div>
-          <div className="mt-4 flex w-full justify-between text-center border-t border-border pt-4 text-xs text-muted-foreground">
+          <div className="mt-5 flex w-full justify-between border-t border-slate-200/80 pt-4 text-center text-xs text-slate-500">
             <div>
-              <span className="block font-bold text-foreground">{healthReport.queryEfficiency}</span>
+              <span className="block text-base font-bold text-slate-800">{healthReport.queryEfficiency}</span>
               Efficiency
             </div>
-            <div className="border-l border-border px-3">
-              <span className="block font-bold text-foreground">{healthReport.indexCoverage}</span>
+            <div className="border-l border-slate-200/80 px-4">
+              <span className="block text-base font-bold text-slate-800">{healthReport.indexCoverage}</span>
               Index Cov
             </div>
-            <div className="border-l border-border pl-3">
-              <span className="block font-bold text-foreground">{healthReport.schemaQuality}</span>
+            <div className="border-l border-slate-200/80 pl-4">
+              <span className="block text-base font-bold text-slate-800">{healthReport.schemaQuality}</span>
               Schema
             </div>
           </div>
         </div>
 
         {/* AI Health Recommendations */}
-        <div className="md:col-span-2 rounded-xl border border-border bg-white p-5 flex flex-col justify-between">
+        <div className="card-surface flex flex-col justify-between p-6 md:col-span-2">
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-700">
-              <Gauge className="h-4 w-4" />
+            <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-600">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50">
+                <Gauge className="h-3.5 w-3.5" />
+              </div>
               AI Recommendations
             </div>
-            <ul className="space-y-2.5 text-xs leading-relaxed text-muted-foreground">
+            <ul className="space-y-3 text-sm leading-relaxed text-slate-600">
               {healthReport.recommendations.map((rec, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <ArrowRight className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                <li key={i} className="flex items-start gap-3">
+                  <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                   <span>{rec}</span>
                 </li>
               ))}
             </ul>
           </div>
-          <div className="text-[10px] text-muted-foreground mt-4 border-t border-border/60 pt-3">
-            Last audited connection: <span className="font-semibold text-foreground">{connection.name}</span>
+          <div className="mt-5 border-t border-slate-200/80 pt-3 text-[11px] text-slate-400">
+            Last audited: <span className="font-medium text-slate-600">{connection.name}</span>
           </div>
         </div>
       </div>
 
       {/* Section: Custom SVG Visualizations */}
-      <div className="mb-6 grid gap-6 md:grid-cols-2">
+      <div className="mb-8 grid gap-6 md:grid-cols-2">
         {/* SVG Query Execution Trend */}
-        <div className="rounded-xl border border-border bg-white p-5">
-          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <TrendingUp className="h-4 w-4" />
-            Query Latencies (Last 10 Queries)
+        <div className="card-surface p-6">
+          <h3 className="mb-5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Query Latencies (Last 10)
           </h3>
-          <div className="h-40 flex items-end gap-1.5 pt-4 relative">
+          <div className="flex h-44 items-end gap-1.5 pt-4 relative">
             {history.length === 0 ? (
-              <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
                 No executions recorded.
               </div>
             ) : (
@@ -428,19 +431,19 @@ export function AnalyticsPage({
                   const maxTime = Math.max(...history.map((item) => item.executionTime || 10));
                   const percentage = ((h.executionTime || 2) / maxTime) * 100;
                   return (
-                    <div key={i} className="flex-1 group relative flex flex-col items-center gap-1 h-full justify-end">
+                    <div key={i} className="group relative flex flex-1 flex-col items-center gap-1.5 h-full justify-end">
                       <div
                         className={cn(
-                          'w-full rounded-t-sm transition-all duration-300 group-hover:opacity-85',
+                          'w-full rounded-t-md transition-all duration-300 group-hover:opacity-80',
                           h.success
                             ? (h.executionTime || 0) > 100
                               ? 'bg-red-400'
                               : 'bg-emerald-400'
                             : 'bg-red-200'
                         )}
-                        style={{ height: `${Math.max(10, Math.min(100, percentage))}%` }}
+                        style={{ height: `${Math.max(8, Math.min(100, percentage))}%` }}
                       />
-                      <span className="text-[9px] text-muted-foreground whitespace-nowrap overflow-hidden max-w-full">
+                      <span className="text-[9px] tabular-nums text-slate-400 whitespace-nowrap overflow-hidden max-w-full">
                         {h.executionTime}ms
                       </span>
                     </div>
@@ -451,28 +454,28 @@ export function AnalyticsPage({
         </div>
 
         {/* SVG Table Usage */}
-        <div className="rounded-xl border border-border bg-white p-5">
-          <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Database className="h-4 w-4" />
+        <div className="card-surface p-6">
+          <h3 className="mb-5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+            <Database className="h-4 w-4 text-primary" />
             Most Consulted Tables
           </h3>
           {topTables.length === 0 ? (
-            <div className="h-40 flex items-center justify-center text-xs text-muted-foreground">
+            <div className="flex h-44 items-center justify-center text-sm text-slate-400">
               No tables accessed yet.
             </div>
           ) : (
-            <div className="h-40 space-y-3.5 flex flex-col justify-center">
+            <div className="flex h-44 flex-col justify-center space-y-4">
               {topTables.map(([tbl, count]) => {
                 const maxCount = Math.max(...topTables.map((t) => t[1]));
                 const pct = (count / maxCount) * 100;
                 return (
-                  <div key={tbl} className="text-xs">
-                    <div className="flex justify-between font-semibold mb-1 text-[11px]">
-                      <span>{tbl}</span>
-                      <span className="text-muted-foreground">{count} queries</span>
+                  <div key={tbl} className="text-sm">
+                    <div className="mb-1.5 flex justify-between text-xs font-medium">
+                      <span className="text-slate-700">{tbl}</span>
+                      <span className="tabular-nums text-slate-400">{count} queries</span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-primary/70 rounded-full" style={{ width: `${pct}%` }} />
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-primary/60 transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
@@ -484,58 +487,60 @@ export function AnalyticsPage({
 
       {/* Optimization Details Panel */}
       {selectedQueryForAI && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/30 p-5">
-          <div className="flex items-center justify-between border-b border-amber-100 pb-3 mb-4">
-            <h3 className="text-sm font-bold text-amber-900 flex items-center gap-1.5">
-              <Zap className="h-4 w-4 text-amber-600" />
+        <div className="mb-8 card-surface border-amber-200/80 bg-amber-50/30 p-6">
+          <div className="mb-5 flex items-center justify-between border-b border-amber-100 pb-4">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-amber-900">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100">
+                <Zap className="h-3.5 w-3.5 text-amber-600" />
+              </div>
               AI Performance Analysis
             </h3>
             <button
               type="button"
               onClick={() => setSelectedQueryForAI(null)}
-              className="text-xs text-amber-700 hover:text-amber-950 font-semibold"
+              className="text-xs font-semibold text-amber-600 transition-colors hover:text-amber-800"
             >
               Close Panel
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <p className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Target Query</p>
-              <pre className="mt-1.5 overflow-x-auto rounded bg-white border border-amber-200 p-3 font-mono text-xs text-amber-950">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Target Query</p>
+              <pre className="mt-2 overflow-x-auto rounded-lg border border-amber-200/80 bg-white p-4 font-mono text-xs text-amber-950">
                 <code>{selectedQueryForAI.sql}</code>
               </pre>
             </div>
 
             {analyzingQuery ? (
-              <div className="flex items-center gap-2 text-xs text-amber-800 font-medium py-3">
+              <div className="flex items-center gap-2 py-4 text-sm font-medium text-amber-800">
                 <RefreshCw className="h-4 w-4 animate-spin" />
                 Analyzing execution parameters and query planning...
               </div>
             ) : (
               analysisResult && (
                 <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Diagnosis</span>
-                      <p className="text-xs mt-1 text-amber-950">{analysisResult.rootCause}</p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Diagnosis</span>
+                      <p className="mt-1 text-sm text-amber-950">{analysisResult.rootCause}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Explanation</span>
-                      <p className="text-xs mt-1 text-amber-900 leading-relaxed">{analysisResult.explanation}</p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Explanation</span>
+                      <p className="mt-1 text-sm leading-relaxed text-amber-900">{analysisResult.explanation}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
                         Proposed Optimization
                       </span>
-                      <div className="relative mt-1.5">
-                        <pre className="overflow-x-auto rounded bg-slate-900 p-3 font-mono text-xs text-white">
+                      <div className="relative mt-2">
+                        <pre className="overflow-x-auto rounded-lg bg-slate-900 p-4 font-mono text-xs text-white">
                           <code>{analysisResult.optimizedQuery}</code>
                         </pre>
                         <button
                           type="button"
                           onClick={() => handleCopyCode(analysisResult.optimizedQuery)}
-                          className="absolute right-2 top-2 rounded bg-slate-800 p-1 text-slate-400 hover:text-white"
+                          className="absolute right-2.5 top-2.5 rounded-lg bg-slate-800 p-1.5 text-slate-400 transition-colors hover:text-white"
                           title="Copy SQL"
                         >
                           {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -547,7 +552,7 @@ export function AnalyticsPage({
                       <button
                         type="button"
                         onClick={() => handleApplyDdl(analysisResult.optimizedQuery)}
-                        className="mt-4 flex w-full justify-center items-center gap-1.5 rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
                       >
                         <Zap className="h-4 w-4" />
                         Apply Index Optimization
@@ -557,35 +562,35 @@ export function AnalyticsPage({
 
                   {/* Side-by-side performance comparison */}
                   <div className="flex flex-col justify-center">
-                    <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide block mb-2">
+                    <span className="mb-3 block text-[10px] font-bold uppercase tracking-wider text-amber-700">
                       Side-By-Side Projection
                     </span>
-                    <div className="overflow-hidden rounded-lg border border-amber-200 bg-white">
-                      <table className="w-full border-collapse text-left text-xs">
+                    <div className="overflow-hidden rounded-xl border border-amber-200/80 bg-white">
+                      <table className="w-full border-collapse text-left text-sm">
                         <thead>
-                          <tr className="border-b border-amber-100 bg-amber-50/20 font-medium">
-                            <th className="p-2.5">Metric</th>
-                            <th className="p-2.5 text-amber-700">Before Fix</th>
-                            <th className="p-2.5 text-emerald-700">After Fix (Est)</th>
+                          <tr className="border-b border-amber-100 bg-amber-50/50 font-medium text-slate-500">
+                            <th className="p-3">Metric</th>
+                            <th className="p-3 text-amber-700">Before</th>
+                            <th className="p-3 text-emerald-700">After (Est)</th>
                           </tr>
                         </thead>
-                        <tbody>
-                          <tr className="border-b border-amber-100">
-                            <td className="p-2.5 font-medium">Execution Time</td>
-                            <td className="p-2.5 text-amber-700">{analysisResult.estTimeBefore}ms</td>
-                            <td className="p-2.5 text-emerald-700 font-semibold">{analysisResult.estTimeAfter}ms</td>
+                        <tbody className="text-slate-700">
+                          <tr className="border-b border-amber-50">
+                            <td className="p-3 font-medium">Exec Time</td>
+                            <td className="p-3 text-amber-600">{analysisResult.estTimeBefore}ms</td>
+                            <td className="p-3 font-semibold text-emerald-600">{analysisResult.estTimeAfter}ms</td>
                           </tr>
-                          <tr className="border-b border-amber-100">
-                            <td className="p-2.5 font-medium">Rows Scanned</td>
-                            <td className="p-2.5 text-amber-700">{analysisResult.estScannedBefore.toLocaleString()}</td>
-                            <td className="p-2.5 text-emerald-700 font-semibold">
+                          <tr className="border-b border-amber-50">
+                            <td className="p-3 font-medium">Rows Scanned</td>
+                            <td className="p-3 text-amber-600">{analysisResult.estScannedBefore.toLocaleString()}</td>
+                            <td className="p-3 font-semibold text-emerald-600">
                               {analysisResult.estScannedAfter.toLocaleString()}
                             </td>
                           </tr>
                           <tr>
-                            <td className="p-2.5 font-medium">Indexes Used</td>
-                            <td className="p-2.5 text-amber-700">No (Table Scan)</td>
-                            <td className="p-2.5 text-emerald-700 font-semibold">Yes (Index Scan)</td>
+                            <td className="p-3 font-medium">Index Used</td>
+                            <td className="p-3 text-amber-600">No (Full Scan)</td>
+                            <td className="p-3 font-semibold text-emerald-600">Yes (Index Scan)</td>
                           </tr>
                         </tbody>
                       </table>
@@ -599,54 +604,58 @@ export function AnalyticsPage({
       )}
 
       {/* Section: Slow Queries Logs */}
-      <div className="mb-6 rounded-xl border border-border bg-white p-5">
-        <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-red-600 flex items-center gap-1.5">
-          <AlertTriangle className="h-4 w-4" />
+      <div className="mb-8 card-surface p-6">
+        <h3 className="mb-5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-red-600">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-red-50">
+            <AlertTriangle className="h-3.5 w-3.5" />
+          </div>
           Slow Query Detection ({'>'}100ms)
         </h3>
         {loadingHistory ? (
-          <p className="text-xs text-muted-foreground">Loading log entries...</p>
+          <div className="flex items-center justify-center py-6">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-slate-600" />
+          </div>
         ) : historyError ? (
           <div className="flex flex-col items-start gap-2 py-2">
-            <p className="text-xs text-red-600">{historyError}</p>
+            <p className="text-sm text-red-600">{historyError}</p>
             <button
               type="button"
               onClick={loadHistory}
-              className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-500 transition-colors hover:bg-slate-50"
             >
               Retry
             </button>
           </div>
         ) : slowQueries.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">
+          <p className="py-2 text-sm text-slate-500">
             Excellent! No queries exceeded the 100ms latency threshold.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/20 font-medium text-muted-foreground">
+                <tr className="border-b border-slate-200/80 bg-slate-50/50 text-left text-xs font-medium text-slate-500">
                   <th className="p-3">Query</th>
                   <th className="p-3">Execution Time</th>
-                  <th className="p-3">Optimization Actions</th>
+                  <th className="p-3">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {slowQueries.map((item) => (
-                  <tr key={item.id} className="border-b border-border hover:bg-muted/10 transition-colors">
-                    <td className="p-3 font-mono text-[11px] max-w-md truncate" title={item.sql}>
+                  <tr key={item.id} className="border-b border-slate-100 transition-colors hover:bg-slate-50/50">
+                    <td className="max-w-md truncate p-3 font-mono text-xs text-slate-700" title={item.sql}>
                       {item.sql}
                     </td>
-                    <td className="p-3 font-semibold text-red-600">{item.executionTime}ms</td>
+                    <td className="p-3 text-sm font-semibold text-red-600 tabular-nums">{item.executionTime}ms</td>
                     <td className="p-3">
                       <button
                         type="button"
                         onClick={() => handleOptimizeQuery(item)}
                         disabled={analyzingQuery === item.id}
-                        className="flex items-center gap-1 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-60"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-60"
                       >
                         <Zap className="h-3 w-3" />
-                        Optimize Query
+                        Optimize
                       </button>
                     </td>
                   </tr>
@@ -658,37 +667,41 @@ export function AnalyticsPage({
       </div>
 
       {/* Section: Performance Dashboard Table */}
-      <div className="rounded-xl border border-border bg-white p-5">
-        <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <FileText className="h-4 w-4" />
-          Recent Executions Dashboard (Click any row to analyze query lifecycle)
+      <div className="card-surface p-6">
+        <h3 className="mb-5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100">
+            <FileText className="h-3.5 w-3.5" />
+          </div>
+          Recent Executions <span className="ml-1 font-normal text-slate-400 normal-case">(Click row to analyze lifecycle)</span>
         </h3>
         {loadingHistory ? (
-          <p className="text-xs text-muted-foreground">Loading dashboard data...</p>
+          <div className="flex items-center justify-center py-6">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-slate-600" />
+          </div>
         ) : historyError ? (
           <div className="flex flex-col items-start gap-2 py-2">
-            <p className="text-xs text-red-600">{historyError}</p>
+            <p className="text-sm text-red-600">{historyError}</p>
             <button
               type="button"
               onClick={loadHistory}
-              className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-500 transition-colors hover:bg-slate-50"
             >
               Retry
             </button>
           </div>
         ) : history.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">No query execution history found on this session.</p>
+          <p className="py-2 text-sm text-slate-500">No query execution history found on this session.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/20 font-medium text-muted-foreground">
+                <tr className="border-b border-slate-200/80 bg-slate-50/50 text-left text-xs font-medium text-slate-500">
                   <th className="p-3">Status</th>
                   <th className="p-3">Query</th>
                   <th className="p-3">Time</th>
                   <th className="p-3">Scanned</th>
                   <th className="p-3">Returned</th>
-                  <th className="p-3">Indexes Used</th>
+                  <th className="p-3">Index</th>
                   <th className="p-3">CPU</th>
                   <th className="p-3">Memory</th>
                 </tr>
@@ -704,38 +717,38 @@ export function AnalyticsPage({
                         setTimelineAnalysis(null);
                       }}
                       className={cn(
-                        'border-b border-border hover:bg-muted/10 transition-colors cursor-pointer',
-                        selectedRun?.id === item.id && 'bg-muted/30 font-medium'
+                        'cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/50',
+                        selectedRun?.id === item.id && 'bg-primary/5 font-medium'
                       )}
                     >
                       <td className="p-3">
                         <span
                           className={cn(
-                            'inline-block px-2 py-0.5 rounded border text-[10px] font-bold',
+                            'inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold',
                             stat.color
                           )}
                         >
                           {stat.label}
                         </span>
                       </td>
-                      <td className="p-3 font-mono text-[11px] max-w-xs truncate" title={item.sql}>
+                      <td className="max-w-xs truncate p-3 font-mono text-xs text-slate-700" title={item.sql}>
                         {item.sql}
                       </td>
-                      <td className="p-3">{item.executionTime != null ? `${item.executionTime}ms` : '-'}</td>
-                      <td className="p-3">{item.rowsScanned != null ? item.rowsScanned.toLocaleString() : '-'}</td>
-                      <td className="p-3">{item.rowsReturned != null ? item.rowsReturned.toLocaleString() : '-'}</td>
-                      <td className="p-3 max-w-[100px] truncate" title={item.indexesUsed?.join(', ')}>
+                      <td className="p-3 tabular-nums text-slate-600">{item.executionTime != null ? `${item.executionTime}ms` : '-'}</td>
+                      <td className="p-3 tabular-nums text-slate-600">{item.rowsScanned != null ? item.rowsScanned.toLocaleString() : '-'}</td>
+                      <td className="p-3 tabular-nums text-slate-600">{item.rowsReturned != null ? item.rowsReturned.toLocaleString() : '-'}</td>
+                      <td className="max-w-[100px] truncate p-3" title={item.indexesUsed?.join(', ')}>
                         {item.indexesUsed && item.indexesUsed.length > 0 ? (
-                          <span className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
                             <Key className="h-3 w-3" />
                             {item.indexesUsed[0]}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground/60">Sequential scan</span>
+                          <span className="text-xs text-slate-400">Seq scan</span>
                         )}
                       </td>
-                      <td className="p-3">{item.cpuUsage != null ? `${item.cpuUsage}%` : '-'}</td>
-                      <td className="p-3">{item.memoryUsage != null ? `${item.memoryUsage}MB` : '-'}</td>
+                      <td className="p-3 tabular-nums text-slate-600">{item.cpuUsage != null ? `${item.cpuUsage}%` : '-'}</td>
+                      <td className="p-3 tabular-nums text-slate-600">{item.memoryUsage != null ? `${item.memoryUsage}MB` : '-'}</td>
                     </tr>
                   );
                 })}
@@ -747,29 +760,28 @@ export function AnalyticsPage({
 
       {/* Execution Timeline Lifecycle Analyzer panel */}
       {selectedRun && (
-        <div className="mt-6 rounded-xl border border-border bg-white p-5 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border pb-4 gap-4">
+        <div className="mt-8 card-surface space-y-6 p-6 shadow-sm">
+          <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                <Activity className="h-4 w-4 text-primary" />
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
+                  <Activity className="h-3.5 w-3.5 text-primary" />
+                </div>
                 Query Execution Lifecycle Timeline
               </h3>
-              <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl truncate" title={selectedRun.prompt || selectedRun.sql}>
-                Inspect every query step executed during request:{" "}
-                <span className="font-semibold text-foreground">
-                  {selectedRun.prompt || selectedRun.sql}
-                </span>
+              <p className="mt-1 max-w-2xl truncate text-xs text-slate-500" title={selectedRun.prompt || selectedRun.sql}>
+                {selectedRun.prompt || selectedRun.sql}
               </p>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex shrink-0 items-center gap-3">
               <button
                 type="button"
                 onClick={() => handleAnalyzeTimeline(selectedRun)}
                 disabled={analyzingTimeline || !selectedRun.timeline?.length}
-                className="flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/95 disabled:opacity-50 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
               >
-                <Zap className="h-3 w-3" />
-                {analyzingTimeline ? 'Analyzing Lifecycle...' : 'Run AI Lifecycle Analysis'}
+                <Zap className="h-3.5 w-3.5" />
+                {analyzingTimeline ? 'Analyzing...' : 'AI Lifecycle Analysis'}
               </button>
               <button
                 type="button"
@@ -777,43 +789,43 @@ export function AnalyticsPage({
                   setSelectedRun(null);
                   setTimelineAnalysis(null);
                 }}
-                className="text-xs text-muted-foreground hover:text-foreground font-semibold px-2 py-1 cursor-pointer"
+                className="px-2 py-1 text-xs font-semibold text-slate-400 transition-colors hover:text-slate-600 cursor-pointer"
               >
-                Close Panel
+                Close
               </button>
             </div>
           </div>
 
-          {/* Per-query metrics summary — real values captured at execution time. */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+          {/* Per-query metrics summary */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
             {[
-              { label: 'Execution Time', value: selectedRun.executionTime != null ? `${selectedRun.executionTime}ms` : '-' },
+              { label: 'Exec Time', value: selectedRun.executionTime != null ? `${selectedRun.executionTime}ms` : '-' },
               { label: 'Rows Scanned', value: selectedRun.rowsScanned != null ? selectedRun.rowsScanned.toLocaleString() : '-' },
               { label: 'Rows Returned', value: selectedRun.rowsReturned != null ? selectedRun.rowsReturned.toLocaleString() : '-' },
               { label: 'Rows Affected', value: selectedRun.rowsAffected != null ? selectedRun.rowsAffected.toLocaleString() : '-' },
               { label: 'CPU Usage', value: selectedRun.cpuUsage != null ? `${selectedRun.cpuUsage}%` : '-' },
               { label: 'Memory', value: selectedRun.memoryUsage != null ? `${selectedRun.memoryUsage}MB` : '-' },
             ].map((m) => (
-              <div key={m.label} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{m.label}</p>
-                <p className="mt-0.5 text-sm font-bold text-foreground">{m.value}</p>
+              <div key={m.label} className="rounded-lg border border-slate-200/80 bg-slate-50/50 px-3.5 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{m.label}</p>
+                <p className="mt-1 text-sm font-bold tabular-nums text-slate-800">{m.value}</p>
               </div>
             ))}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Timeline Flow list */}
-            <div className="lg:col-span-1 border-r border-border pr-4 space-y-4 max-h-[500px] overflow-y-auto">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-2">
+            <div className="max-h-[500px] space-y-4 overflow-y-auto border-r border-slate-200/80 pr-6 lg:col-span-1">
+              <span className="mb-3 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Execution Steps ({selectedRun.timeline?.length || 0})
               </span>
               
               {!selectedRun.timeline || selectedRun.timeline.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No intermediate timeline steps recorded for this execution.</p>
+                <p className="text-sm text-slate-400">No timeline steps recorded for this execution.</p>
               ) : (
-                <div className="relative pl-4 border-l border-border space-y-6">
+                <div className="relative space-y-5 border-l border-slate-200 pl-5">
                   {selectedRun.timeline.map((step) => {
-                    let badgeColor = 'bg-slate-100 text-slate-800 border-slate-200';
+                    let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
                     let typeLabel = 'Executed Query';
                     if (step.type === 'schema_discovery') {
                       badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
@@ -826,7 +838,7 @@ export function AnalyticsPage({
                       typeLabel = 'Validation Step';
                     } else if (step.type === 'optimization_rewrite') {
                       badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
-                      typeLabel = 'AI Query Optimization / Rewrite';
+                      typeLabel = 'AI Optimization';
                     } else if (step.type === 'final_executed') {
                       badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
                       typeLabel = 'Final Execution';
@@ -834,30 +846,29 @@ export function AnalyticsPage({
 
                     return (
                       <div key={step.id} className="relative group">
-                        {/* Bullet point indicator */}
                         <div className={cn(
-                          "absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border border-white",
+                          "absolute -left-[22px] top-2 h-2.5 w-2.5 rounded-full border-2 border-white",
                           step.success ? "bg-emerald-500" : "bg-red-500"
                         )} />
 
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className={cn("inline-block px-2 py-0.5 rounded border text-[9px] font-bold", badgeColor)}>
+                            <span className={cn("inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold", badgeColor)}>
                               {typeLabel}
                             </span>
-                            <span className="text-[9px] text-muted-foreground">
+                            <span className="text-[10px] tabular-nums text-slate-400">
                               {step.executionTime ? `${step.executionTime}ms` : ''}
                             </span>
                           </div>
                           
-                          <pre className="overflow-x-auto rounded bg-muted/40 p-2 font-mono text-[10px] text-foreground border border-border max-h-36">
+                          <pre className="overflow-x-auto rounded-lg border border-slate-200/80 bg-slate-50 p-2.5 font-mono text-[11px] text-slate-800 max-h-36">
                             <code>{step.sql}</code>
                           </pre>
 
                           {step.error && (
-                            <p className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded p-1.5">
+                            <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-[11px] font-medium text-red-600">
                               Error: {step.error}
-                            </p>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -868,54 +879,54 @@ export function AnalyticsPage({
             </div>
 
             {/* AI Analysis Details */}
-            <div className="lg:col-span-2 space-y-6 max-h-[500px] overflow-y-auto">
+            <div className="max-h-[500px] space-y-6 overflow-y-auto lg:col-span-2">
               {!timelineAnalysis ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-border rounded-lg bg-muted/10 h-full">
-                  <Activity className="h-8 w-8 text-muted-foreground/60 mb-2 animate-pulse" />
-                  <p className="text-xs font-semibold text-foreground">Query Lifecycle Analysis Pending</p>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                    Click "Run AI Lifecycle Analysis" to analyze every query in this chain, evaluate engineering principles, and explain optimization rewrites.
+                <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/30 py-16 text-center">
+                  <Activity className="mb-3 h-8 w-8 animate-pulse text-slate-300" />
+                  <p className="text-sm font-semibold text-slate-700">Query Lifecycle Analysis Pending</p>
+                  <p className="mt-1.5 max-w-sm text-xs text-slate-400">
+                    Click "AI Lifecycle Analysis" to analyze every query step and evaluate optimization rewrites.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   {/* Step-by-Step Analysis */}
                   <div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-3">
+                    <span className="mb-4 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Query Analysis Chain
                     </span>
                     <div className="space-y-4">
                       {timelineAnalysis.queries?.map((q: any, idx: number) => (
-                        <div key={idx} className="rounded-lg border border-border bg-muted/20 p-3.5 space-y-2">
-                          <pre className="overflow-x-auto rounded bg-slate-900 p-2 font-mono text-[10px] text-white">
+                        <div key={idx} className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/30 p-4">
+                          <pre className="overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] text-white">
                             <code>{q.sql}</code>
                           </pre>
-                          <div className="grid gap-2 sm:grid-cols-2 text-xs pt-1">
+                          <div className="grid gap-3 pt-1 text-sm sm:grid-cols-2">
                             <div>
-                              <strong className="text-foreground">Purpose:</strong>
-                              <p className="text-muted-foreground text-[11px] mt-0.5">{q.purpose}</p>
+                              <span className="font-semibold text-slate-700">Purpose</span>
+                              <p className="mt-0.5 text-xs text-slate-500">{q.purpose}</p>
                             </div>
                             <div>
-                              <strong className="text-foreground">Cost:</strong>
-                              <p className="text-muted-foreground text-[11px] mt-0.5">{q.cost || 'N/A'}</p>
+                              <span className="font-semibold text-slate-700">Cost</span>
+                              <p className="mt-0.5 text-xs text-slate-500">{q.cost || 'N/A'}</p>
                             </div>
                             <div>
-                              <strong className="text-foreground">Tables Involved:</strong>
-                              <div className="flex flex-wrap gap-1 mt-1">
+                              <span className="font-semibold text-slate-700">Tables Involved</span>
+                              <div className="mt-1 flex flex-wrap gap-1">
                                 {q.tablesInvolved?.map((t: string) => (
-                                  <span key={t} className="px-1.5 py-0.2 bg-white text-foreground border border-border rounded text-[10px] font-medium">{t}</span>
-                                )) || <span className="text-muted-foreground text-[11px]">-</span>}
+                                  <span key={t} className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700">{t}</span>
+                                )) || <span className="text-xs text-slate-400">-</span>}
                               </div>
                             </div>
                             <div>
-                              <strong className="text-foreground">Potential Bottlenecks:</strong>
-                              <p className="text-amber-700 text-[11px] mt-0.5 font-medium">{q.bottlenecks || 'None detected'}</p>
+                              <span className="font-semibold text-slate-700">Bottlenecks</span>
+                              <p className="mt-0.5 text-xs font-medium text-amber-600">{q.bottlenecks || 'None detected'}</p>
                             </div>
                           </div>
                           {q.optimizationOpportunities && (
-                            <div className="text-xs border-t border-border/40 pt-2">
-                              <strong className="text-emerald-700">Optimization Opportunities:</strong>
-                              <p className="text-muted-foreground text-[11px] mt-0.5">{q.optimizationOpportunities}</p>
+                            <div className="border-t border-slate-200/60 pt-3 text-sm">
+                              <span className="font-semibold text-emerald-600">Optimization Opportunities</span>
+                              <p className="mt-0.5 text-xs text-slate-500">{q.optimizationOpportunities}</p>
                             </div>
                           )}
                         </div>
@@ -925,7 +936,7 @@ export function AnalyticsPage({
 
                   {/* SOLID / DRY / KISS / YAGNI principles */}
                   <div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-3">
+                    <span className="mb-4 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Engineering Principles Validation
                     </span>
                     <div className="grid gap-3 sm:grid-cols-4">
@@ -933,17 +944,17 @@ export function AnalyticsPage({
                         const val = timelineAnalysis.principlesValidation?.[p];
                         if (!val) return null;
                         
-                        let badgeColor = 'bg-slate-100 text-slate-800 border-slate-200';
+                        let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
                         if (val.status === 'follows') badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                        if (val.status === 'violates') badgeColor = 'bg-rose-50 text-rose-700 border-rose-200';
+                        if (val.status === 'violates') badgeColor = 'bg-red-50 text-red-700 border-red-200';
 
                         return (
-                          <div key={p} className="rounded-lg border border-border bg-white p-3 space-y-1.5 flex flex-col justify-between">
+                          <div key={p} className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-4">
                             <div>
-                              <span className="text-[11px] font-bold uppercase text-foreground">{p}</span>
-                              <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">{val.description}</p>
+                              <span className="text-xs font-bold uppercase text-slate-700">{p}</span>
+                              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{val.description}</p>
                             </div>
-                            <span className={cn("inline-block w-fit px-1.5 py-0.2 rounded border text-[9px] font-bold capitalize mt-2", badgeColor)}>
+                            <span className={cn("mt-3 inline-block w-fit rounded-md border px-2 py-0.5 text-[10px] font-bold capitalize", badgeColor)}>
                               {val.status}
                             </span>
                           </div>
@@ -952,12 +963,12 @@ export function AnalyticsPage({
                     </div>
 
                     {timelineAnalysis.principlesValidation?.concerns?.length > 0 && (
-                      <div className="mt-3.5 rounded-lg border border-red-200 bg-red-50/40 p-3 space-y-1.5">
-                        <strong className="text-red-800 text-xs flex items-center gap-1">
+                      <div className="mt-4 space-y-1.5 rounded-xl border border-red-200 bg-red-50/40 p-4">
+                        <span className="flex items-center gap-1.5 text-xs font-semibold text-red-800">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           Maintainability & Redundancy Concerns
-                        </strong>
-                        <ul className="list-disc list-inside text-red-700 text-[11px] space-y-1">
+                        </span>
+                        <ul className="ml-5 list-disc text-xs text-red-700 space-y-1">
                           {timelineAnalysis.principlesValidation.concerns.map((c: string, idx: number) => (
                             <li key={idx}>{c}</li>
                           ))}
@@ -969,55 +980,55 @@ export function AnalyticsPage({
                   {/* Change Explanations for Optimization / Rewrites */}
                   {timelineAnalysis.changeExplanations?.length > 0 && (
                     <div>
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide block mb-3">
+                      <span className="mb-4 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         Query Optimization & Change Explanations
                       </span>
                       <div className="space-y-4">
                         {timelineAnalysis.changeExplanations.map((exp: any, idx: number) => (
-                          <div key={idx} className="rounded-lg border border-amber-200 bg-amber-50/20 p-3.5 space-y-3">
+                          <div key={idx} className="space-y-4 rounded-xl border border-amber-200/80 bg-amber-50/20 p-4">
                             <div>
-                              <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Optimized Query</span>
-                              <pre className="mt-1 overflow-x-auto rounded bg-slate-900 p-2 font-mono text-[10px] text-white">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Optimized Query</span>
+                              <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] text-white">
                                 <code>{exp.sql}</code>
                               </pre>
                             </div>
                             
-                            <div className="grid gap-3 sm:grid-cols-3 text-xs pt-1">
+                            <div className="grid gap-3 pt-1 text-sm sm:grid-cols-3">
                               <div>
-                                <strong className="text-amber-900">What Changed:</strong>
-                                <p className="text-amber-950 text-[11px] mt-0.5 leading-relaxed">{exp.whatChanged}</p>
+                                <span className="font-semibold text-amber-900">What Changed</span>
+                                <p className="mt-0.5 text-xs leading-relaxed text-amber-800">{exp.whatChanged}</p>
                               </div>
                               <div>
-                                <strong className="text-amber-900">Why Needed:</strong>
-                                <p className="text-amber-950 text-[11px] mt-0.5 leading-relaxed">{exp.whyNeeded}</p>
+                                <span className="font-semibold text-amber-900">Why Needed</span>
+                                <p className="mt-0.5 text-xs leading-relaxed text-amber-800">{exp.whyNeeded}</p>
                               </div>
                               <div>
-                                <strong className="text-amber-900">Expected Impact:</strong>
-                                <p className="text-amber-950 text-[11px] mt-0.5 leading-relaxed">{exp.expectedImpact}</p>
+                                <span className="font-semibold text-amber-900">Expected Impact</span>
+                                <p className="mt-0.5 text-xs leading-relaxed text-amber-800">{exp.expectedImpact}</p>
                               </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-4 border-t border-amber-200/50 pt-2.5 text-[10px]">
-                              <span className="text-amber-900 font-semibold uppercase">Expected Improvements:</span>
-                              <span className="flex items-center gap-1 text-[11px]">
+                            <div className="flex flex-wrap items-center gap-4 border-t border-amber-200/50 pt-3 text-[10px]">
+                              <span className="font-semibold uppercase text-amber-700">Improvements:</span>
+                              <span className="flex items-center gap-1 text-xs">
                                 Performance:
                                 <strong className={cn(
-                                  "font-bold text-[11px]",
-                                  exp.performanceImprovement === 'High' ? 'text-emerald-700' : 'text-amber-700'
+                                  "font-bold",
+                                  exp.performanceImprovement === 'High' ? 'text-emerald-600' : 'text-amber-600'
                                 )}>{exp.performanceImprovement}</strong>
                               </span>
-                              <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-[11px]">
+                              <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-xs">
                                 Readability:
                                 <strong className={cn(
-                                  "font-bold text-[11px]",
-                                  exp.readabilityImprovement === 'High' ? 'text-emerald-700' : 'text-amber-700'
+                                  "font-bold",
+                                  exp.readabilityImprovement === 'High' ? 'text-emerald-600' : 'text-amber-600'
                                 )}>{exp.readabilityImprovement}</strong>
                               </span>
-                              <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-[11px]">
+                              <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-xs">
                                 Maintainability:
                                 <strong className={cn(
-                                  "font-bold text-[11px]",
-                                  exp.maintainabilityImprovement === 'High' ? 'text-emerald-700' : 'text-amber-700'
+                                  "font-bold",
+                                  exp.maintainabilityImprovement === 'High' ? 'text-emerald-600' : 'text-amber-600'
                                 )}>{exp.maintainabilityImprovement}</strong>
                               </span>
                             </div>
