@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import mysql from 'mysql2/promise';
 import type { DatabaseConnection } from './types';
-import { openSqlite, type SqliteAdapter } from './sqlite-adapter';
+import { openSqlite, openLibSql, type SqliteAdapter } from './sqlite-adapter';
 import { logQueryStep } from './query-logger';
 
 type DatabaseConnectionConfig = Omit<DatabaseConnection, 'id'>;
@@ -14,7 +14,14 @@ interface QueryResult {
   rowsAffected?: number;
 }
 
-async function connectSQLite(filepath: string): Promise<SqliteAdapter> {
+async function connectSQLite(filepath: string, password?: string): Promise<SqliteAdapter> {
+  const isRemote = filepath.startsWith('libsql://') || 
+                   filepath.startsWith('https://') || 
+                   filepath.startsWith('http://');
+
+  if (isRemote) {
+    return openLibSql(filepath, password);
+  }
   const dbPath = filepath === ':memory:' ? ':memory:' : filepath;
   return openSqlite(dbPath);
 }
@@ -45,7 +52,7 @@ export async function createConnection(config: DatabaseConnectionConfig): Promis
   try {
     if (config.type === 'sqlite') {
       if (!config.filepath) throw new Error('Filepath required for SQLite');
-      return await connectSQLite(config.filepath);
+      return await connectSQLite(config.filepath, config.password);
     } else if (config.type === 'postgresql') {
       const pgConfig = {
         host: config.host!,
