@@ -181,10 +181,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (view === 'connections') {
+    if (view === 'connections' && !initializing) {
       loadConnections(false, false);
     }
-  }, [view, loadConnections]);
+  }, [view, loadConnections, initializing]);
 
   const loadMode = useCallback(async () => {
     try {
