@@ -4,11 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import { Database, Plus, Trash2, Zap, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ConnectionForm } from '@/components/ConnectionForm';
-import type { DatabaseConnection } from '@/lib/types';
+import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { ResponsiveContainer, AreaChart, Area, Tooltip } from 'recharts';
 
 interface ConnectionsPageProps {
   connections: DatabaseConnection[];
+  history?: QueryHistoryItem[];
   onSelect: (connection: DatabaseConnection) => void;
   onDelete: (id: string) => void;
   onDemo: () => void;
@@ -19,6 +21,7 @@ interface ConnectionsPageProps {
 
 export function ConnectionsPage({
   connections,
+  history = [],
   onSelect,
   onDelete,
   onDemo,
@@ -27,7 +30,12 @@ export function ConnectionsPage({
   openFormOnLoad = true,
 }: ConnectionsPageProps) {
   const [showModal, setShowModal] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const didAutoOpen = useRef(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Auto-open only once on mount when there are no connections yet.
   useEffect(() => {
@@ -36,7 +44,6 @@ export function ConnectionsPage({
     if (openFormOnLoad && connections.length === 0) {
       setShowModal(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getConnectionPath = (conn: DatabaseConnection) => {
@@ -125,6 +132,60 @@ export function ConnectionsPage({
                 </span>
               </div>
               <p className="mt-3 truncate font-mono text-xs text-slate-400">{getConnectionPath(conn)}</p>
+              
+              {/* Sparkline Latency Graph */}
+              {(() => {
+                const connHistory = history?.filter((h) => h.connectionId === conn.id && h.executionTime !== undefined) || [];
+                if (connHistory.length === 0) return null;
+                const avgLatency = Math.round(connHistory.reduce((sum, h) => sum + (h.executionTime || 0), 0) / connHistory.length);
+                const sparkData = connHistory.slice(0, 20).reverse().map((h, idx) => ({
+                  index: idx,
+                  latency: h.executionTime || 0,
+                }));
+                
+                return (
+                  <div className="mt-4 border-t border-slate-100 pt-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5">
+                      <span>Latency Trend</span>
+                      <span className="tabular-nums text-slate-700 font-bold">{avgLatency}ms avg</span>
+                    </div>
+                    <div className="h-8 w-full">
+                      {isMounted && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                            <defs>
+                              <linearGradient id={`sparkGrad-${conn.id}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  return (
+                                    <div className="rounded-lg border border-border/80 bg-popover px-2 py-0.5 shadow-md backdrop-blur-md text-[9px] font-bold tabular-nums text-slate-700">
+                                      {payload[0].value}ms
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="latency"
+                              stroke="#3b82f6"
+                              strokeWidth={1.5}
+                              fillOpacity={1}
+                              fill={`url(#sparkGrad-${conn.id})`}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

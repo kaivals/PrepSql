@@ -6,6 +6,7 @@ import {
   setPendingTimeline,
   clearPendingTimeline,
   addToHistory,
+  getConnection,
 } from '@/lib/app-state';
 import { runWithQueryLogger } from '@/lib/query-logger';
 import { classifyQuery } from '@/lib/history-classify';
@@ -19,15 +20,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt or action is required' }, { status: 400 });
     }
 
-    const threadId = await getClientId();
+    const clientId = await getClientId();
+    const connection = await getConnection();
+    const threadId = connection ? `${clientId}-${connection.id}` : clientId;
 
     // Fetch previous steps if we are resuming from an approval/rejection
-    const previousSteps = action ? (await getPendingTimeline() || []) : [];
+    let previousSteps: any[] = [];
+    let resumeThreadId = threadId;
+    if (action) {
+      const pendingData = await getPendingTimeline();
+      previousSteps = pendingData?.steps || [];
+      resumeThreadId = pendingData?.threadId || threadId;
+    }
 
     const { result: response, steps } = await runWithQueryLogger(async () => {
       return await runAgent({
         prompt: prompt || '',
-        threadId,
+        threadId: action ? resumeThreadId : threadId,
         action,
       });
     });
@@ -36,8 +45,8 @@ export async function POST(request: NextRequest) {
 
     if (response) {
       if (response.type === 'pending_approval') {
-        // Store steps for the next approval/rejection action
-        await setPendingTimeline(allSteps);
+        // Store steps and threadId for the next approval/rejection action
+        await setPendingTimeline({ steps: allSteps, threadId });
       } else if (action === 'reject') {
         await clearPendingTimeline();
       } else if (response.type === 'sql') {
@@ -51,10 +60,14 @@ export async function POST(request: NextRequest) {
           queryType: classifyQuery(response.sql || ''),
           executionTime: response.result?.executionTime || 0,
           rowsAffected: response.result?.rowsAffected || 0,
-          rowsScanned: rowsCount,
-          rowsReturned: rowsCount,
-          indexesUsed: response.sql?.toUpperCase().includes('WHERE') ? ['pk_index'] : [],
+          rowsScanned: response.result?.rowsScanned ?? rowsCount,
+          rowsReturned: response.result?.rowsReturned ?? rowsCount,
+          cpuUsage: response.result?.cpuUsage || 0,
+          memoryUsage: response.result?.memoryUsage || 0,
+          indexesUsed: response.result?.indexesUsed || (response.sql?.toUpperCase().includes('WHERE') ? ['pk_index'] : []),
           timeline: allSteps,
+          connectionId: connection?.id,
+          connectionName: connection?.name,
         });
         await clearPendingTimeline();
       } else if (response.type === 'error') {
@@ -73,6 +86,8 @@ export async function POST(request: NextRequest) {
           memoryUsage: 0,
           indexesUsed: [],
           timeline: allSteps,
+          connectionId: connection?.id,
+          connectionName: connection?.name,
         });
         await clearPendingTimeline();
       }

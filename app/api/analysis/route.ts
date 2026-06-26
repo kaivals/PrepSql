@@ -5,7 +5,7 @@ import * as db from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, targetSql, result } = body;
+    const { action, targetSql, result, connectionId } = body;
 
     if (!action || !result) {
       return NextResponse.json(
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const clientId = await getClientId();
-    await db.insertAnalysisResult(clientId, action, targetSql || null, result);
+    await db.insertAnalysisResult(clientId, action, targetSql || null, result, connectionId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -26,10 +26,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const url = new URL(request.url);
+    const connectionId = url.searchParams.get('connectionId');
     const clientId = await getClientId();
-    const analyses = await db.getAnalysisResults(clientId, 10);
+    const analyses = await db.getAnalysisResults(clientId, 10, connectionId);
     return NextResponse.json({ analyses });
   } catch (error) {
     return NextResponse.json(

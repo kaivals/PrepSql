@@ -11,7 +11,7 @@ import { AnalyticsPage } from '@/components/AnalyticsPage';
 import { Toast } from '@/components/Toast';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ensureServerConnection } from '@/lib/client-connection';
-import type { DatabaseConnection, QueryMode, QueryResult } from '@/lib/types';
+import type { DatabaseConnection, QueryMode, QueryResult, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 type View = 'connections' | 'workspace';
@@ -61,6 +61,7 @@ export default function Home() {
   const [result, setResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
+  const [history, setHistory] = useState<QueryHistoryItem[]>([]);
   const [toast, setToast] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [toastConfig, setToastConfig] = useState<{
@@ -160,10 +161,30 @@ export default function Home() {
           setActiveConnection(null);
         }
       }
+
+      // Fetch history for latency sparklines
+      try {
+        const historyRes = await fetch(`/api/history?limit=500&t=${Date.now()}`, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        if (historyRes.ok) {
+          const historyData = await historyRes.json();
+          setHistory(historyData.history || []);
+        }
+      } catch (err) {
+        console.error('Failed to load history on connection page:', err);
+      }
     } catch (err) {
       console.error('Failed to load connections:', err);
     }
   }, []);
+
+  useEffect(() => {
+    if (view === 'connections' && !initializing) {
+      loadConnections(false, false);
+    }
+  }, [view, loadConnections, initializing]);
 
   const loadMode = useCallback(async () => {
     try {
@@ -504,6 +525,7 @@ export default function Home() {
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       <ConnectionsPage
         connections={connections}
+        history={history}
         onSelect={handleSelectConnection}
         onDelete={handleDeleteConnection}
         onDemo={handleDemo}
