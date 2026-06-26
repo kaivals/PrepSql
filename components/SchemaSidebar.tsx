@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  ArrowLeft,
   ChevronRight,
   Clock,
   Table2,
@@ -16,7 +15,6 @@ import { cn } from '@/lib/utils';
 
 interface SchemaSidebarProps {
   connection: DatabaseConnection;
-  onBack: () => void;
   onSelectQuery: (sql: string) => void;
   onSelectTable?: (tableName: string) => void;
   onEditTable?: (tableName: string) => void;
@@ -27,7 +25,6 @@ interface SchemaSidebarProps {
 
 export function SchemaSidebar({
   connection,
-  onBack,
   onSelectQuery,
   onSelectTable,
   onEditTable,
@@ -139,39 +136,8 @@ export function SchemaSidebar({
     return new Date(timestamp).toLocaleDateString();
   };
 
-  // DB type badge color
-  const dbTypeColor = {
-    postgresql: 'bg-blue-50 text-blue-700 border-blue-200',
-    mysql: 'bg-orange-55 text-orange-700 border-orange-200',
-    mariadb: 'bg-amber-50 text-amber-700 border-amber-200',
-    sqlite: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  };
-
   return (
     <aside className="flex h-full w-full shrink-0 flex-col bg-transparent border-r border-border">
-      {/* Connection info header */}
-      <div className="border-b border-border p-4 shrink-0 bg-card/65 backdrop-blur-md">
-        <button
-          type="button"
-          onClick={onBack}
-          className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-all hover:bg-card hover:text-foreground hover:border-primary/30 shadow-sm cursor-pointer"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          All connections
-        </button>
-        <h2 className="text-sm font-semibold leading-tight text-foreground">{connection.name}</h2>
-        <div className="mt-1.5 flex items-center gap-2">
-          <span className={cn(
-            'inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider border',
-            dbTypeColor[connection.type as keyof typeof dbTypeColor] || 'bg-slate-50 text-slate-700 border-slate-200'
-          )}>
-            {connection.type}
-          </span>
-          <span className="text-[11px] text-muted-foreground truncate max-w-[150px]">
-            {connection.host ? `${connection.host}:${connection.port}` : connection.filepath}
-          </span>
-        </div>
-      </div>
 
       {/* Tab navigation */}
       <div className="flex border-b border-border shrink-0 bg-card/45 backdrop-blur-md">
