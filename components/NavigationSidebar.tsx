@@ -4,14 +4,13 @@ import {
   Database,
   BarChart3,
   Table2,
-  Plug2,
   Clock,
   Settings,
 } from 'lucide-react';
 import type { QueryMode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-type NavSection = QueryMode | 'connections' | 'history';
+type NavSection = QueryMode | 'history';
 
 interface NavItem {
   id: NavSection;
@@ -34,11 +33,6 @@ const NAV_ITEMS: NavItem[] = [
     id: 'schema',
     label: 'Schema',
     icon: <Table2 className="h-5 w-5" />,
-  },
-  {
-    id: 'connections',
-    label: 'Connections',
-    icon: <Plug2 className="h-5 w-5" />,
   },
   {
     id: 'history',

@@ -15,7 +15,7 @@ import type { DatabaseConnection, QueryMode, QueryResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 type View = 'connections' | 'workspace';
-type NavSection = QueryMode | 'connections' | 'history';
+type NavSection = QueryMode | 'history';
 
 // ── Client-side helpers for preferences (backed by /api/preferences) ─────────
 
@@ -214,11 +214,6 @@ export default function Home() {
   };
 
   const handleNavSectionChange = async (section: NavSection) => {
-    if (section === 'connections') {
-      setViewPref('connections');
-      setResult(null);
-      return;
-    }
     // For history: keep mode as crud, but open sidebar on history tab
     if (section === 'history') {
       setNavSection('history');
@@ -378,6 +373,14 @@ export default function Home() {
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           connectionId={activeConnection?.id}
           refreshTrigger={historyRefresh}
+          connections={connections}
+          activeConnection={activeConnection}
+          onSelectConnection={handleSelectConnection}
+          onDeleteConnection={handleDeleteConnection}
+          onDemo={handleDemo}
+          onConnected={handleConnected}
+          onViewAllConnections={() => setViewPref('connections')}
+          loading={loading}
         />
         <Toast
           message={toast}
@@ -395,7 +398,7 @@ export default function Home() {
         <div className="flex flex-1 overflow-hidden">
           {/* ── Framer-style Navigation Sidebar ── */}
           <NavigationSidebar
-            activeSection={navSection === 'crud' || navSection === 'analytics' || navSection === 'schema' ? navSection : navSection === 'history' ? 'history' : 'connections'}
+            activeSection={navSection === 'crud' || navSection === 'analytics' || navSection === 'schema' ? navSection : 'history'}
             onSectionChange={handleNavSectionChange}
             onOpenSettings={() => setShowSettings(true)}
           />
@@ -423,10 +426,6 @@ export default function Home() {
               >
                 <SchemaSidebar
                   connection={activeConnection}
-                  onBack={() => {
-                    setViewPref('connections');
-                    setResult(null);
-                  }}
                   onSelectQuery={(sql) => {
                     handleExecuteQuery(sql);
                     if (window.innerWidth < 768) setSidebarOpen(false);
@@ -490,7 +489,18 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader userEmail={userEmail} onLogout={handleLogout} onOpenSettings={() => setShowSettings(true)} />
+      <AppHeader
+        userEmail={userEmail}
+        onLogout={handleLogout}
+        onOpenSettings={() => setShowSettings(true)}
+        connections={connections}
+        activeConnection={activeConnection}
+        onSelectConnection={handleSelectConnection}
+        onDeleteConnection={handleDeleteConnection}
+        onDemo={handleDemo}
+        onConnected={handleConnected}
+        loading={loading}
+      />
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
       <ConnectionsPage
         connections={connections}
