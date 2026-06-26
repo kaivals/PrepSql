@@ -154,7 +154,7 @@ export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<
 }
 
 export async function getHistory(
-  options?: { limit?: number; offset?: number },
+  options?: { limit?: number; offset?: number; connectionId?: string },
 ): Promise<{ items: QueryHistoryItem[]; total: number }> {
   const clientId = await getClientId();
   return db.getQueryHistory(clientId, options);

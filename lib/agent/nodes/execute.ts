@@ -5,6 +5,8 @@ import { getOrCreatePool, executeQuery } from '../../database';
 import { getConnection } from '../../app-state';
 import type { AgentStateType } from '../state';
 import { clearSchemaCache } from './schema-load';
+import { calculateQueryTelemetry } from '../../telemetry';
+
 
 export async function executeNode(state: AgentStateType): Promise<Partial<AgentStateType>> {
   // Skip if mutation was rejected
@@ -30,8 +32,35 @@ export async function executeNode(state: AgentStateType): Promise<Partial<AgentS
     const { id: _id, ...poolConfig } = connection;
     const pool = await getOrCreatePool(poolConfig);
 
+    const isLocalSQLite = connection.type === 'sqlite' &&
+      connection.filepath &&
+      !connection.filepath.startsWith('libsql://') &&
+      !connection.filepath.startsWith('https://') &&
+      !connection.filepath.startsWith('http://');
+
+    const startCpu = isLocalSQLite ? process.cpuUsage() : null;
+    const startMem = isLocalSQLite ? process.memoryUsage().heapUsed : null;
+
     // 3. Execute the query — executeQuery takes (DatabaseClient, sql: string)
+    const startTime = performance.now();
     const result = await executeQuery(pool, state.generatedSQL);
+    const executionTime = Math.round(performance.now() - startTime);
+
+    const cpuDiff = isLocalSQLite ? process.cpuUsage(startCpu!) : null;
+    const memDiff = isLocalSQLite ? process.memoryUsage().heapUsed - startMem! : null;
+
+    const rowsReturned = result.rows ? result.rows.length : 0;
+
+    const telemetry = await calculateQueryTelemetry(
+      connection,
+      pool,
+      state.generatedSQL,
+      executionTime,
+      rowsReturned,
+      result,
+      cpuDiff,
+      memDiff
+    );
 
     // Clear schema cache if the query was DDL or mutation to ensure schema is fresh
     if (state.intent === 'sql_schema' || state.isMutation) {
@@ -63,6 +92,12 @@ export async function executeNode(state: AgentStateType): Promise<Partial<AgentS
           columns: result.columns,
           rows: result.rows,
           rowCount: result.rows.length,
+          executionTime,
+          rowsScanned: telemetry.rowsScanned,
+          rowsReturned,
+          cpuUsage: telemetry.cpuUsage,
+          memoryUsage: telemetry.memoryUsage,
+          indexesUsed: telemetry.indexesUsed,
         },
       },
     };

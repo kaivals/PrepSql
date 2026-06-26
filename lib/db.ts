@@ -68,21 +68,26 @@ export async function insertQueryHistory(
 
 export async function getQueryHistory(
   sessionId: string,
-  options?: { limit?: number; offset?: number },
+  options?: { limit?: number; offset?: number; connectionId?: string },
 ): Promise<{ items: QueryHistoryItem[]; total: number }> {
   const db = getDb();
   const limit = options?.limit ?? 500;
   const offset = options?.offset ?? 0;
 
+  const filter: any = { sessionId };
+  if (options?.connectionId) {
+    filter.connectionId = options.connectionId;
+  }
+
   const [items, totalCountResult] = await Promise.all([
     db
       .collection(COLLECTIONS.QUERY_HISTORY)
-      .find({ sessionId })
+      .find(filter)
       .sort({ timestamp: -1 })
       .skip(offset)
       .limit(limit)
       .toArray(),
-    db.collection(COLLECTIONS.QUERY_HISTORY).countDocuments({ sessionId }),
+    db.collection(COLLECTIONS.QUERY_HISTORY).countDocuments(filter),
   ]);
 
   const mapped: QueryHistoryItem[] = items.map((doc: any) => ({
@@ -118,6 +123,7 @@ export async function clearQueryHistory(sessionId: string): Promise<void> {
 export interface AnalysisResultDoc {
   id: string;
   sessionId: string;
+  connectionId?: string | null;
   action: string;
   targetSql: string | null;
   result: Record<string, unknown>;
@@ -129,10 +135,12 @@ export async function insertAnalysisResult(
   action: string,
   targetSql: string | null,
   result: Record<string, unknown>,
+  connectionId?: string | null,
 ): Promise<void> {
   const db = getDb();
   await db.collection(COLLECTIONS.ANALYSIS_RESULTS).insertOne({
     sessionId,
+    connectionId: connectionId || null,
     action,
     targetSql,
     result,
@@ -143,11 +151,16 @@ export async function insertAnalysisResult(
 export async function getAnalysisResults(
   sessionId: string,
   limit = 10,
+  connectionId?: string | null,
 ): Promise<AnalysisResultDoc[]> {
   const db = getDb();
+  const query: Record<string, any> = { sessionId };
+  if (connectionId) {
+    query.connectionId = connectionId;
+  }
   const items = await db
     .collection(COLLECTIONS.ANALYSIS_RESULTS)
-    .find({ sessionId })
+    .find(query)
     .sort({ createdAt: -1 })
     .limit(limit)
     .toArray();
@@ -155,6 +168,7 @@ export async function getAnalysisResults(
   return items.map((doc: any) => ({
     id: doc._id.toString(),
     sessionId: doc.sessionId,
+    connectionId: doc.connectionId || null,
     action: doc.action,
     targetSql: doc.targetSql,
     result: doc.result,

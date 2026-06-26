@@ -10,8 +10,9 @@ export async function GET(request: NextRequest) {
     const offset = searchParams.has('offset')
       ? Math.max(parseInt(searchParams.get('offset')!, 10) || 0, 0)
       : 0;
+    const connectionId = searchParams.get('connectionId') || undefined;
 
-    const { items, total } = await getHistory({ limit, offset });
+    const { items, total } = await getHistory({ limit, offset, connectionId });
     return NextResponse.json({ history: items, total });
   } catch (error) {
     return NextResponse.json(

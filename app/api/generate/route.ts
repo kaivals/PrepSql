@@ -6,6 +6,7 @@ import {
   setPendingTimeline,
   clearPendingTimeline,
   addToHistory,
+  getConnection,
 } from '@/lib/app-state';
 import { runWithQueryLogger } from '@/lib/query-logger';
 import { classifyQuery } from '@/lib/history-classify';
@@ -19,7 +20,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt or action is required' }, { status: 400 });
     }
 
-    const threadId = await getClientId();
+    const clientId = await getClientId();
+    const connection = await getConnection();
+    const threadId = connection ? `${clientId}-${connection.id}` : clientId;
 
     // Fetch previous steps if we are resuming from an approval/rejection
     const previousSteps = action ? (await getPendingTimeline() || []) : [];
@@ -51,10 +54,14 @@ export async function POST(request: NextRequest) {
           queryType: classifyQuery(response.sql || ''),
           executionTime: response.result?.executionTime || 0,
           rowsAffected: response.result?.rowsAffected || 0,
-          rowsScanned: rowsCount,
-          rowsReturned: rowsCount,
-          indexesUsed: response.sql?.toUpperCase().includes('WHERE') ? ['pk_index'] : [],
+          rowsScanned: response.result?.rowsScanned || rowsCount,
+          rowsReturned: response.result?.rowsReturned || rowsCount,
+          cpuUsage: response.result?.cpuUsage || 0,
+          memoryUsage: response.result?.memoryUsage || 0,
+          indexesUsed: response.result?.indexesUsed || (response.sql?.toUpperCase().includes('WHERE') ? ['pk_index'] : []),
           timeline: allSteps,
+          connectionId: connection?.id,
+          connectionName: connection?.name,
         });
         await clearPendingTimeline();
       } else if (response.type === 'error') {
@@ -73,6 +80,8 @@ export async function POST(request: NextRequest) {
           memoryUsage: 0,
           indexesUsed: [],
           timeline: allSteps,
+          connectionId: connection?.id,
+          connectionName: connection?.name,
         });
         await clearPendingTimeline();
       }

@@ -89,8 +89,8 @@ export function SchemaSidebar({
     setHistoryError(null);
     try {
       const res = await fetch(
-        `/api/history?limit=${HISTORY_PAGE_SIZE}&offset=${offset}`,
-        { credentials: 'same-origin' },
+        `/api/history?limit=${HISTORY_PAGE_SIZE}&offset=${offset}&connectionId=${connection.id}&t=${Date.now()}`,
+        { credentials: 'same-origin', cache: 'no-store' },
       );
       if (!res.ok) {
         throw new Error('Failed to load history');
@@ -104,7 +104,7 @@ export function SchemaSidebar({
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [connection.id]);
 
   // Load history page when switching to history tab or when refreshTrigger changes
   useEffect(() => {
