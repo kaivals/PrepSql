@@ -107,12 +107,12 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0D3D35]/20 backdrop-blur-[6px] p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/20 backdrop-blur-[6px] p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden transition-all duration-300">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-5 bg-white/20">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[#80E8D8] text-white shadow-sm shadow-primary/20 group">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[#93C5FD] text-white shadow-sm shadow-primary/20 group">
               <Settings className="h-5 w-5 text-white transition-transform duration-500 hover:rotate-90" />
             </div>
             <div>

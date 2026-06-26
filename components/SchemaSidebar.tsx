@@ -148,13 +148,13 @@ export function SchemaSidebar({
   };
 
   return (
-    <aside className="flex h-full w-full shrink-0 flex-col bg-sidebar border-r border-border">
+    <aside className="flex h-full w-full shrink-0 flex-col bg-transparent border-r border-border">
       {/* Connection info header */}
-      <div className="border-b border-border p-4 shrink-0">
+      <div className="border-b border-border p-4 shrink-0 bg-card/65 backdrop-blur-md">
         <button
           type="button"
           onClick={onBack}
-          className="mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-all hover:bg-card hover:text-foreground hover:border-primary/30 shadow-sm cursor-pointer"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           All connections
@@ -174,7 +174,7 @@ export function SchemaSidebar({
       </div>
 
       {/* Tab navigation */}
-      <div className="flex border-b border-border shrink-0">
+      <div className="flex border-b border-border shrink-0 bg-card/45 backdrop-blur-md">
         <button
           type="button"
           onClick={() => setTab('schema')}
@@ -183,7 +183,6 @@ export function SchemaSidebar({
             tab === 'schema' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          <Table2 className="h-3.5 w-3.5" />
           Schema
           {tab === 'schema' && (
             <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
@@ -197,7 +196,6 @@ export function SchemaSidebar({
             tab === 'history' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          <Clock className="h-3.5 w-3.5" />
           History
           {tab === 'history' && (
             <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
@@ -211,7 +209,6 @@ export function SchemaSidebar({
             tab === 'indexes' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          <Key className="h-3.5 w-3.5" />
           Indexes
           {tab === 'indexes' && (
             <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />

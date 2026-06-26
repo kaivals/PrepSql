@@ -53,49 +53,49 @@
   --font-sans: var(--font-geist-sans), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), "JetBrains Mono", "Fira Code", monospace;
   
-  --background: #EEF9F7;
-  --foreground: #0D3D35;
+  --background: #F9FAFB;
+  --foreground: #0F172A;
   
-  --card: rgba(255, 255, 255, 0.50);
-  --card-foreground: #0D3D35;
+  --card: rgba(255, 255, 255, 0.60);
+  --card-foreground: #334155;
   
   --popover: rgba(255, 255, 255, 0.95);
-  --popover-foreground: #0D3D35;
+  --popover-foreground: #0F172A;
   
-  --primary: #2AB8A0;
+  --primary: #3B82F6;
   --primary-foreground: #ffffff;
   
   --secondary: rgba(255, 255, 255, 0.3);
-  --secondary-foreground: #0D3D35;
+  --secondary-foreground: #0F172A;
   
   --muted: rgba(255, 255, 255, 0.25);
-  --muted-foreground: #2E6B5E;
+  --muted-foreground: #94A3B8;
   
   --accent: rgba(255, 255, 255, 0.5);
-  --accent-foreground: #0D3D35;
+  --accent-foreground: #0F172A;
   
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   
-  --border: rgba(255, 255, 255, 0.75);
+  --border: rgba(59, 130, 246, 0.10);
   --input: rgba(255, 255, 255, 0.55);
-  --ring: #2AB8A0;
+  --ring: #3B82F6;
   
-  --chart-1: #2AB8A0;
-  --chart-2: #80E8D8;
+  --chart-1: #3B82F6;
+  --chart-2: #93C5FD;
   --chart-3: #ef4444;
-  --chart-4: #B8F5E0;
-  --chart-5: #C4E8F4;
+  --chart-4: #A5F3FC;
+  --chart-5: #C4B5F4;
   --radius: 0.5rem;
   
   --sidebar: rgba(255, 255, 255, 0.35);
-  --sidebar-foreground: #0D3D35;
-  --sidebar-primary: #2AB8A0;
+  --sidebar-foreground: #334155;
+  --sidebar-primary: #3B82F6;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgba(255, 255, 255, 0.45);
-  --sidebar-accent-foreground: #0D3D35;
-  --sidebar-border: rgba(255, 255, 255, 0.65);
-  --sidebar-ring: #2AB8A0;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: rgba(59, 130, 246, 0.20);
+  --sidebar-ring: #3B82F6;
 }
 
 @layer base {
@@ -108,12 +108,15 @@
   html {
     @apply font-sans;
   }
+  button, [role="button"] {
+    cursor: pointer;
+  }
   
   /* Glassmorphism global rules */
   header, aside, .bg-card, .bg-sidebar, .bg-popover, .rounded-xl, .rounded-2xl {
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    box-shadow: 0 8px 32px rgba(60, 180, 160, 0.10) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08) !important;
   }
 }
 

@@ -76,7 +76,7 @@ export function ResultsTable({ result, isLoading = false }: Props) {
           onClick={exportCSV}
           variant="outline"
           size="sm"
-          className="gap-1.5 rounded-lg text-xs"
+          className="gap-1.5 rounded-lg text-xs border-slate-300 hover:border-slate-400 dark:border-slate-700 hover:bg-slate-50/80"
         >
           <Download className="h-3.5 w-3.5" />
           Export CSV
@@ -86,7 +86,7 @@ export function ResultsTable({ result, isLoading = false }: Props) {
       <div className="overflow-x-auto rounded-xl border border-slate-200/80">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/80">
+            <tr className="border-b border-slate-200 bg-slate-100">
               {result.columns.map((col, ci) => (
                 <th key={`${col}-${ci}`} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                   {col}
@@ -121,7 +121,7 @@ export function ResultsTable({ result, isLoading = false }: Props) {
               disabled={currentPage === 0}
               variant="outline"
               size="sm"
-              className="gap-1 rounded-lg text-xs"
+              className="gap-1 rounded-lg text-xs border-slate-300 hover:border-slate-400 dark:border-slate-700 hover:bg-slate-50/80"
             >
               <ChevronLeft className="h-3 w-3" />
               Previous
@@ -131,7 +131,7 @@ export function ResultsTable({ result, isLoading = false }: Props) {
               disabled={currentPage === totalPages - 1}
               variant="outline"
               size="sm"
-              className="gap-1 rounded-lg text-xs"
+              className="gap-1 rounded-lg text-xs border-slate-300 hover:border-slate-400 dark:border-slate-700 hover:bg-slate-50/80"
             >
               Next
               <ChevronRight className="h-3 w-3" />
