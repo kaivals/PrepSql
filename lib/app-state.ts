@@ -167,15 +167,20 @@ export async function clearHistory(): Promise<void> {
 
 // ── Pending Timeline (for mutation approval flow) ─────────────────────────────
 
-export async function getPendingTimeline(): Promise<TimelineStep[] | undefined> {
+export async function getPendingTimeline(): Promise<{ steps: TimelineStep[]; threadId: string } | undefined> {
   const clientId = await getClientId();
   const session = await db.getSessionData(clientId);
-  return session?.pendingTimeline;
+  if (!session?.pendingTimeline) return undefined;
+  // Handle legacy format (array) or new format (object with steps and threadId)
+  if (Array.isArray(session.pendingTimeline)) {
+    return { steps: session.pendingTimeline, threadId: '' };
+  }
+  return session.pendingTimeline as { steps: TimelineStep[]; threadId: string };
 }
 
-export async function setPendingTimeline(timeline: TimelineStep[]): Promise<void> {
+export async function setPendingTimeline(data: { steps: TimelineStep[]; threadId: string }): Promise<void> {
   const clientId = await getClientId();
-  await db.saveSessionData(clientId, { pendingTimeline: timeline });
+  await db.saveSessionData(clientId, { pendingTimeline: data });
 }
 
 export async function clearPendingTimeline(): Promise<void> {

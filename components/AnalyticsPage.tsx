@@ -323,7 +323,7 @@ export function AnalyticsPage({
     setLoadingHistory(true);
     setHistoryError(null);
     try {
-      const res = await fetch('/api/history?limit=500', { credentials: 'same-origin' });
+      const res = await fetch(`/api/history?limit=500&connectionId=${connection.id}`, { credentials: 'same-origin' });
       if (!res.ok) {
         throw new Error('Failed to load history');
       }
@@ -340,6 +340,8 @@ export function AnalyticsPage({
 
   useEffect(() => {
     loadHistory();
+    setSelectedRun(null);
+    setTimelineAnalysis(null);
   }, [connection.id]);
 
   // Aggregate metrics for the summary cards. Computed from the real,

@@ -1,6 +1,55 @@
 import { executeQuery } from './database';
 import type { DatabaseConnection } from './types';
 
+// Internal non-logging query execution for telemetry probes
+async function executeQuerySilent(conn: any, sql: string): Promise<any> {
+  const anyConn = conn as any;
+  if (anyConn?.all && anyConn?.run && !('query' in anyConn)) {
+    // sqlite3 - use db.all directly
+    return new Promise((resolve, reject) => {
+      if (sql.trim().toUpperCase().startsWith('SELECT') || sql.trim().toUpperCase().startsWith('EXPLAIN')) {
+        anyConn.all(sql, (err: any, rows: any) => {
+          if (err) reject(err);
+          else {
+            const columns = rows && rows.length > 0 ? Object.keys(rows[0]) : [];
+            resolve({ columns, rows: rows || [] });
+          }
+        });
+      } else {
+        anyConn.exec(sql, (err: any) => {
+          if (err) reject(err);
+          else resolve({ columns: [], rows: [], rowsAffected: 1 });
+        });
+      }
+    });
+  } else if (anyConn?.query) {
+    // PostgreSQL or MySQL Pool
+    const result = await anyConn.query(sql);
+    if (Array.isArray(result)) {
+      // PostgreSQL
+      const rows = result;
+      return {
+        columns: rows.length > 0 ? Object.keys(rows[0]) : [],
+        rows,
+      };
+    } else if (result.rows) {
+      // PostgreSQL Pool result
+      return {
+        columns: result.rows.length > 0 ? Object.keys(result.rows[0]) : [],
+        rows: result.rows,
+      };
+    } else {
+      // MySQL result
+      return {
+        columns: result.length > 0 ? Object.keys(result[0]) : [],
+        rows: result,
+        rowsAffected: result.affectedRows,
+      };
+    }
+  }
+  throw new Error('Invalid connection type for silent query');
+}
+
 function estimatePostgresRowsScanned(plan: any): number {
   if (typeof plan !== 'object' || plan === null) return 0;
   let total = 0;
@@ -43,9 +92,8 @@ function parseSQLiteExplainPlan(rows: any[]): { hasScan: boolean; scannedTables:
     const scanMatch = detail.match(/SCAN (?:TABLE )?(\w+)/i);
     if (scanMatch) {
       hasScan = true;
-      if (!scannedTables.includes(scanMatch[1])) {
-        scannedTables.push(scanMatch[1]);
-      }
+      // Keep all occurrences to count self-joins and correlated subqueries correctly
+      scannedTables.push(scanMatch[1]);
     }
   }
   return { hasScan, scannedTables };
@@ -93,13 +141,17 @@ export async function calculateQueryTelemetry(
   if (sql.trim().toUpperCase().startsWith('SELECT')) {
     try {
       if (connection.type === 'sqlite') {
-        const explainRes = await executeQuery(pool, `EXPLAIN QUERY PLAN ${sql}`);
+        const explainPromise = executeQuerySilent(pool, `EXPLAIN QUERY PLAN ${sql}`);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('EXPLAIN timeout')), 1000)
+        );
+        const explainRes = await Promise.race([explainPromise, timeoutPromise]);
         const { hasScan, scannedTables } = parseSQLiteExplainPlan(explainRes.rows || []);
         if (hasScan && scannedTables.length > 0) {
           let totalCount = 0;
           for (const tbl of scannedTables) {
             try {
-              const countPromise = executeQuery(pool, `SELECT COUNT(*) AS cnt FROM "${tbl}"`);
+              const countPromise = executeQuerySilent(pool, `SELECT COUNT(*) AS cnt FROM "${tbl}"`);
               const timeoutCountPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('timeout')), 500)
               );
@@ -118,7 +170,11 @@ export async function calculateQueryTelemetry(
           rowsScanned = rowsReturned;
         }
       } else if (connection.type === 'postgresql') {
-        const explainRes = await executeQuery(pool, `EXPLAIN (FORMAT JSON) ${sql}`);
+        const explainPromise = executeQuerySilent(pool, `EXPLAIN (FORMAT JSON) ${sql}`);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('EXPLAIN timeout')), 1000)
+        );
+        const explainRes = await Promise.race([explainPromise, timeoutPromise]);
         if (explainRes?.rows?.[0]) {
           const firstRow = explainRes.rows[0];
           const planObj = typeof firstRow === 'string' ? JSON.parse(firstRow) : (firstRow['QUERY PLAN'] || firstRow[Object.keys(firstRow)[0]]);
@@ -128,7 +184,11 @@ export async function calculateQueryTelemetry(
           }
         }
       } else if (connection.type === 'mysql' || connection.type === 'mariadb') {
-        const explainRes = await executeQuery(pool, `EXPLAIN FORMAT=JSON ${sql}`);
+        const explainPromise = executeQuerySilent(pool, `EXPLAIN FORMAT=JSON ${sql}`);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('EXPLAIN timeout')), 1000)
+        );
+        const explainRes = await Promise.race([explainPromise, timeoutPromise]);
         if (explainRes?.rows?.[0]) {
           const firstRow = explainRes.rows[0];
           const rawJson = firstRow.EXPLAIN || firstRow[Object.keys(firstRow)[0]];
