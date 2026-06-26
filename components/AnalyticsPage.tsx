@@ -17,6 +17,7 @@ import {
   Key,
   Cpu,
   MemoryStick,
+  Info,
 } from 'lucide-react';
 import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -313,16 +314,21 @@ export function AnalyticsPage({
         {[
           { label: 'Total Queries', value: metrics.total.toLocaleString(), icon: FileText, color: 'text-slate-700', iconBg: 'bg-slate-100' },
           { label: 'Avg Time', value: `${metrics.avgTime}ms`, icon: Clock, color: metrics.avgTime > 100 ? 'text-red-600' : 'text-emerald-600', iconBg: metrics.avgTime > 100 ? 'bg-red-50' : 'bg-emerald-50' },
-          { label: 'Avg Scanned', value: metrics.avgScanned.toLocaleString(), icon: Database, color: 'text-slate-700', iconBg: 'bg-slate-100' },
+          { label: 'Avg Scanned', value: metrics.avgScanned.toLocaleString(), icon: Database, color: 'text-slate-700', iconBg: 'bg-slate-100', tooltip: 'Represents rows read by the query planner. For SQLite, full table scans estimate actual table sizes; indexed lookups count matching keys. For Postgres/MySQL, this reflects the optimizer\'s scan plans.' },
           { label: 'Avg Returned', value: metrics.avgReturned.toLocaleString(), icon: TrendingUp, color: 'text-slate-700', iconBg: 'bg-slate-100' },
-          { label: 'Avg CPU', value: `${metrics.avgCpu}%`, icon: Cpu, color: 'text-slate-700', iconBg: 'bg-slate-100' },
-          { label: 'Avg Memory', value: `${metrics.avgMem}MB`, icon: MemoryStick, color: 'text-slate-700', iconBg: 'bg-slate-100' },
+          { label: 'Avg CPU', value: `${metrics.avgCpu}%`, icon: Cpu, color: 'text-slate-700', iconBg: 'bg-slate-100', tooltip: 'Represents active Node process CPU consumption for local SQLite, or estimated server load based on query complexity for remote databases.' },
+          { label: 'Avg Memory', value: `${metrics.avgMem}MB`, icon: MemoryStick, color: 'text-slate-700', iconBg: 'bg-slate-100', tooltip: 'Represents heap allocation for local SQLite processing, or estimated client-side data buffering footprint for remote databases.' },
           { label: 'Index Hit', value: `${metrics.indexHitRatio}%`, icon: Key, color: metrics.indexHitRatio > 50 ? 'text-emerald-600' : 'text-amber-600', iconBg: metrics.indexHitRatio > 50 ? 'bg-emerald-50' : 'bg-amber-50' },
         ].map((card) => (
           <div key={card.label} className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 {card.label}
+                {card.tooltip && (
+                  <span className="cursor-help shrink-0" title={card.tooltip}>
+                    <Info className="h-3 w-3 text-slate-400 hover:text-slate-600" />
+                  </span>
+                )}
               </span>
               <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', card.iconBg)}>
                 <card.icon className={cn('h-3.5 w-3.5', card.color)} />

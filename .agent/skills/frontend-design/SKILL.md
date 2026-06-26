@@ -9,20 +9,29 @@ This document outlines the core principles, design aesthetics, and technical req
 Every frontend must look modern, premium, and visually engaging at first glance. Generic, plain, or "minimum viable" looks are unacceptable.
 
 ### A. Color Palette & Theming
-*   **Avoid Generic Colors**: Do not use standard primary colors (e.g., pure `#FF0000` red, `#0000FF` blue, `#00FF00` green).
-*   **Curated Palettes**: Use cohesive HSL-based colors, modern pastel highlights, or deep, rich dark modes.
-*   **Contrast & Accents**: Establish a clear hierarchy using subtle neutral backgrounds (e.g., slate, zinc, or dark obsidian shades) accented with vibrant, high-contrast action colors.
-*   **Dark Mode First**: Support sleek dark interfaces with soft glow effects, border borders (1px translucent lines), and depth-inducing shadows.
+*   **Base Background**: Use a clean cool near-white base (`#F9FAFB`) instead of plain stark white.
+*   **Aurora Ambient Blobs**: Overlay subtle, heavily blurred (`100px - 130px`) background blobs to add life:
+    - Soft blue: `#93C5FD` (35% opacity)
+    - Ice cyan: `#A5F3FC` (28% opacity)
+    - Pale lavender: `#C4B5F4` (22% opacity)
+    - Whisper blue: `#BFDBFE` (30% opacity)
+*   **Contrast & Accents**: 
+    - Headings: Deep Slate (`#0F172A`)
+    - Body Text: Charcoal (`#334155`)
+    - Muted/Labels: Slate-gray (`#94A3B8`)
+    - Action Color (Primary): Blue (`#3B82F6`)
+    - Hover Action: Indigo-blue (`#2563EB`)
+    - Success/Error alerts: Emerald (`#10B981`) and Red (`#EF4444`)
 
 ### B. Typography
-*   **Custom Fonts**: Avoid default system fonts. Prefer modern typography sourced from Google Fonts (e.g., *Inter*, *Outfit*, *Roboto*, *Plus Jakarta Sans*, or *Cabinet Grotesk*).
+*   **Custom Fonts**: Avoid default system fonts. Prefer modern typography sourced from Google Fonts (e.g., *Geist Sans*, *Inter*, *Outfit*, or *Plus Jakarta Sans*).
 *   **Font Weights**: Use a distinct scale of weights (e.g., Light 300, Regular 400, Medium 500, Semi-Bold 600, Bold 700) to build visual hierarchy.
 *   **Line Heights**: Ensure comfortable readability with line-heights around `1.5` to `1.6` for body text and `1.2` to `1.3` for headings.
 
 ### C. Glassmorphism & Visual Polish
-*   Use translucent backdrops (`backdrop-filter: blur()`) with semi-transparent borders to create a layered, modern interface.
-*   Implement smooth gradients for backgrounds, text clipping, and primary buttons.
-*   Use fine details like box-shadows (`rgba(0, 0, 0, 0.05)` or subtle colored glows) to separate layers.
+*   **Glass Panel Base**: Use semi-transparent white backgrounds (`rgba(255, 255, 255, 0.60)`) with `backdrop-filter: blur(20px)`.
+*   **Borders**: Keep border separators fine and translucent (`rgba(255, 255, 255, 0.80)` or `1px border-border`).
+*   **Shadows**: Use soft blue-glow shadows (`0 4px 24px rgba(59, 130, 246, 0.08)`) instead of standard dark/gray shadows to elevate elements naturally.
 
 ---
 

@@ -411,7 +411,7 @@ export default function Home() {
               )}
               <div
                 className={cn(
-                  'absolute inset-y-0 left-0 z-40 md:static md:overflow-hidden relative max-w-[85vw] md:max-w-none border-r border-border bg-sidebar',
+                  'absolute inset-y-0 left-0 z-40 md:static md:overflow-hidden relative max-w-[85vw] md:max-w-none border-r border-border bg-transparent',
                   isResizing ? 'transition-none' : 'transition-all duration-300',
                   sidebarOpen
                     ? 'translate-x-0 w-72 md:w-[var(--sidebar-width)]'

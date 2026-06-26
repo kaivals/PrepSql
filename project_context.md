@@ -60,6 +60,16 @@ The application leverages distinct drivers to connect to and introspect client d
 
 All connection pools are cached in-memory and mapped by their connection details inside [lib/database.ts](file:///home/jainam/Documents/PrepSql/lib/database.ts) to minimize handshake latency.
 
+### Query Performance Telemetry & Analytics
+For SELECT queries, the backend automatically runs `EXPLAIN` planning queries to retrieve actual metrics rather than generic simulations:
+* **SQLite / Turso**: Runs `EXPLAIN QUERY PLAN`. If a table scan (`SCAN`) is detected, it executes a fast row-count query (`SELECT COUNT(*)`) on that table to determine the exact number of rows scanned; otherwise it estimates rows scanned based on rows returned.
+* **PostgreSQL**: Runs `EXPLAIN (FORMAT JSON)` and sums the estimated rows across all scan nodes (e.g., `Seq Scan`, `Index Scan`).
+* **MySQL / MariaDB**: Runs `EXPLAIN FORMAT=JSON` and parses the plan to sum `rows_examined_per_scan`.
+
+For resource usage (CPU/Memory):
+* **Local SQLite**: Monitored in real-time using native Node process hooks (`process.cpuUsage()` and `process.memoryUsage()`) before and after query execution.
+* **Remote Databases**: Estimated client-side processing metrics based on row count and execution speed, clearly marked in the UI via descriptive hover tooltips.
+
 ---
 
 ## 3. AI SQL Generation & Validation Pipeline
@@ -151,23 +161,24 @@ Executes an SQL query against the active database.
 
 PrepSQL implements a cohesive developer-focused interface tailored for high readability and layout density.
 
-### A. Design Aesthetic: "Aurora Teal Glassmorphism (Light & Minimal)"
+### A. Design Aesthetic: "Blue Aurora Glassmorphism with #F9FAFB Base"
 - **Background**:
-  - Base Layout: Soft Teal-White base (`#EEF9F7`)
-  - Backdrops: Soft teal (`#80E8D8`), pale aqua (`#A8F0E8`), light mint (`#B8F5E0`), and whisper lavender (`#C4E8F4`) ambient background blobs at low opacity (`0.2-0.25`) and heavily blurred (`blur-[100px]+`).
+  - Base Layout: Cool near-white base (`#F9FAFB`)
+  - Backdrops: Soft blue (`#93C5FD`/35%), ice cyan (`#A5F3FC`/28%), pale lavender (`#C4B5F4`/22%), and whisper blue (`#BFDBFE`/30%) ambient background blobs, heavily blurred (`blur-[100px] to blur-[130px]`).
 - **Glass Panels (Sidebars, Header, Cards, Popovers)**:
-  - Background: Semi-translucent white (`rgba(255, 255, 255, 0.50)`) for static cards and sidebars, and highly opaque white (`rgba(255, 255, 255, 0.95)`) for floating popovers and dropdowns to block underlying text and table data from bleeding through.
-  - Blur Effect: `backdrop-filter: blur(24px)`
-  - Border Edge: White translucent borders (`rgba(255, 255, 255, 0.75)`)
-  - Shadow: Soft teal-shadow (`0 8px 32px rgba(60, 180, 160, 0.10)`)
+  - Background: Semi-translucent white (`rgba(255, 255, 255, 0.60)`) for static cards and sidebars, and highly opaque white (`rgba(255, 255, 255, 0.95)`) for floating popovers and dropdowns to block underlying text from bleeding through.
+  - Blur Effect: `backdrop-filter: blur(20px)`
+  - Border Edge: White translucent borders (`rgba(255, 255, 255, 0.80)`)
+  - Shadow: Soft blue-shadow (`0 4px 24px rgba(59, 130, 246, 0.08)`)
 - **Typography / Foregrounds**:
-  - Headings: Deep Teal (`#0D3D35`) for high contrast
-  - Body Text: Mid Teal (`#2E6B5E`)
-  - Muted Labels: Muted teal-gray (`rgba(46, 107, 94, 0.55)`)
+  - Headings: Slate (`#0F172A`) for high contrast
+  - Body Text: Slate-gray (`#334155`)
+  - Muted Labels: Muted slate-gray (`#94A3B8`)
 - **CTAs & Accents**:
-  - Active Connection & Primary CTAs: Premium Teal (`#2AB8A0` / `#1FA896`)
-  - Hover Action: Darker Teal (`#178A7A`)
-  - Icon Tints: Soft aqua (`#5DD8C8`) / mint (`#7EEEDD`) accents derived from the background aurora.
+  - Active Connection & Primary CTAs: Premium Blue (`#3B82F6`)
+  - Hover Action: Darker Blue (`#2563EB`)
+  - Success Indicator: Emerald (`#10B981`)
+  - Error Indicator: Red (`#EF4444`)
 
 ### B. Typography Pairings
 - **UI Elements**: **Geist Sans** (with **Inter** fallback) for premium developer-tool layout density and high readability.

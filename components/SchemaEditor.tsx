@@ -321,7 +321,7 @@ export function SchemaEditor({
       sqls.push(`PRAGMA foreign_keys=ON;`);
     } else {
       const escape = (name: string) => (dbType === 'mysql' || dbType === 'mariadb' ? `\`${name}\`` : `"${name}"`);
-      const tblEscaped = escape(selectedTable);
+      const tblEscaped = escape(selectedTable || '');
 
       // 1. DROP columns
       columns.forEach((c) => {

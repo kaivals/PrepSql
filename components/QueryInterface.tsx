@@ -89,6 +89,18 @@ export function QueryInterface({
 }: QueryInterfaceProps) {
   const [inputMode, setInputMode] = useState<InputMode>('natural');
   const [prompt, setPrompt] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea to expand upwards, clamping at 25% of viewport height
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const maxH = Math.min(250, window.innerHeight * 0.25);
+      textarea.style.height = `${Math.min(textarea.scrollHeight, maxH)}px`;
+    }
+  }, [prompt]);
+
   const [generatedSql, setGeneratedSql] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
@@ -531,14 +543,14 @@ export function QueryInterface({
       </div>
 
       {/* Input area */}
-      <div className="border-t border-border bg-card p-4 shrink-0">
-        <div className="mx-auto mb-3 flex max-w-3xl justify-center">
-          <div className="flex rounded-xl border border-border bg-muted/40 p-1">
+      <div className="bg-transparent pb-6 pt-2 px-4 shrink-0 w-full">
+        <div className="mx-auto mb-3 flex max-w-2xl justify-center">
+          <div className="flex rounded-xl border border-border bg-muted/40 p-1 backdrop-blur-md">
             <button
               type="button"
               onClick={() => setInputMode('natural')}
               className={cn(
-                'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150',
+                'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer',
                 inputMode === 'natural'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -550,7 +562,7 @@ export function QueryInterface({
               type="button"
               onClick={() => setInputMode('sql')}
               className={cn(
-                'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150',
+                'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer',
                 inputMode === 'sql'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -565,10 +577,11 @@ export function QueryInterface({
             e.preventDefault();
             handleSubmit();
           }}
-          className="mx-auto flex max-w-3xl items-end gap-2.5"
+          className="mx-auto flex max-w-2xl items-end gap-2 bg-card/65 backdrop-blur-md border border-border/80 pl-4 pr-2 py-2 rounded-[26px] shadow-lg focus-within:border-primary/50 transition-all focus-within:ring-2 focus-within:ring-primary/10"
         >
           <div className="flex-1">
             <textarea
+              ref={textareaRef}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => {
@@ -582,20 +595,23 @@ export function QueryInterface({
                   ? 'SELECT * FROM users LIMIT 10'
                   : 'Ask a question in plain English...'
               }
-              rows={inputMode === 'sql' ? 6 : 3}
+              rows={1}
               disabled={generating || isLoading}
-              className="w-full resize-none rounded-xl border border-border bg-input px-4 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-primary focus:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+              className={cn(
+                "w-full resize-none bg-transparent focus:outline-none focus:ring-0 border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/60 py-1.5 pr-2 max-h-[250px] overflow-y-auto",
+                inputMode === 'sql' ? 'font-mono' : 'font-sans'
+              )}
             />
           </div>
           <Button
             type="submit"
             disabled={generating || isLoading || !prompt.trim()}
-            className="h-11 w-11 shrink-0 rounded-xl p-0"
+            className="h-9 w-9 shrink-0 rounded-full p-0 flex items-center justify-center bg-primary text-white hover:bg-primary/90 shadow-sm transition-colors cursor-pointer"
           >
             {generating || isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <ArrowUp className="h-4 w-4" />
+              <ArrowUp className="h-4.5 w-4.5" />
             )}
           </Button>
         </form>
