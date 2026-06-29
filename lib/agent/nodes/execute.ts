@@ -9,6 +9,48 @@ import { clearSchemaCache } from './schema-load';
 import { calculateQueryTelemetry } from '../../telemetry';
 
 
+function sanitizeText(text: string): string {
+  if (!text) return '';
+  let sanitized = text;
+
+  // Redact Unix absolute paths
+  sanitized = sanitized.replace(/\/[a-zA-Z0-9_\-\.]+([/a-zA-Z0-9_\-\.]+)+/g, '[REDACTED_PATH]');
+
+  // Redact Windows absolute paths
+  sanitized = sanitized.replace(/[a-zA-Z]:\\[a-zA-Z0-9_\-\.\\]+/g, '[REDACTED_PATH]');
+
+  // Redact IP addresses
+  sanitized = sanitized.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '[REDACTED_IP]');
+
+  // Redact email addresses
+  sanitized = sanitized.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[REDACTED_EMAIL]');
+
+  return sanitized;
+}
+
+function sanitizeSql(sql: string): string {
+  if (!sql) return '';
+  let sanitized = sql;
+
+  // Redact string literals in SQL to prevent leaking sensitive criteria
+  sanitized = sanitized.replace(/'[^']*'/g, "'[REDACTED]'");
+  sanitized = sanitized.replace(/"[^"]*"/g, '"[REDACTED]"');
+
+  return sanitizeText(sanitized);
+}
+
+async function invokeWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Timeout')), ms);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function generateFriendlyErrorExplanation(
   userPrompt: string,
   dbDialect: string,
@@ -34,18 +76,25 @@ CRITICAL SECURITY RULES:
 - Keep the tone helpful, professional, and clear.
 - Explain the issue conceptually (e.g., "The requested column or relation does not seem to match the database structure" rather than leaking physical database files or paths).`;
 
+    const sanitizedPrompt = sanitizeText(userPrompt);
+    const sanitizedSql = sanitizeSql(failedSQL);
+    const sanitizedError = sanitizeText(rawError);
+
     const userMsg = `Context:
-- User's Request: "${userPrompt}"
+- User's Request: "${sanitizedPrompt}"
 - Database Dialect: ${dbDialect}
-- Generated SQL that failed: \`${failedSQL}\`
-- Database Error Message: "${rawError}"
+- Generated SQL that failed: \`${sanitizedSql}\`
+- Database Error Message: "${sanitizedError}"
 
 Please write a brief explanation of why the query failed without disclosing sensitive system details, and suggest how the user can rewrite their prompt to make it work.`;
 
-    const response = await llm.invoke([
-      new SystemMessage(systemPrompt),
-      new HumanMessage(userMsg),
-    ]);
+    const response = await invokeWithTimeout(
+      llm.invoke([
+        new SystemMessage(systemPrompt),
+        new HumanMessage(userMsg),
+      ]),
+      4000
+    );
 
     return String(response.content).trim();
   } catch (e) {

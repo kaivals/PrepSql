@@ -13,7 +13,7 @@ const RETRIEVAL_SHOTS: FewShotPair[] = [
   [
     new HumanMessage('List the top 5 products by revenue'),
     new AIMessage(
-      '```sql\nSELECT "productId", "name", SUM("price" * "quantity") AS revenue\nFROM "order_items"\nGROUP BY "productId", "name"\nORDER BY revenue DESC\nLIMIT 5;\n```\nJoins order items, sums up revenue per product, returns the top 5.'
+      '```sql\nSELECT p."id", p."name", SUM(si."unit_price" * si."quantity") AS revenue\nFROM "sales_items" si\nJOIN "products" p ON si."product_id" = p."id"\nGROUP BY p."id", p."name"\nORDER BY revenue DESC\nLIMIT 5;\n```\nJoins sales items and products, sums up revenue, returns the top 5.'
     ),
   ],
 ];
@@ -26,51 +26,51 @@ const BOOLEAN_SHOTS: FewShotPair[] = [
     ),
   ],
   [
-    new HumanMessage('Are there any pending orders?'),
+    new HumanMessage('Are there any pending sales?'),
     new AIMessage(
-      '```sql\nSELECT EXISTS(SELECT 1 FROM "orders" WHERE "status" = \'pending\') AS "hasPendingOrders";\n```\nReturns true/false whether pending orders exist.'
+      '```sql\nSELECT EXISTS(SELECT 1 FROM "sales" WHERE "status" = \'Pending\') AS "hasPendingSales";\n```\nReturns true/false whether pending sales exist.'
     ),
   ],
 ];
 
 const ANALYTICS_SHOTS: FewShotPair[] = [
   [
-    new HumanMessage('What is the average order value per city this month?'),
+    new HumanMessage('What is the average sale value per city this month?'),
     new AIMessage(
-      '```sql\nSELECT c."city", ROUND(AVG(o."totalAmount"), 2) AS "avgOrderValue"\nFROM "orders" o\nJOIN "customers" c ON o."customerId" = c."id"\nWHERE DATE_TRUNC(\'month\', o."createdAt") = DATE_TRUNC(\'month\', CURRENT_DATE)\nGROUP BY c."city"\nORDER BY "avgOrderValue" DESC;\n```\nAggregates orders by city for the current month.'
+      '```sql\nSELECT c."city", ROUND(AVG(s."amount"), 2) AS "avgSaleValue"\nFROM "sales" s\nJOIN "customers" c ON s."customer_id" = c."id"\nWHERE DATE_TRUNC(\'month\', CAST(s."sale_date" AS DATE)) = DATE_TRUNC(\'month\', CURRENT_DATE)\nGROUP BY c."city"\nORDER BY "avgSaleValue" DESC;\n```\nAggregates sales by city for the current month.'
     ),
   ],
 ];
 
 const MODIFICATION_SHOTS: FewShotPair[] = [
   [
-    new HumanMessage('Insert a new user with name John and email john@test.com'),
+    new HumanMessage('Insert a new employee with first name John and email john@test.com'),
     new AIMessage(
-      '```sql\nINSERT INTO "users" ("name", "email") VALUES (\'John\', \'john@test.com\');\n```\nInserts a new user record with the specified name and email.'
+      '```sql\nINSERT INTO "employees" ("first_name", "last_name", "email", "role", "salary", "hire_date") VALUES (\'John\', \'Doe\', \'john@test.com\', \'Developer\', 80000.00, \'2026-06-29\');\n```\nInserts a new employee record with specified fields.'
     ),
   ],
 ];
 
 const SCHEMA_SHOTS: FewShotPair[] = [
   [
-    new HumanMessage('Create an index on the email column of the users table'),
+    new HumanMessage('Create an index on the email column of the employees table'),
     new AIMessage(
-      '```sql\nCREATE INDEX idx_users_email ON "users" ("email");\n```\nCreates a B-tree index on the email column for faster lookups.'
+      '```sql\nCREATE INDEX idx_employees_email ON "employees" ("email");\n```\nCreates a B-tree index on the email column of employees.'
     ),
   ],
 ];
 
 const GROUNDING_SHOTS: FewShotPair[] = [
   [
-    new HumanMessage('Show all employees ordered by salary'),
+    new HumanMessage('Show all support tickets'),
     new AIMessage(
-      'There is no "employees" or "employee" table in the database. The available tables are "users", "products", and "orders". Please ask a question related to these tables.'
+      'There is no "tickets" or "support_tickets" table in the database. The available tables are "employees", "departments", "projects", "employee_projects", "customers", "products", "sales", "sales_items", and "performance_reviews". Please ask a question related to these tables.'
     ),
   ],
   [
     new HumanMessage('fetch top 5 posts'),
     new AIMessage(
-      'The "posts" table does not exist in the database. The available tables are "orders", "products", and "users".'
+      'The "posts" table does not exist in the database. The available tables are "employees", "departments", "projects", "employee_projects", "customers", "products", "sales", "sales_items", and "performance_reviews".'
     ),
   ],
 ];

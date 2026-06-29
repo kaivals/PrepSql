@@ -78,6 +78,30 @@ interface DBHealthReport {
   recommendations: string[];
 }
 
+const DEFAULT_HEALTH_REPORT: DBHealthReport = {
+  queryEfficiency: 85,
+  indexCoverage: 70,
+  schemaQuality: 90,
+  overallScore: 81,
+  recommendations: [
+    'Add indexes to frequently searched columns.',
+    'Always limit results of analytical queries.',
+  ],
+};
+
+function isDBHealthReport(obj: any): obj is DBHealthReport {
+  return (
+    obj !== null &&
+    typeof obj === 'object' &&
+    typeof obj.queryEfficiency === 'number' &&
+    typeof obj.indexCoverage === 'number' &&
+    typeof obj.schemaQuality === 'number' &&
+    typeof obj.overallScore === 'number' &&
+    Array.isArray(obj.recommendations) &&
+    obj.recommendations.every((r: any) => typeof r === 'string')
+  );
+}
+
 function AnalyticsPageRaw({
   connection,
   showConfirmation,
@@ -318,32 +342,34 @@ function AnalyticsPageRaw({
   };
 
   // Load latest connection-specific health score/report from DB
-  const loadLatestHealthReport = async () => {
+  const loadLatestHealthReport = async (connId: string) => {
+    // Reset to defaults so previous connection's data is not visible
+    setHealthReport(DEFAULT_HEALTH_REPORT);
+
     try {
-      const res = await fetch(`/api/analysis?connectionId=${connection.id}`, { credentials: 'same-origin' });
+      const res = await fetch(`/api/analysis?connectionId=${encodeURIComponent(connId)}&action=db&limit=1`, { credentials: 'same-origin' });
       if (!res.ok) {
         throw new Error('Failed to load connection-specific health report');
       }
       const data = await res.json();
+      
+      // Prevent stale response from overwriting active connection view
+      if (connection.id !== connId) {
+        return;
+      }
+
       const analyses = data.analyses || [];
-      const dbReport = analyses.find((a: any) => a.action === 'db');
-      if (dbReport && dbReport.result) {
-        setHealthReport(dbReport.result as DBHealthReport);
+      const dbReport = analyses[0];
+      if (dbReport && dbReport.result && isDBHealthReport(dbReport.result)) {
+        setHealthReport(dbReport.result);
       } else {
-        // Fallback default values
-        setHealthReport({
-          queryEfficiency: 85,
-          indexCoverage: 70,
-          schemaQuality: 90,
-          overallScore: 81,
-          recommendations: [
-            'Add indexes to frequently searched columns.',
-            'Always limit results of analytical queries.',
-          ],
-        });
+        setHealthReport(DEFAULT_HEALTH_REPORT);
       }
     } catch (err) {
       console.error('Failed to load health report:', err);
+      if (connection.id === connId) {
+        setHealthReport(DEFAULT_HEALTH_REPORT);
+      }
     }
   };
 
@@ -371,7 +397,7 @@ function AnalyticsPageRaw({
 
   useEffect(() => {
     loadHistory();
-    loadLatestHealthReport();
+    loadLatestHealthReport(connection.id);
     setSelectedRun(null);
     setTimelineAnalysis(null);
   }, [connection.id]);

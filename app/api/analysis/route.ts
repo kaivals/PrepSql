@@ -30,8 +30,11 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const connectionId = url.searchParams.get('connectionId');
+    const action = url.searchParams.get('action');
+    const limitParam = url.searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : 10;
     const clientId = await getClientId();
-    const analyses = await db.getAnalysisResults(clientId, 10, connectionId);
+    const analyses = await db.getAnalysisResults(clientId, limit, connectionId, action);
     return NextResponse.json({ analyses });
   } catch (error) {
     return NextResponse.json(

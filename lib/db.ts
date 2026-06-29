@@ -152,11 +152,15 @@ export async function getAnalysisResults(
   sessionId: string,
   limit = 10,
   connectionId?: string | null,
+  action?: string | null,
 ): Promise<AnalysisResultDoc[]> {
   const db = getDb();
   const query: Record<string, any> = { sessionId };
   if (connectionId) {
     query.connectionId = connectionId;
+  }
+  if (action) {
+    query.action = action;
   }
   const items = await db
     .collection(COLLECTIONS.ANALYSIS_RESULTS)

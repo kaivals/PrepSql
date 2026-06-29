@@ -28,7 +28,8 @@ export async function ensureDemoDatabase(): Promise<string> {
     try {
       fs.unlinkSync(dbPath);
     } catch (e) {
-      console.warn("Failed to delete existing database file, ignoring", e);
+      console.error("Failed to delete existing database file, halting seeding:", e);
+      throw e;
     }
   }
 
