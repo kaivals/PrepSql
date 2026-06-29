@@ -16,6 +16,7 @@
     "@langchain/langgraph": "^1.4.2",
     "@libsql/client": "^0.17.4",
     "@supabase/supabase-js": "^2.108.2",
+    "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-table": "^8.21.3",
     "@vercel/analytics": "1.6.1",
     "anthropic": "^0.0.0",
