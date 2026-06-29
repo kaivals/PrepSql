@@ -37,7 +37,7 @@ const ANALYTICS_SHOTS: FewShotPair[] = [
   [
     new HumanMessage('What is the average sale value per city this month?'),
     new AIMessage(
-      '```sql\nSELECT c."city", ROUND(AVG(s."amount"), 2) AS "avgSaleValue"\nFROM "sales" s\nJOIN "customers" c ON s."customer_id" = c."id"\nWHERE DATE_TRUNC(\'month\', CAST(s."sale_date" AS DATE)) = DATE_TRUNC(\'month\', CURRENT_DATE)\nGROUP BY c."city"\nORDER BY "avgSaleValue" DESC;\n```\nAggregates sales by city for the current month.'
+      '```sql\nSELECT c."city", ROUND(AVG(s."amount"), 2) AS "avgSaleValue"\nFROM "sales" s\nJOIN "customers" c ON s."customer_id" = c."id"\nWHERE strftime(\'%Y-%m\', s."sale_date") = strftime(\'%Y-%m\', \'now\')\nGROUP BY c."city"\nORDER BY "avgSaleValue" DESC;\n```\nAggregates sales by city for the current month.'
     ),
   ],
 ];
