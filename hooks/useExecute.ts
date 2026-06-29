@@ -15,7 +15,13 @@ export function useExecute() {
       });
 
       if (!res.ok) {
-        const errData = await res.json();
+        let errData: any;
+        try {
+          const text = await res.text();
+          errData = text ? JSON.parse(text) : {};
+        } catch {
+          errData = {};
+        }
         throw new Error(errData.error || 'Query execution failed');
       }
 
