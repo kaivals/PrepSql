@@ -10,6 +10,7 @@ import {
 } from '@/lib/app-state';
 import { runWithQueryLogger } from '@/lib/query-logger';
 import { classifyQuery } from '@/lib/history-classify';
+import { trackTokenUsage } from '@/lib/token-tracker';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,6 +45,15 @@ export async function POST(request: NextRequest) {
     const allSteps = [...previousSteps, ...steps];
 
     if (response) {
+      // Track token usage server-side if usage data is present
+      if (response.usage?.promptTokens || response.usage?.completionTokens) {
+        trackTokenUsage(
+          clientId,
+          response.usage.promptTokens ?? 0,
+          response.usage.completionTokens ?? 0,
+        );
+      }
+
       if (response.type === 'pending_approval') {
         // Store steps and threadId for the next approval/rejection action
         await setPendingTimeline({ steps: allSteps, threadId });

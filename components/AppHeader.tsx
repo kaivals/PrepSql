@@ -48,6 +48,7 @@ export function AppHeader({
   onConnected,
   onViewAllConnections,
   loading = false,
+  refreshTrigger,
 }: AppHeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [connDropdownOpen, setConnDropdownOpen] = useState(false);
