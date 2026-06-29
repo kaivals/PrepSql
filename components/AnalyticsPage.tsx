@@ -50,8 +50,9 @@ import {
 } from 'recharts';
 import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
 import { useHistory } from '@/hooks/useHistory';
-import { useAnalyze, useSaveAnalysis } from '@/hooks/useAnalyze';
+import { useAnalyze, useSaveAnalysis, useAnalyses } from '@/hooks/useAnalyze';
 import { useExecuteSQL } from '@/hooks/useExecute';
 
 interface AnalyticsPageProps {
@@ -136,9 +137,13 @@ function AnalyticsPageRaw({
   const [timelineAnalysis, setTimelineAnalysis] = useState<any | null>(null);
 
   // TanStack hooks
+  const queryClient = useQueryClient();
   const analyze = useAnalyze();
-  const saveAnalysis = useSaveAnalysis();
+  const saveAnalysisMutation = useSaveAnalysis();
   const executeSQL = useExecuteSQL();
+
+  // Analyses query (latest health report)
+  const { data: analysesData } = useAnalyses(connection.id, 'db', 1);
 
   // History query
   const {
@@ -322,7 +327,7 @@ function AnalyticsPageRaw({
     try {
       const report = await analyze.mutateAsync({ action: 'timeline', timeline: run.timeline });
       setTimelineAnalysis(report);
-      saveAnalysis.mutate({ action: 'timeline', targetSql: run.sql, result: report });
+      saveAnalysisMutation.mutate({ action: 'timeline', targetSql: run.sql, result: report, connectionId: connection.id });
       showNotification('Lifecycle analysis completed!', 'success');
     } catch (err) {
       showNotification(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -331,54 +336,31 @@ function AnalyticsPageRaw({
     }
   };
 
-
-
-
   const persistAnalysis = (action: string, targetSql: string | null, result: Record<string, unknown>) => {
-    saveAnalysis.mutate({ action, targetSql, result });
-  const saveAnalysis = async (action: string, targetSql: string | null, result: Record<string, unknown>) => {
-    try {
-      await fetch('/api/analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, targetSql, result, connectionId: connection.id }),
-      });
-    } catch (err) {
-      console.error('Failed to persist analysis:', err);
-    }
+    saveAnalysisMutation.mutate(
+      { action, targetSql, result, connectionId: connection.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['analyses', connection.id] });
+        },
+      }
+    );
   };
 
-  // Load latest connection-specific health score/report from DB
-  const loadLatestHealthReport = async (connId: string) => {
-    // Reset to defaults so previous connection's data is not visible
-    setHealthReport(DEFAULT_HEALTH_REPORT);
-
-    try {
-      const res = await fetch(`/api/analysis?connectionId=${encodeURIComponent(connId)}&action=db&limit=1`, { credentials: 'same-origin' });
-      if (!res.ok) {
-        throw new Error('Failed to load connection-specific health report');
-      }
-      const data = await res.json();
-      
-      // Prevent stale response from overwriting active connection view
-      if (connection.id !== connId) {
-        return;
-      }
-
-      const analyses = data.analyses || [];
+  // Keep health report in sync with analysesData
+  useEffect(() => {
+    if (analysesData) {
+      const analyses = analysesData.analyses || [];
       const dbReport = analyses[0];
       if (dbReport && dbReport.result && isDBHealthReport(dbReport.result)) {
         setHealthReport(dbReport.result);
       } else {
         setHealthReport(DEFAULT_HEALTH_REPORT);
       }
-    } catch (err) {
-      console.error('Failed to load health report:', err);
-      if (connection.id === connId) {
-        setHealthReport(DEFAULT_HEALTH_REPORT);
-      }
+    } else {
+      setHealthReport(DEFAULT_HEALTH_REPORT);
     }
-  };
+  }, [analysesData]);
 
   // Load history from MongoDB via API. This is the single source of truth for
   // execution metrics (execution_time, rows_scanned, cpu_usage, etc.) and
@@ -389,7 +371,6 @@ function AnalyticsPageRaw({
 
   useEffect(() => {
     loadHistory();
-    loadLatestHealthReport(connection.id);
     setSelectedRun(null);
     setTimelineAnalysis(null);
   }, [connection.id]);
