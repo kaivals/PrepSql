@@ -42,6 +42,10 @@ interface QueryInterfaceProps {
   result: QueryResult | null;
   onOpenSettings?: () => void;
   onQueryResult?: (result: QueryResult | null) => void;
+  prompt: string;
+  setPrompt: (prompt: string) => void;
+  inputMode: InputMode;
+  setInputMode: (mode: InputMode) => void;
 }
 
 function formatApiError(message: string): string {
@@ -86,9 +90,11 @@ export function QueryInterface({
   result,
   onOpenSettings,
   onQueryResult,
+  prompt,
+  setPrompt,
+  inputMode,
+  setInputMode,
 }: QueryInterfaceProps) {
-  const [inputMode, setInputMode] = useState<InputMode>('natural');
-  const [prompt, setPrompt] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea to expand upwards, clamping at 25% of viewport height

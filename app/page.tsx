@@ -77,11 +77,13 @@ export default function Home() {
   const [isResizing, setIsResizing] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [initializing, setInitializing] = useState(true);
+  const [prompt, setPrompt] = useState('');
+  const [inputMode, setInputMode] = useState<'natural' | 'sql'>('natural');
   const saveWidthTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Derive query mode from navSection (history tab shown in SchemaSidebar)
   const mode: QueryMode =
-    navSection === 'connections' || navSection === 'history' ? 'crud' : (navSection as QueryMode);
+    navSection === 'history' ? 'crud' : (navSection as QueryMode);
 
   // Load sidebar width from server-side preferences on mount
   useEffect(() => {
@@ -259,6 +261,8 @@ export default function Home() {
     setActiveConnection(connection);
     setResult(null);
     setSelectedTable(null);
+    setPrompt('');
+    setInputMode('natural');
     setViewPref('workspace');
   };
 
@@ -371,6 +375,8 @@ export default function Home() {
     setNavSection('crud');
     setActiveConnection(null);
     setResult(null);
+    setPrompt('');
+    setInputMode('natural');
   };
 
   if (initializing) {
@@ -448,7 +454,8 @@ export default function Home() {
                 <SchemaSidebar
                   connection={activeConnection}
                   onSelectQuery={(sql) => {
-                    handleExecuteQuery(sql);
+                    setPrompt(sql);
+                    setInputMode('sql');
                     if (window.innerWidth < 768) setSidebarOpen(false);
                   }}
                   onSelectTable={(tbl) => setSelectedTable(tbl)}
@@ -500,6 +507,10 @@ export default function Home() {
                 result={result}
                 onOpenSettings={() => setShowSettings(true)}
                 onQueryResult={(res) => setResult(res)}
+                prompt={prompt}
+                setPrompt={setPrompt}
+                inputMode={inputMode}
+                setInputMode={setInputMode}
               />
             )}
           </div>

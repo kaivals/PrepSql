@@ -406,7 +406,7 @@ export interface SessionDataDoc {
   sessionId: string;
   queryMode: QueryMode;
   activeConnectionId?: string;
-  pendingTimeline?: TimelineStep[];
+  pendingTimeline?: TimelineStep[] | { steps: TimelineStep[]; threadId: string };
   updatedAt: Date;
 }
 

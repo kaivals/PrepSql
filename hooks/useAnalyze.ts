@@ -1,11 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 
-export interface AnalyzeParams {
-  action: 'timeline' | 'db' | 'query';
-  timeline?: any[];
-  history?: any[];
-  sql?: string;
-}
+export type AnalyzeParams =
+  | { action: 'query'; sql: string; timeline?: any[]; history?: any[] }
+  | { action: 'timeline' | 'db'; timeline?: any[]; history?: any[]; sql?: string }
 
 export function useAnalyze() {
   return useMutation<any, Error, AnalyzeParams>({
@@ -17,7 +14,13 @@ export function useAnalyze() {
       });
 
       if (!res.ok) {
-        const errData = await res.json();
+        let errData: any;
+        try {
+          const text = await res.text();
+          errData = text ? JSON.parse(text) : {};
+        } catch {
+          errData = {};
+        }
         throw new Error(errData.error || 'Analysis failed');
       }
 

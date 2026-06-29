@@ -89,6 +89,14 @@ const DEFAULT_HEALTH_REPORT: DBHealthReport = {
   ],
 };
 
+function formatTime(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
 function isDBHealthReport(obj: any): obj is DBHealthReport {
   return (
     obj !== null &&
@@ -185,6 +193,14 @@ function AnalyticsPageRaw({
       ),
     },
     {
+      accessorKey: 'timestamp',
+      header: createSortableHeader('Executed'),
+      cell: (info) => {
+        const val = info.getValue() as number;
+        return <span className="text-slate-500 font-medium text-xs whitespace-nowrap">{formatTime(val)}</span>;
+      },
+    },
+    {
       accessorKey: 'executionTime',
       header: createSortableHeader('Time'),
       cell: (info) => {
@@ -242,7 +258,7 @@ function AnalyticsPageRaw({
     },
   ], []);
 
-  const table = useReactTable({
+  const table = useReactTable<QueryHistoryItem>({
     data: history,
     columns,
     state: {
@@ -929,19 +945,23 @@ function AnalyticsPageRaw({
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-slate-200/80 bg-slate-50/50 text-left text-xs font-medium text-slate-500">
+                <tr className="border-b border-slate-200/80 bg-slate-55/50 text-left text-xs font-medium text-slate-500">
                   <th className="p-3">Query</th>
+                  <th className="p-3">Executed</th>
                   <th className="p-3">Execution Time</th>
                   <th className="p-3">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {slowQueries.map((item) => (
-                  <tr key={item.id} className="border-b border-slate-100 transition-colors hover:bg-slate-50/50">
-                    <td className="max-w-md truncate p-3 font-mono text-xs text-slate-700" title={item.sql}>
+                  <tr key={item.id} className="border-b border-slate-100 transition-colors hover:bg-slate-55/50">
+                    <td className="max-w-md truncate p-3 font-mono text-xs text-slate-750" title={item.sql}>
                       {item.sql}
                     </td>
-                    <td className="p-3 text-sm font-semibold text-red-600 tabular-nums">{item.executionTime}ms</td>
+                    <td className="p-3 text-slate-500 font-medium text-xs whitespace-nowrap">
+                      {formatTime(item.timestamp)}
+                    </td>
+                    <td className="p-3 text-sm font-semibold text-red-650 tabular-nums">{item.executionTime}ms</td>
                     <td className="p-3">
                       <button
                         type="button"
@@ -1030,7 +1050,7 @@ function AnalyticsPageRaw({
                           }}
                           className={cn(
                             'cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/50',
-                            selectedRun?.id === row.original.id && 'bg-primary/5 font-medium'
+                            (selectedRun as any)?.id === row.original.id && 'bg-primary/5 font-medium'
                           )}
                         >
                           {row.getVisibleCells().map((cell) => (
@@ -1200,6 +1220,9 @@ function AnalyticsPageRaw({
                 </h3>
                 <p className="mt-1 max-w-2xl truncate text-xs text-slate-500" title={selectedRun.prompt || selectedRun.sql}>
                   {selectedRun.prompt || selectedRun.sql}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Executed {formatTime(selectedRun.timestamp)}
                 </p>
               </div>
             </div>
