@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowUp, Loader2, AlertTriangle, Copy, Check } from 'lucide-react';
+import { ArrowUp, Loader2, AlertTriangle, Copy, Check, Cpu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ResultsTable } from '@/components/ResultsTable';
 import { ApiKeySetup } from '@/components/ApiKeySetup';
@@ -105,6 +105,42 @@ export function QueryInterface({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [hasQueried, setHasQueried] = useState(false);
+
+  // Token usage state
+  const [tokenUsage, setTokenUsage] = useState<{
+    totalTokens: number;
+    promptTokens: number;
+    completionTokens: number;
+    budget: number;
+    percentage: number;
+  } | null>(null);
+  const [showTokenPopup, setShowTokenPopup] = useState(false);
+  const tokenBarRef = useRef<HTMLDivElement>(null);
+
+  const fetchTokenUsage = useCallback(async () => {
+    try {
+      const res = await fetch('/api/token-usage', { credentials: 'same-origin' });
+      if (res.ok) setTokenUsage(await res.json());
+    } catch { /* non-critical */ }
+  }, []);
+
+  // Fetch on mount, then poll every 15s
+  useEffect(() => {
+    fetchTokenUsage();
+    const id = setInterval(fetchTokenUsage, 15_000);
+    return () => clearInterval(id);
+  }, [fetchTokenUsage]);
+
+  // Close popup on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (tokenBarRef.current && !tokenBarRef.current.contains(e.target as Node)) {
+        setShowTokenPopup(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Chat message history for Natural Language mode (persisted via /api/chat)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -615,6 +651,117 @@ export function QueryInterface({
             )}
           </Button>
         </form>
+
+        {/* ── Token Usage Status Bar ── */}
+        {tokenUsage !== null && inputMode === 'natural' && (
+          <div
+            ref={tokenBarRef}
+            className="mx-auto max-w-2xl mt-2 relative"
+          >
+            {/* Popup (opens upward) */}
+            {showTokenPopup && (
+              <div className="absolute bottom-full mb-2 left-0 right-0 z-50 rounded-xl border border-border bg-popover shadow-2xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                <p className="text-[11px] font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                  <Cpu className="h-3.5 w-3.5 text-primary" />
+                  Daily AI Token Usage
+                </p>
+
+                {/* Big progress bar */}
+                <div className="relative w-full h-2.5 rounded-full bg-muted overflow-hidden mb-1.5">
+                  <div
+                    className={cn(
+                      'absolute left-0 top-0 h-full rounded-full transition-all duration-700',
+                      tokenUsage.percentage >= 90 ? 'bg-red-500'
+                        : tokenUsage.percentage >= 70 ? 'bg-amber-500'
+                        : tokenUsage.percentage >= 50 ? 'bg-yellow-400'
+                        : 'bg-emerald-500'
+                    )}
+                    style={{ width: `${tokenUsage.percentage}%` }}
+                  />
+                  {[25, 50, 75].map((tick) => (
+                    <div key={tick} className="absolute top-0 bottom-0 w-px bg-background/50" style={{ left: `${tick}%` }} />
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mb-3">
+                  <span>0 tokens</span>
+                  <span className={cn(
+                    'font-semibold',
+                    tokenUsage.percentage >= 90 ? 'text-red-500' : tokenUsage.percentage >= 70 ? 'text-amber-500' : 'text-foreground'
+                  )}>{tokenUsage.percentage}% used</span>
+                  <span>{(tokenUsage.budget / 1000).toFixed(0)}K limit</span>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Prompt tokens</span>
+                    <span className="font-medium tabular-nums">{tokenUsage.promptTokens.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Completion tokens</span>
+                    <span className="font-medium tabular-nums">{tokenUsage.completionTokens.toLocaleString()}</span>
+                  </div>
+                  <div className="border-t border-border pt-1.5 flex justify-between font-medium">
+                    <span>Total used today</span>
+                    <span className="tabular-nums">{tokenUsage.totalTokens.toLocaleString()} / {tokenUsage.budget.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {tokenUsage.percentage >= 90 ? (
+                  <p className="mt-2.5 text-[10px] text-red-600 bg-red-50 rounded-lg px-2 py-1.5 border border-red-200">
+                    ⚠ Approaching daily limit. Resets at midnight UTC.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[10px] text-muted-foreground">Resets daily at midnight UTC</p>
+                )}
+              </div>
+            )}
+
+            {/* Slim status bar */}
+            <button
+              type="button"
+              onClick={() => setShowTokenPopup((p) => !p)}
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-muted/40 transition-colors group cursor-pointer"
+            >
+              {/* Colored status dot */}
+              <span className={cn(
+                'h-2 w-2 rounded-full shrink-0 transition-colors',
+                tokenUsage.percentage >= 90 ? 'bg-red-500 animate-pulse'
+                  : tokenUsage.percentage >= 70 ? 'bg-amber-500'
+                  : 'bg-emerald-500'
+              )} />
+
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">SESSION</span>
+
+              <span className={cn(
+                'text-[11px] font-bold tabular-nums',
+                tokenUsage.percentage >= 90 ? 'text-red-500'
+                  : tokenUsage.percentage >= 70 ? 'text-amber-500'
+                  : tokenUsage.percentage >= 50 ? 'text-yellow-600'
+                  : 'text-muted-foreground'
+              )}>{tokenUsage.percentage}%</span>
+
+              {/* Mini progress slider */}
+              <div className="flex-1 relative h-1 rounded-full bg-muted/60 overflow-hidden">
+                <div
+                  className={cn(
+                    'absolute left-0 top-0 h-full rounded-full transition-all duration-700',
+                    tokenUsage.percentage >= 90 ? 'bg-red-500'
+                      : tokenUsage.percentage >= 70 ? 'bg-amber-500'
+                      : tokenUsage.percentage >= 50 ? 'bg-yellow-400'
+                      : 'bg-emerald-500'
+                  )}
+                  style={{ width: `${tokenUsage.percentage}%` }}
+                />
+              </div>
+
+              <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                ~{tokenUsage.totalTokens.toLocaleString()} / {(tokenUsage.budget / 1000).toFixed(0)}K tokens
+              </span>
+
+              <span className="text-muted-foreground/40 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↑</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
