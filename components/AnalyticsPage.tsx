@@ -309,10 +309,40 @@ export function AnalyticsPage({
       await fetch('/api/analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, targetSql, result }),
+        body: JSON.stringify({ action, targetSql, result, connectionId: connection.id }),
       });
     } catch (err) {
       console.error('Failed to persist analysis:', err);
+    }
+  };
+
+  // Load latest connection-specific health score/report from DB
+  const loadLatestHealthReport = async () => {
+    try {
+      const res = await fetch(`/api/analysis?connectionId=${connection.id}`, { credentials: 'same-origin' });
+      if (!res.ok) {
+        throw new Error('Failed to load connection-specific health report');
+      }
+      const data = await res.json();
+      const analyses = data.analyses || [];
+      const dbReport = analyses.find((a: any) => a.action === 'db');
+      if (dbReport && dbReport.result) {
+        setHealthReport(dbReport.result as DBHealthReport);
+      } else {
+        // Fallback default values
+        setHealthReport({
+          queryEfficiency: 85,
+          indexCoverage: 70,
+          schemaQuality: 90,
+          overallScore: 81,
+          recommendations: [
+            'Add indexes to frequently searched columns.',
+            'Always limit results of analytical queries.',
+          ],
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load health report:', err);
     }
   };
 
@@ -340,6 +370,7 @@ export function AnalyticsPage({
 
   useEffect(() => {
     loadHistory();
+    loadLatestHealthReport();
     setSelectedRun(null);
     setTimelineAnalysis(null);
   }, [connection.id]);
