@@ -76,7 +76,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
             </div>
             <div>
               <h2 className="text-base font-semibold text-foreground tracking-tight">Settings</h2>
-              <p className="text-[11px] text-muted-foreground">Manage your AI API configurations</p>
+              <p className="text-[11px] font-medium text-foreground/60">Manage your AI API configurations</p>
             </div>
           </div>
           <button
@@ -98,13 +98,13 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
               <h3 className="text-xs font-semibold tracking-wider uppercase text-foreground/80">AI API Key</h3>
             </div>
 
-            <p className="mb-5 text-xs leading-relaxed text-muted-foreground/90">
+            <p className="mb-5 text-xs leading-relaxed font-medium text-foreground/80">
               Required for natural language to SQL queries. Provide a free Groq key from{' '}
               <a
                 href="https://console.groq.com/keys"
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+                className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors font-medium"
               >
                 console.groq.com
               </a>{' '}
@@ -113,7 +113,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+                className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors font-medium"
               >
                 console.anthropic.com
               </a>
@@ -123,16 +123,16 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
             {info?.configured && (
               <div className="mb-5 space-y-3 rounded-xl border border-white/60 bg-white/40 p-4 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-muted-foreground">Current key</span>
+                  <span className="text-[11px] font-semibold text-foreground/75">Current key</span>
                   <span className="font-mono text-xs text-foreground font-semibold px-2 py-0.5 rounded bg-primary/10 border border-primary/20 shadow-sm">{info.maskedKey}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-primary/5 pt-2.5">
-                  <span className="text-[11px] font-medium text-muted-foreground">Provider</span>
+                  <span className="text-[11px] font-semibold text-foreground/75">Provider</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">{info.provider === 'groq' ? 'Groq' : 'Anthropic'}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-primary/5 pt-2.5">
-                  <span className="text-[11px] font-medium text-muted-foreground">Source</span>
-                  <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-foreground/75">Source</span>
+                  <span className="text-xs text-foreground/80 font-semibold flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     {info.source === 'env'
                       ? '.env.local key'

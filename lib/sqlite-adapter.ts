@@ -17,6 +17,7 @@ export interface SqliteAdapter {
 
 export function openSqlite(filepath: string): SqliteAdapter {
   const db = new DatabaseSync(filepath);
+  db.exec('PRAGMA foreign_keys = ON;');
 
   return {
     _db: db,
@@ -81,7 +82,9 @@ export function openSqlite(filepath: string): SqliteAdapter {
 }
 
 export function openSqliteSync(filepath: string): any {
-  return new DatabaseSync(filepath);
+  const db = new DatabaseSync(filepath);
+  db.exec('PRAGMA foreign_keys = ON;');
+  return db;
 }
 
 export function openLibSql(url: string, authToken?: string): SqliteAdapter {
