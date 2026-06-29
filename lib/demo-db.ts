@@ -5,9 +5,17 @@ import { openSqliteSync } from './sqlite-adapter';
 export const DEMO_DB_NAME = 'Demo SQLite (Enterprise)';
 
 export function getDemoDbPath(): string {
-  const dataDir = path.join(process.cwd(), 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  let dataDir = path.join(process.cwd(), 'data');
+  try {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+  } catch (err) {
+    console.warn(`Failed to create data directory at ${dataDir}. Falling back to /tmp/data:`, err);
+    dataDir = path.join('/tmp', 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
   }
   return path.join(dataDir, 'demo_db.sqlite');
 }
