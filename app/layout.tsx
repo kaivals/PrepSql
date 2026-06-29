@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { Providers } from './providers'
 import './globals.css'
 
 const geistSans = Geist({
@@ -41,8 +42,10 @@ export default function RootLayout({
           <div className="absolute top-[30%] left-[20%] w-[40%] h-[40%] rounded-full bg-[#C4B5F4]/22 blur-[100px]" />
           <div className="absolute top-[10%] right-[20%] w-[35%] h-[35%] rounded-full bg-[#BFDBFE]/30 blur-[110px]" />
         </div>
-        {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        <Providers>
+          {children}
+          {process.env.NODE_ENV === 'production' && <Analytics />}
+        </Providers>
       </body>
     </html>
   )

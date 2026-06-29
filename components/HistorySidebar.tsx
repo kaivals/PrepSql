@@ -1,15 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-
-interface QueryHistoryItem {
-  id: string;
-  sql: string;
-  timestamp: number;
-  success: boolean;
-  error?: string;
-}
+import { useHistory, useClearHistory } from '@/hooks/useHistory';
+import type { QueryHistoryItem } from '@/lib/types';
 
 interface Props {
   onSelectQuery: (sql: string) => void;
@@ -17,35 +10,13 @@ interface Props {
 }
 
 export function HistorySidebar({ onSelectQuery, refreshTrigger }: Props) {
-  const [history, setHistory] = useState<QueryHistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const loadHistory = async () => {
-    try {
-      const res = await fetch('/api/history');
-      if (res.ok) {
-        const data = await res.json();
-        setHistory(data.history);
-      }
-    } catch (err) {
-      console.error('Failed to load history:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadHistory();
-  }, [refreshTrigger]);
+  const { data: history = [], isLoading } = useHistory({ limit: 500 });
+  const clearHistory = useClearHistory();
 
   const handleClearHistory = async () => {
     if (!confirm('Clear all query history?')) return;
-
     try {
-      const res = await fetch('/api/history', { method: 'DELETE' });
-      if (res.ok) {
-        setHistory([]);
-      }
+      await clearHistory.mutateAsync();
     } catch (err) {
       console.error('Failed to clear history:', err);
     }
@@ -62,7 +33,7 @@ export function HistorySidebar({ onSelectQuery, refreshTrigger }: Props) {
     return date.toLocaleDateString();
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-card border-l border-border h-full p-4 flex items-center justify-center">
         <p className="text-sm text-muted-foreground">Loading history...</p>
@@ -80,8 +51,9 @@ export function HistorySidebar({ onSelectQuery, refreshTrigger }: Props) {
             variant="outline"
             size="sm"
             className="w-full text-xs"
+            disabled={clearHistory.isPending}
           >
-            Clear History
+            {clearHistory.isPending ? 'Clearing...' : 'Clear History'}
           </Button>
         )}
       </div>
@@ -93,7 +65,7 @@ export function HistorySidebar({ onSelectQuery, refreshTrigger }: Props) {
           </div>
         ) : (
           <div className="space-y-2 p-4">
-            {history.map((item) => (
+            {(history as QueryHistoryItem[]).map((item) => (
               <button
                 key={item.id}
                 onClick={() => onSelectQuery(item.sql)}

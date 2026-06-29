@@ -12,6 +12,12 @@ import {
 import type { DatabaseConnection, QueryHistoryItem, SchemaTable } from '@/lib/types';
 import { buildSelectPreview } from '@/lib/schema-format';
 import { cn } from '@/lib/utils';
+import { useSchema } from '@/hooks/useSchema';
+import { useHistory } from '@/hooks/useHistory';
+
+// Stable empty reference — avoids creating a new [] on every render
+// which would cause an infinite loop in the accumulation useEffect.
+const EMPTY_HISTORY: QueryHistoryItem[] = [];
 
 interface SchemaSidebarProps {
   connection: DatabaseConnection;
@@ -33,36 +39,74 @@ export function SchemaSidebar({
   defaultTab = 'schema',
 }: SchemaSidebarProps) {
   const [tab, setTab] = useState<'schema' | 'history' | 'indexes'>(defaultTab);
-  const [tables, setTables] = useState<SchemaTable[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  // History is fetched from the server-side store via /api/history.
-  const [history, setHistory] = useState<QueryHistoryItem[]>([]);
-  const [hasMoreHistory, setHasMoreHistory] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyOffset, setHistoryOffset] = useState(0);
+  const [accumulatedHistory, setAccumulatedHistory] = useState<QueryHistoryItem[]>([]);
   const HISTORY_PAGE_SIZE = 5;
-  const [loading, setLoading] = useState(true);
 
   // Refs for scrolling table items into view
   const tableItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  // Prevents the accumulation effect from re-running for an offset it already processed.
+  const lastProcessedOffset = useRef<number | null>(null);
 
-  // Fetch schema tables
+  // ── Schema query ──────────────────────────────────────────────────────────
+  const {
+    data: schemaData,
+    isLoading: loading,
+    refetch: refetchSchema,
+  } = useSchema();
+  const tables: SchemaTable[] = schemaData?.tables || [];
+
+  // Refetch schema when connection or refreshTrigger changes
   useEffect(() => {
-    const loadSchema = async () => {
-      try {
-        const res = await fetch('/api/schema');
-        if (res.ok) {
-          const data = await res.json();
-          setTables(data.tables || []);
-        }
-      } catch (err) {
-        console.error('Failed to load schema:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadSchema();
-  }, [connection.id, refreshTrigger]);
+    refetchSchema();
+  }, [connection.id, refreshTrigger, refetchSchema]);
+
+  // ── History query ─────────────────────────────────────────────────────────
+  const {
+    data: historyPage = EMPTY_HISTORY,
+    isLoading: historyLoading,
+    isError: historyIsError,
+    refetch: refetchHistory,
+  } = useHistory({
+    limit: HISTORY_PAGE_SIZE,
+    offset: historyOffset,
+    connectionId: connection.id,
+    enabled: tab === 'history',
+  });
+
+  const historyError = historyIsError ? 'Failed to load history' : null;
+  const hasMoreHistory = (historyPage as QueryHistoryItem[]).length >= HISTORY_PAGE_SIZE;
+
+  // Accumulate pages as the user pages through history.
+  // Guard with lastProcessedOffset so setting state here does NOT re-trigger
+  // the effect on the next render (breaking the setState-inside-useEffect loop).
+  useEffect(() => {
+    if (historyLoading) return;
+    if (lastProcessedOffset.current === historyOffset) return; // already processed
+    lastProcessedOffset.current = historyOffset;
+
+    if (historyOffset === 0) {
+      setAccumulatedHistory(historyPage as QueryHistoryItem[]);
+    } else {
+      setAccumulatedHistory((prev) => [...prev, ...(historyPage as QueryHistoryItem[])]);
+    }
+  }, [historyPage, historyLoading, historyOffset]);
+
+  // Reset and reload history when tab becomes active or refreshTrigger changes
+  useEffect(() => {
+    if (tab === 'history') {
+      lastProcessedOffset.current = null; // allow offset 0 to be processed again
+      setHistoryOffset(0);
+      setAccumulatedHistory([]);
+      refetchHistory();
+    }
+  }, [tab, refreshTrigger, refetchHistory]);
+
+  // Auto-update tab if defaultTab changes (e.g. NavigationSidebar clicked)
+  useEffect(() => {
+    setTab(defaultTab);
+  }, [defaultTab]);
 
   // Auto-expand and scroll when selectedTable changes
   useEffect(() => {
@@ -80,43 +124,8 @@ export function SchemaSidebar({
     }
   }, [selectedTable]);
 
-  // Fetch history from the server-side store.
-  const loadHistoryPage = useCallback(async (offset: number, append = false) => {
-    setHistoryLoading(true);
-    setHistoryError(null);
-    try {
-      const res = await fetch(
-        `/api/history?limit=${HISTORY_PAGE_SIZE}&offset=${offset}&connectionId=${connection.id}&t=${Date.now()}`,
-        { credentials: 'same-origin', cache: 'no-store' },
-      );
-      if (!res.ok) {
-        throw new Error('Failed to load history');
-      }
-      const data = await res.json();
-      const items: QueryHistoryItem[] = data.history || [];
-      setHasMoreHistory(items.length >= HISTORY_PAGE_SIZE);
-      setHistory((prev) => (append ? [...prev, ...items] : items));
-    } catch (err) {
-      setHistoryError(err instanceof Error ? err.message : 'Failed to load history');
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [connection.id]);
-
-  // Load history page when switching to history tab or when refreshTrigger changes
-  useEffect(() => {
-    if (tab === 'history') {
-      loadHistoryPage(0);
-    }
-  }, [tab, refreshTrigger, loadHistoryPage]);
-
-  // Auto-update tab if defaultTab changes (e.g. NavigationSidebar clicked)
-  useEffect(() => {
-    setTab(defaultTab);
-  }, [defaultTab]);
-
   const loadMoreHistory = () => {
-    loadHistoryPage(history.length, true);
+    setHistoryOffset((prev) => prev + HISTORY_PAGE_SIZE);
   };
 
   const toggleTable = (name: string) => {
@@ -306,31 +315,31 @@ export function SchemaSidebar({
             </div>
           )
         ) : tab === 'history' ? (
-          historyLoading && history.length === 0 ? (
+          historyLoading && accumulatedHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
               <p className="text-xs text-muted-foreground">Loading history...</p>
             </div>
-          ) : historyError && history.length === 0 ? (
+          ) : historyError && accumulatedHistory.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12">
               <AlertCircle className="h-5 w-5 text-red-500" />
               <p className="text-xs text-muted-foreground">{historyError}</p>
               <button
                 type="button"
-                onClick={() => loadHistoryPage(0)}
+                onClick={() => { setHistoryOffset(0); refetchHistory(); }}
                 className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50"
               >
                 Retry
               </button>
             </div>
-          ) : history.length === 0 ? (
+          ) : accumulatedHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Clock className="mb-2 h-6 w-6 text-muted-foreground" />
               <p className="text-xs text-muted-foreground">No queries yet</p>
             </div>
           ) : (
             <div className="space-y-1.5 p-1.5">
-              {history.map((item) => (
+              {accumulatedHistory.map((item) => (
                 <button
                   key={item.id}
                   type="button"

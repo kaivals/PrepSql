@@ -4,6 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Trash2, Save, Key, Table2, ShieldAlert, AlertTriangle, ChevronDown, Search } from 'lucide-react';
 import type { DatabaseConnection, SchemaColumn, SchemaTable } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useSchema } from '@/hooks/useSchema';
+import { useNullCheck } from '@/hooks/useSchema';
+import { useExecuteSQL } from '@/hooks/useExecute';
 
 /** Result from the server-side NULL check endpoint. */
 interface NullColumnInfo {
@@ -82,10 +85,7 @@ export function SchemaEditor({
 }: SchemaEditorProps) {
   const [columns, setColumns] = useState<EditableColumn[]>([]);
   const [originalColumns, setOriginalColumns] = useState<SchemaColumn[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [nullWarnings, setNullWarnings] = useState<NullColumnInfo[]>([]);
-  const [checkingNulls, setCheckingNulls] = useState(false);
 
   // Table picker state
   const [allTables, setAllTables] = useState<SchemaTable[]>([]);
@@ -94,19 +94,25 @@ export function SchemaEditor({
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Fetch all tables for the picker dropdown
+  const { data: schemaData, refetch: refetchSchema } = useSchema();
+  const nullCheck = useNullCheck();
+  const executeSQL = useExecuteSQL();
+
+  const loading = false; // schema loads immediately via useSchema
+  const saving = executeSQL.isPending;
+  const checkingNulls = nullCheck.isPending;
+
+  // Keep picker tables in sync with schema query
   useEffect(() => {
-    const fetchTables = async () => {
-      try {
-        const res = await fetch('/api/schema');
-        if (res.ok) {
-          const data = await res.json();
-          setAllTables(data.tables || []);
-        }
-      } catch {}
-    };
-    fetchTables();
-  }, [connection.id]);
+    if (schemaData?.tables) {
+      setAllTables(schemaData.tables);
+    }
+  }, [schemaData]);
+
+  // Refetch schema when connection changes
+  useEffect(() => {
+    refetchSchema();
+  }, [connection.id, refetchSchema]);
 
   // Close picker on outside click
   useEffect(() => {
@@ -128,35 +134,19 @@ export function SchemaEditor({
     t.name.toLowerCase().includes(pickerSearch.toLowerCase())
   );
 
-  // Load schema for selected table
+  // Populate columns when selectedTable or schema data changes
   useEffect(() => {
-    if (!selectedTable) return;
-
-    const fetchTableSchema = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/schema');
-        if (res.ok) {
-          const data = await res.json();
-          const table = (data.tables || []).find((t: SchemaTable) => t.name === selectedTable);
-          if (table) {
-            const cols = (table.columns || []).map((c: SchemaColumn) => ({
-              ...c,
-              originalName: c.name,
-            }));
-            setColumns(cols);
-            setOriginalColumns(JSON.parse(JSON.stringify(table.columns)));
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load table schema:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTableSchema();
-  }, [selectedTable]);
+    if (!selectedTable || !schemaData?.tables) return;
+    const table = schemaData.tables.find((t: SchemaTable) => t.name === selectedTable);
+    if (table) {
+      const cols = (table.columns || []).map((c: SchemaColumn) => ({
+        ...c,
+        originalName: c.name,
+      }));
+      setColumns(cols);
+      setOriginalColumns(JSON.parse(JSON.stringify(table.columns)));
+    }
+  }, [selectedTable, schemaData]);
 
 
   const dataTypes = DB_DATA_TYPES[connection.type] || DB_DATA_TYPES.sqlite;
@@ -236,21 +226,14 @@ export function SchemaEditor({
     candidates: { columnName: string; type: string }[]
   ): Promise<NullColumnInfo[]> => {
     if (candidates.length === 0 || connection.type === 'sqlite') return [];
-
-    setCheckingNulls(true);
     try {
-      const res = await fetch('/api/schema/null-check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table: selectedTable, columns: candidates }),
+      const data: NullCheckResult = await nullCheck.mutateAsync({
+        table: selectedTable,
+        columns: candidates,
       });
-      if (!res.ok) return [];
-      const data: NullCheckResult = await res.json();
       return data.columns || [];
     } catch {
       return [];
-    } finally {
-      setCheckingNulls(false);
     }
   };
 
@@ -454,27 +437,14 @@ export function SchemaEditor({
     showConfirmation(
       `Confirm schema changes for "${selectedTable}"?\n\nThe following statements will be executed:\n\n${migrationSql}${warningSuffix}`,
       async () => {
-        setSaving(true);
         try {
-          const res = await fetch('/api/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql: migrationSql }),
-          });
-
-          if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.error || 'Failed to update schema');
-          }
-
+          await executeSQL.mutateAsync(migrationSql);
           showNotification('Schema changes saved successfully!', 'success');
           setNullWarnings([]);
           onRefreshSchema();
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Unknown error';
           showNotification(`Schema save failed: ${msg}`, 'error');
-        } finally {
-          setSaving(false);
         }
       }
     );

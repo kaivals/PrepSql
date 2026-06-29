@@ -13,45 +13,15 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { ensureServerConnection } from '@/lib/client-connection';
 import type { DatabaseConnection, QueryMode, QueryResult, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { usePreferences, useSavePreference } from '@/hooks/usePreferences';
+import { useClearSavedConnection } from '@/hooks/useSavedConnection';
+import { useDeleteConnection, usePatchConnection } from '@/hooks/useConnection';
+import { useMode, useSaveMode } from '@/hooks/useMode';
+import { useDemo } from '@/hooks/useDemo';
+import { useExecuteSQL } from '@/hooks/useExecute';
 
 type View = 'connections' | 'workspace';
 type NavSection = QueryMode | 'history';
-
-// ── Client-side helpers for preferences (backed by /api/preferences) ─────────
-
-async function loadPreferences(): Promise<Record<string, any>> {
-  try {
-    const res = await fetch('/api/preferences', { credentials: 'same-origin' });
-    if (res.ok) {
-      const data = await res.json();
-      return data.preferences || {};
-    }
-  } catch {
-    // ignore
-  }
-  return {};
-}
-
-function savePreference(key: string, value: any): void {
-  try {
-    fetch('/api/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ preferences: { [key]: value } }),
-    });
-  } catch {
-    // fire-and-forget
-  }
-}
-
-function clearSavedConnectionAPI(): void {
-  try {
-    fetch('/api/saved-connection', { method: 'DELETE', credentials: 'same-origin' });
-  } catch {
-    // fire-and-forget
-  }
-}
 
 export default function Home() {
   const [view, setView] = useState<View>('connections');
@@ -79,21 +49,39 @@ export default function Home() {
   const [initializing, setInitializing] = useState(true);
   const saveWidthTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // TanStack Query hooks
+  const { data: preferences } = usePreferences();
+  const savePreferenceMutation = useSavePreference();
+  const clearSavedConnectionMutation = useClearSavedConnection();
+  const deleteConnectionMutation = useDeleteConnection();
+  const patchConnectionMutation = usePatchConnection();
+  const { data: modeData } = useMode();
+  const saveMutation = useSaveMode();
+  const demoMutation = useDemo();
+  const executeSQLMutation = useExecuteSQL();
+
+  // Helper wrappers preserving original fire-and-forget semantics
+  const savePreference = useCallback((key: string, value: any) => {
+    savePreferenceMutation.mutate({ key, value });
+  }, [savePreferenceMutation]);
+
+  const clearSavedConnectionAPI = useCallback(() => {
+    clearSavedConnectionMutation.mutate();
+  }, [clearSavedConnectionMutation]);
+
   // Derive query mode from navSection (history tab shown in SchemaSidebar)
   const mode: QueryMode =
     navSection === 'connections' || navSection === 'history' ? 'crud' : (navSection as QueryMode);
 
   // Load sidebar width from server-side preferences on mount
   useEffect(() => {
-    loadPreferences().then((prefs) => {
-      if (prefs.sidebarWidth) {
-        const width = parseInt(prefs.sidebarWidth, 10);
-        if (width >= 240 && width <= 600) {
-          setSidebarWidth(width);
-        }
+    if (preferences?.sidebarWidth) {
+      const width = parseInt(preferences.sidebarWidth, 10);
+      if (width >= 240 && width <= 600) {
+        setSidebarWidth(width);
       }
-    });
-  }, []);
+    }
+  }, [preferences]);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -180,37 +168,32 @@ export default function Home() {
     }
   }, []);
 
+  // Sync nav section whenever useMode hook resolves
+  useEffect(() => {
+    if (modeData?.mode) {
+      const m = modeData.mode;
+      const mapped: QueryMode = m === 'history' ? 'crud' : (m as QueryMode);
+      setNavSection(mapped);
+    }
+  }, [modeData]);
+
+  // Reload connections when returning to connections view
   useEffect(() => {
     if (view === 'connections' && !initializing) {
       loadConnections(false, false);
     }
   }, [view, loadConnections, initializing]);
 
-  const loadMode = useCallback(async () => {
-    try {
-      const res = await fetch('/api/mode');
-      if (res.ok) {
-        const data = await res.json();
-        const m = data.mode || 'readonly';
-        const mapped: QueryMode = m === 'history' ? 'crud' : m;
-        setNavSection(mapped);
-      }
-    } catch (err) {
-      console.error('Failed to load mode:', err);
-    }
-  }, []);
-
+  // On first mount: load connections and preferences-derived redirect
   useEffect(() => {
     const init = async () => {
-      const prefs = await loadPreferences();
-      const savedView = prefs['prepsql-view'];
+      const savedView = preferences?.['prepsql-view'];
       const shouldRedirect = savedView === 'workspace';
       await loadConnections(shouldRedirect, true);
-      await loadMode();
       setInitializing(false);
     };
     init();
-  }, [loadConnections, loadMode]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     setToast(message);
@@ -242,20 +225,11 @@ export default function Home() {
     }
     setNavSection(section as QueryMode);
     // Persist the mode server-side
-    await fetch('/api/mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: section }),
-    });
+    saveMutation.mutate(section);
   };
 
   const handleSelectConnection = async (connection: DatabaseConnection) => {
-    await fetch('/api/connection', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ id: connection.id }),
-    });
+    await patchConnectionMutation.mutateAsync(connection.id);
     setActiveConnection(connection);
     setResult(null);
     setSelectedTable(null);
@@ -269,17 +243,14 @@ export default function Home() {
       clearSavedConnectionAPI();
     }
 
-    await fetch(`/api/connection?id=${id}`, { method: 'DELETE' });
+    await deleteConnectionMutation.mutateAsync(id);
     await loadConnections(false, false);
   };
 
   const handleDemo = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/demo', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create demo DB');
-
+      const data = await demoMutation.mutateAsync();
       await loadConnections(false, false);
       if (data.connection) {
         setActiveConnection(data.connection);
@@ -298,11 +269,7 @@ export default function Home() {
 
   const handleModeChange = async (newMode: QueryMode) => {
     setNavSection(newMode);
-    await fetch('/api/mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: newMode }),
-    });
+    saveMutation.mutate(newMode);
   };
 
   const handleExecuteQuery = async (sql: string, prompt?: string) => {
@@ -328,19 +295,7 @@ export default function Home() {
     try {
       await ensureServerConnection();
 
-      const res = await fetch('/api/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ sql }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Query execution failed');
-      }
-
-      const data = await res.json();
+      const data = await executeSQLMutation.mutateAsync(sql);
       setResult(data);
 
       // History is now persisted server-side by /api/execute.

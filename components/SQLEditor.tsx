@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useGenerate } from '@/hooks/useGenerate';
 
 interface Props {
   onExecute: (sql: string) => void;
@@ -14,8 +15,9 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
   const [sql, setSql] = useState('');
   const [explanation, setExplanation] = useState('');
   const [safetyWarnings, setSafetyWarnings] = useState<string[]>([]);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+
+  const generate = useGenerate();
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,32 +26,18 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
       return;
     }
 
-    setGenerating(true);
     setError('');
     setSql('');
     setExplanation('');
     setSafetyWarnings([]);
 
     try {
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to generate SQL');
-      }
-
-      const data = await res.json();
+      const data = await generate.mutateAsync({ prompt });
       setSql(data.sql);
       setExplanation(data.explanation);
       setSafetyWarnings(data.safetyWarnings || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -77,10 +65,10 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
         </div>
         <Button
           type="submit"
-          disabled={generating || !isConnected || isLoading}
+          disabled={generate.isPending || !isConnected || isLoading}
           className="w-full"
         >
-          {generating ? 'Generating...' : 'Generate SQL'}
+          {generate.isPending ? 'Generating...' : 'Generate SQL'}
         </Button>
       </form>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useSettings, useSaveSettings, useDeleteSettings } from '@/hooks/useSettings';
 
 interface SettingsModalProps {
   open: boolean;
@@ -10,97 +11,55 @@ interface SettingsModalProps {
   onSaved?: () => void;
 }
 
-interface KeyInfo {
-  configured: boolean;
-  provider?: 'groq' | 'anthropic';
-  source: 'env' | 'client' | 'none';
-  maskedKey?: string;
-}
-
 export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
-  const [info, setInfo] = useState<KeyInfo | null>(null);
   const [apiKey, setApiKey] = useState('');
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const loadInfo = async () => {
-    try {
-      const res = await fetch('/api/settings', { credentials: 'same-origin' });
-      if (res.ok) {
-        setInfo(await res.json());
-      }
-    } catch {
-      setInfo({ configured: false, source: 'none' });
-    }
-  };
+  const { data: info, refetch } = useSettings();
+  const saveSettings = useSaveSettings();
+  const deleteSettings = useDeleteSettings();
+
+  const saving = saveSettings.isPending || deleteSettings.isPending;
 
   useEffect(() => {
     if (open) {
       setError('');
       setSuccess('');
       setApiKey('');
-      loadInfo();
+      refetch();
     }
-  }, [open]);
+  }, [open, refetch]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiKey.trim()) return;
 
-    setSaving(true);
     setError('');
     setSuccess('');
 
     try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ apiKey: apiKey.trim() }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save API key');
-
+      await saveSettings.mutateAsync(apiKey.trim());
       setApiKey('');
       setSuccess('API key saved successfully.');
-      setInfo(data);
       onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save API key');
-    } finally {
-      setSaving(false);
     }
   };
 
   const handleRemove = async () => {
     if (!confirm('Remove the saved API key?')) return;
 
-    setSaving(true);
     setError('');
     setSuccess('');
 
     try {
-      const res = await fetch('/api/settings', {
-        method: 'DELETE',
-        credentials: 'same-origin',
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to remove API key');
-
+      const data = await deleteSettings.mutateAsync();
       setSuccess(data.configured ? 'Saved key removed. Falling back to .env.local key.' : 'API key removed.');
-      setInfo({
-        configured: data.configured,
-        source: data.source,
-        provider: data.provider,
-        maskedKey: data.maskedKey,
-      });
       onSaved?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove API key');
-    } finally {
-      setSaving(false);
     }
   };
 

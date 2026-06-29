@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { POSTGRES_DEFAULTS } from '@/lib/connection-defaults';
 import type { DatabaseConnection } from '@/lib/types';
+import { useConnectDB } from '@/hooks/useConnection';
 
 interface Props {
   onConnected: (connection: DatabaseConnection) => void;
@@ -16,20 +17,21 @@ interface Props {
 
 export function ConnectionForm({ onConnected, isLoading = false, autoConnect = false, prefillSaved = false }: Props) {
   const [dbType, setDbType] = useState<'sqlite' | 'postgresql' | 'mysql' | 'mariadb'>('postgresql');
-  const [name, setName] = useState(POSTGRES_DEFAULTS.name);
+  const [name, setName] = useState('');
   const [host, setHost] = useState(POSTGRES_DEFAULTS.host);
   const [port, setPort] = useState(String(POSTGRES_DEFAULTS.port));
   const [user, setUser] = useState(POSTGRES_DEFAULTS.user);
   const [password, setPassword] = useState('');
-  const [database, setDatabase] = useState(POSTGRES_DEFAULTS.database);
+  const [database, setDatabase] = useState('');
   const [filepath, setFilepath] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
+
+  const connectDB = useConnectDB();
+  const loading = connectDB.isPending;
 
   const isRemoteSqlite = dbType === 'sqlite' && (
-    filepath.startsWith('libsql://') || 
-    filepath.startsWith('https://') || 
+    filepath.startsWith('libsql://') ||
+    filepath.startsWith('https://') ||
     filepath.startsWith('http://')
   );
 
@@ -39,17 +41,6 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
     mariadb: '3306',
     sqlite: '',
   };
-
-  useEffect(() => {
-    // New connection path: start blank so the user must fill in fresh details.
-    // Keep the POSTGRES_DEFAULTS for host/port/user as hints, but clear name,
-    // password, and database. Credentials are persisted server-side via
-    // /api/connection (which calls db.saveSavedConnection in MongoDB).
-    setName('');
-    setPassword('');
-    setDatabase('');
-    setReady(true);
-  }, [prefillSaved]);
 
   const applyPostgresDefaults = () => {
     setName(POSTGRES_DEFAULTS.name);
@@ -69,7 +60,6 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
   };
 
   const connect = async () => {
-    setLoading(true);
     setError('');
 
     try {
@@ -91,36 +81,14 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
         payload.database = database;
       }
 
-      const res = await fetch('/api/connection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        credentials: 'same-origin',
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to connect');
-      }
-
-      const data = await res.json();
+      const data = await connectDB.mutateAsync(payload);
       // Connection credentials are persisted server-side by /api/connection
       // (app-state.addConnection -> db.saveSavedConnection in MongoDB).
       onConnected(data.connection);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
-    } finally {
-      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (!ready || !autoConnect || loading || isLoading) return;
-    if (password) {
-      connect();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, autoConnect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

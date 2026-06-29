@@ -8,6 +8,8 @@ import { ApiKeySetup } from '@/components/ApiKeySetup';
 import { ensureServerConnection } from '@/lib/client-connection';
 import type { QueryResult, TokenUsage } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useChat, usePersistChat } from '@/hooks/useChat';
+import { useGenerate } from '@/hooks/useGenerate';
 
 const SUGGESTIONS = [
   'Show all users',
@@ -111,55 +113,39 @@ export function QueryInterface({
   const [chatLoading, setChatLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load chat messages from the server-side store (MongoDB) on connectionId change
+  const generate = useGenerate();
+  const persistChatMutation = usePersistChat();
+  const { data: chatData, isLoading: chatQueryLoading } = useChat(connectionId);
+
+  // Populate chat messages when the query resolves
   useEffect(() => {
     if (!connectionId) return;
-    let cancelled = false;
-    setChatLoading(true);
-    fetch(`/api/chat?connectionId=${encodeURIComponent(connectionId)}`, { credentials: 'same-origin' })
-      .then((res) => (res.ok ? res.json() : { messages: [] }))
-      .then((data) => {
-        if (cancelled) return;
-        const messages: ChatMessage[] = data.messages || [];
-        setChatMessages(
-          messages.length > 0
-            ? messages
-            : [
-                {
-                  id: 'welcome',
-                  role: 'assistant',
-                  content: "Hi! I'm your SQL assistant. Ask me to query your database, explore your tables, or modify data in natural language, or switch to 'Run SQL' to execute raw queries.",
-                },
-              ],
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setChatMessages([]);
-      })
-      .finally(() => {
-        if (!cancelled) setChatLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [connectionId]);
+    if (chatQueryLoading) {
+      setChatLoading(true);
+      return;
+    }
+    setChatLoading(false);
+    const messages: ChatMessage[] = chatData?.messages || [];
+    setChatMessages(
+      messages.length > 0
+        ? messages
+        : [
+            {
+              id: 'welcome',
+              role: 'assistant',
+              content: "Hi! I'm your SQL assistant. Ask me to query your database, explore your tables, or modify data in natural language, or switch to 'Run SQL' to execute raw queries.",
+            },
+          ],
+    );
+  }, [connectionId, chatData, chatQueryLoading]);
 
   // Persist chat messages to the server-side store whenever they change
   const persistChat = useCallback(
     (messages: ChatMessage[]) => {
       if (!connectionId || messages.length === 0) return;
-      try {
-        fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ connectionId, messages }),
-        });
-      } catch {
-        // fire-and-forget
-      }
+      persistChatMutation.mutate({ connectionId, messages });
     },
-    [connectionId],
+    [connectionId, persistChatMutation],
   );
 
   useEffect(() => {
@@ -222,19 +208,7 @@ export function QueryInterface({
         throw new Error('No database connection. Please connect first from All connections.');
       }
 
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ prompt: query }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(formatApiError(data.error || 'Failed to generate SQL'));
-      }
-
-      const data = await res.json();
+      const data = await generate.mutateAsync({ prompt: query });
 
       if (data.type === 'sql') {
         const assistantMsg: ChatMessage = {
@@ -307,19 +281,7 @@ export function QueryInterface({
         throw new Error('No database connection. Please connect first from All connections.');
       }
 
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ action }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(formatApiError(data.error || 'Failed to process approval'));
-      }
-
-      const data = await res.json();
+      const data = await generate.mutateAsync({ action });
 
       if (data.type === 'sql') {
         const assistantMsg: ChatMessage = {

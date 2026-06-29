@@ -49,6 +49,9 @@ import {
 } from 'recharts';
 import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useHistory } from '@/hooks/useHistory';
+import { useAnalyze, useSaveAnalysis } from '@/hooks/useAnalyze';
+import { useExecuteSQL } from '@/hooks/useExecute';
 
 interface AnalyticsPageProps {
   connection: DatabaseConnection;
@@ -83,8 +86,6 @@ export function AnalyticsPage({
   showNotification,
   onRefreshSchema,
 }: AnalyticsPageProps) {
-  const [history, setHistory] = useState<QueryHistoryItem[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
   const [analyzingQuery, setAnalyzingQuery] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null);
   const [selectedQueryForAI, setSelectedQueryForAI] = useState<QueryHistoryItem | null>(null);
@@ -102,12 +103,27 @@ export function AnalyticsPage({
   });
   const [auditingDb, setAuditingDb] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
+
 
   // Timeline & Lifecycle analysis states
   const [selectedRun, setSelectedRun] = useState<QueryHistoryItem | null>(null);
   const [analyzingTimeline, setAnalyzingTimeline] = useState(false);
   const [timelineAnalysis, setTimelineAnalysis] = useState<any | null>(null);
+
+  // TanStack hooks
+  const analyze = useAnalyze();
+  const saveAnalysis = useSaveAnalysis();
+  const executeSQL = useExecuteSQL();
+
+  // History query
+  const {
+    data: historyData = [],
+    isLoading: loadingHistory,
+    isError: historyIsError,
+    refetch: refetchHistory,
+  } = useHistory({ limit: 500, connectionId: connection.id });
+  const history: QueryHistoryItem[] = historyData as QueryHistoryItem[];
+  const historyError = historyIsError ? 'Failed to load history' : null;
 
   // TanStack Table states and configurations
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -279,20 +295,9 @@ export function AnalyticsPage({
     setAnalyzingTimeline(true);
     setTimelineAnalysis(null);
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'timeline', timeline: run.timeline }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Timeline analysis failed');
-      }
-
-      const report = await res.json();
+      const report = await analyze.mutateAsync({ action: 'timeline', timeline: run.timeline });
       setTimelineAnalysis(report);
-      saveAnalysis('timeline', run.sql, report);
+      saveAnalysis.mutate({ action: 'timeline', targetSql: run.sql, result: report });
       showNotification('Lifecycle analysis completed!', 'success');
     } catch (err) {
       showNotification(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -304,42 +309,18 @@ export function AnalyticsPage({
 
 
   // Persist analysis result to MongoDB via API
-  const saveAnalysis = async (action: string, targetSql: string | null, result: Record<string, unknown>) => {
-    try {
-      await fetch('/api/analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, targetSql, result }),
-      });
-    } catch (err) {
-      console.error('Failed to persist analysis:', err);
-    }
+  const persistAnalysis = (action: string, targetSql: string | null, result: Record<string, unknown>) => {
+    saveAnalysis.mutate({ action, targetSql, result });
   };
 
   // Load history from MongoDB via API. This is the single source of truth for
   // execution metrics (execution_time, rows_scanned, cpu_usage, etc.) and
   // survives page reloads because it is persisted server-side.
-  const loadHistory = async () => {
-    setLoadingHistory(true);
-    setHistoryError(null);
-    try {
-      const res = await fetch(`/api/history?limit=500&connectionId=${connection.id}`, { credentials: 'same-origin' });
-      if (!res.ok) {
-        throw new Error('Failed to load history');
-      }
-      const data = await res.json();
-      const items: QueryHistoryItem[] = data.history || [];
-      setHistory(items);
-    } catch (err) {
-      setHistoryError(err instanceof Error ? err.message : 'Failed to load history');
-      setHistory([]);
-    } finally {
-      setLoadingHistory(false);
-    }
+  const loadHistory = () => {
+    refetchHistory();
   };
 
   useEffect(() => {
-    loadHistory();
     setSelectedRun(null);
     setTimelineAnalysis(null);
   }, [connection.id]);
@@ -371,20 +352,9 @@ export function AnalyticsPage({
   const handleDbAudit = async () => {
     setAuditingDb(true);
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'db', history }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to analyze DB health');
-      }
-
-      const report = await res.json();
+      const report = await analyze.mutateAsync({ action: 'db', history });
       setHealthReport(report);
-      saveAnalysis('db', null, report);
+      persistAnalysis('db', null, report);
       showNotification('Database health audit completed successfully!', 'success');
     } catch (err) {
       showNotification(`Audit failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
@@ -399,20 +369,9 @@ export function AnalyticsPage({
     setSelectedQueryForAI(queryItem);
     setAnalysisResult(null);
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'query', sql: queryItem.sql }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'AI optimization failed');
-      }
-
-      const result = await res.json();
+      const result = await analyze.mutateAsync({ action: 'query', sql: queryItem.sql });
       setAnalysisResult(result);
-      saveAnalysis('query', queryItem.sql, result);
+      persistAnalysis('query', queryItem.sql, result);
     } catch (err) {
       showNotification(`Optimization failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
     } finally {
@@ -426,17 +385,7 @@ export function AnalyticsPage({
       `Apply SQL optimization DDL?\n\nThis will execute:\n\n${ddl}`,
       async () => {
         try {
-          const res = await fetch('/api/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sql: ddl }),
-          });
-
-          if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.error || 'Failed to execute DDL');
-          }
-
+          await executeSQL.mutateAsync(ddl);
           showNotification('Optimization DDL executed successfully!', 'success');
           onRefreshSchema();
           // The DDL ran through /api/execute, which records into history
