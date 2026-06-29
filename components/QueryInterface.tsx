@@ -577,7 +577,7 @@ export function QueryInterface({
             e.preventDefault();
             handleSubmit();
           }}
-          className="mx-auto flex max-w-2xl items-end gap-2 bg-card/65 backdrop-blur-md border border-border/80 pl-4 pr-2 py-2 rounded-[26px] shadow-lg focus-within:border-primary/50 transition-all focus-within:ring-2 focus-within:ring-primary/10"
+          className="mx-auto flex max-w-2xl items-end gap-2 bg-card/65 backdrop-blur-md border border-border/80 pl-4 pr-2 py-2 rounded-[26px] shadow-[0_4px_30px_rgba(59,130,246,0.12)] focus-within:shadow-[0_10px_35px_rgba(59,130,246,0.22)] focus-within:border-primary/50 transition-all focus-within:ring-2 focus-within:ring-primary/10"
         >
           <div className="flex-1">
             <textarea

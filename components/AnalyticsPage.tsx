@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { withWorkspacePadding } from '@/components/withWorkspacePadding';
 import {
   TrendingUp,
   Activity,
@@ -77,7 +78,7 @@ interface DBHealthReport {
   recommendations: string[];
 }
 
-export function AnalyticsPage({
+function AnalyticsPageRaw({
   connection,
   showConfirmation,
   showNotification,
@@ -513,7 +514,7 @@ export function AnalyticsPage({
     .slice(0, 5);
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto bg-slate-50/50 p-6 lg:p-8">
+    <div className="flex flex-1 flex-col">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -1428,3 +1429,5 @@ export function AnalyticsPage({
     </div>
   );
 }
+
+export const AnalyticsPage = withWorkspacePadding(AnalyticsPageRaw, { scrollable: true, bg: 'bg-slate-50/50' });
