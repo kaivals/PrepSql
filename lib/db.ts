@@ -12,6 +12,7 @@ const COLLECTIONS = {
   CONNECTIONS: 'connections',
   API_KEYS: 'api_keys',
   SESSIONS: 'sessions',
+  TOKEN_USAGE: 'token_usage',
 } as const;
 
 // ── Index creation (call once at startup) ──────────────────────────────────────
@@ -46,6 +47,10 @@ export async function ensureIndexes(): Promise<void> {
   );
   await db.collection(COLLECTIONS.SESSIONS).createIndex(
     { sessionId: 1 },
+    { unique: true },
+  );
+  await db.collection(COLLECTIONS.TOKEN_USAGE).createIndex(
+    { sessionId: 1, dateKey: 1 },
     { unique: true },
   );
 }

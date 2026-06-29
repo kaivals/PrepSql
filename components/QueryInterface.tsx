@@ -289,6 +289,10 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(data.result);
+        // Refresh token usage immediately after successful generation
+        if (data.usage) {
+          fetchTokenUsage();
+        }
       } else if (data.type === 'pending_approval') {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
@@ -374,6 +378,10 @@ export function QueryInterface({
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(data.result);
+        // Refresh token usage immediately after successful generation
+        if (data.usage) {
+          fetchTokenUsage();
+        }
       } else if (data.type === 'error') {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),

@@ -12,18 +12,20 @@ function getTodayKey(): string {
 
 /**
  * Increment the cumulative token usage for a given session on the current UTC day.
- * This is fire-and-forget — errors are swallowed to avoid disrupting request flow.
+ * Returns the updateOne promise so callers can await the write if needed.
  */
 export function trackTokenUsage(
   sessionId: string,
   promptTokens: number,
   completionTokens: number,
-): void {
-  if (!sessionId || (!promptTokens && !completionTokens)) return;
+): Promise<void> {
+  if (!sessionId || (!promptTokens && !completionTokens)) {
+    return Promise.resolve();
+  }
 
   const todayKey = getTodayKey();
 
-  getDb()
+  return getDb()
     .collection(COLLECTION)
     .updateOne(
       { sessionId, dateKey: todayKey },
@@ -37,9 +39,7 @@ export function trackTokenUsage(
       },
       { upsert: true },
     )
-    .catch(() => {
-      // Non-critical — token tracking should never break normal flow
-    });
+    .then(() => undefined);
 }
 
 /**
