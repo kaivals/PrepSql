@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { withWorkspacePadding } from '@/components/withWorkspacePadding';
 import {
   TrendingUp,
   Activity,
@@ -77,7 +78,31 @@ interface DBHealthReport {
   recommendations: string[];
 }
 
-export function AnalyticsPage({
+const DEFAULT_HEALTH_REPORT: DBHealthReport = {
+  queryEfficiency: 85,
+  indexCoverage: 70,
+  schemaQuality: 90,
+  overallScore: 81,
+  recommendations: [
+    'Add indexes to frequently searched columns.',
+    'Always limit results of analytical queries.',
+  ],
+};
+
+function isDBHealthReport(obj: any): obj is DBHealthReport {
+  return (
+    obj !== null &&
+    typeof obj === 'object' &&
+    typeof obj.queryEfficiency === 'number' &&
+    typeof obj.indexCoverage === 'number' &&
+    typeof obj.schemaQuality === 'number' &&
+    typeof obj.overallScore === 'number' &&
+    Array.isArray(obj.recommendations) &&
+    obj.recommendations.every((r: any) => typeof r === 'string')
+  );
+}
+
+function AnalyticsPageRaw({
   connection,
   showConfirmation,
   showNotification,
@@ -309,10 +334,42 @@ export function AnalyticsPage({
       await fetch('/api/analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, targetSql, result }),
+        body: JSON.stringify({ action, targetSql, result, connectionId: connection.id }),
       });
     } catch (err) {
       console.error('Failed to persist analysis:', err);
+    }
+  };
+
+  // Load latest connection-specific health score/report from DB
+  const loadLatestHealthReport = async (connId: string) => {
+    // Reset to defaults so previous connection's data is not visible
+    setHealthReport(DEFAULT_HEALTH_REPORT);
+
+    try {
+      const res = await fetch(`/api/analysis?connectionId=${encodeURIComponent(connId)}&action=db&limit=1`, { credentials: 'same-origin' });
+      if (!res.ok) {
+        throw new Error('Failed to load connection-specific health report');
+      }
+      const data = await res.json();
+      
+      // Prevent stale response from overwriting active connection view
+      if (connection.id !== connId) {
+        return;
+      }
+
+      const analyses = data.analyses || [];
+      const dbReport = analyses[0];
+      if (dbReport && dbReport.result && isDBHealthReport(dbReport.result)) {
+        setHealthReport(dbReport.result);
+      } else {
+        setHealthReport(DEFAULT_HEALTH_REPORT);
+      }
+    } catch (err) {
+      console.error('Failed to load health report:', err);
+      if (connection.id === connId) {
+        setHealthReport(DEFAULT_HEALTH_REPORT);
+      }
     }
   };
 
@@ -340,6 +397,7 @@ export function AnalyticsPage({
 
   useEffect(() => {
     loadHistory();
+    loadLatestHealthReport(connection.id);
     setSelectedRun(null);
     setTimelineAnalysis(null);
   }, [connection.id]);
@@ -482,7 +540,7 @@ export function AnalyticsPage({
     .slice(0, 5);
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto bg-slate-50/50 p-6 lg:p-8">
+    <div className="flex flex-1 flex-col">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -1397,3 +1455,5 @@ export function AnalyticsPage({
     </div>
   );
 }
+
+export const AnalyticsPage = withWorkspacePadding(AnalyticsPageRaw, { scrollable: true, bg: 'bg-slate-50/50' });

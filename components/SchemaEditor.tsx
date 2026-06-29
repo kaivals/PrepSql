@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Plus, Trash2, Save, Key, Table2, ShieldAlert, AlertTriangle, ChevronDown, Search } from 'lucide-react';
+import { withWorkspacePadding } from '@/components/withWorkspacePadding';
 import type { DatabaseConnection, SchemaColumn, SchemaTable } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -71,7 +72,7 @@ const DB_DATA_TYPES = {
   ],
 };
 
-export function SchemaEditor({
+function SchemaEditorRaw({
   connection,
   selectedTable,
   showConfirmation,
@@ -481,21 +482,22 @@ export function SchemaEditor({
   };
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-background">
+    <>
       <div className="flex-1 flex flex-col min-h-0">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between border-b border-border pb-4 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="mr-1 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              title="Back to CRUD"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <Table2 className="h-5 w-5 text-muted-foreground shrink-0" />
-            <div>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="mr-1 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                title="Back to CRUD"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <Table2 className="h-5 w-5 text-muted-foreground shrink-0" />
+              
               {/* Table picker trigger */}
               <div className="relative">
                 <button
@@ -571,10 +573,10 @@ export function SchemaEditor({
                   </div>
                 )}
               </div>
-              <p className="mt-0.5 px-1 text-xs text-muted-foreground capitalize">
-                {selectedTable ? `Dialect: ${connection.type}` : 'Click to select a table'}
-              </p>
             </div>
+            <p className="pl-[72px] px-1 text-xs text-muted-foreground capitalize">
+              {selectedTable ? `Dialect: ${connection.type}` : 'Click to select a table'}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -830,6 +832,8 @@ export function SchemaEditor({
           </p>
         </div>
       </div>
-    </div>
+    </>
   );
 }
+
+export const SchemaEditor = withWorkspacePadding(SchemaEditorRaw, { scrollable: false });
