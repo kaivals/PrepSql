@@ -1,31 +1,38 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowUp, Loader2, AlertTriangle, Copy, Check, Cpu } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ResultsTable } from '@/components/ResultsTable';
-import { ApiKeySetup } from '@/components/ApiKeySetup';
-import { ensureServerConnection } from '@/lib/client-connection';
-import type { QueryResult, TokenUsage } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  ArrowUp,
+  Loader2,
+  AlertTriangle,
+  Copy,
+  Check,
+  Cpu,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ResultsTable } from "@/components/ResultsTable";
+import { ApiKeySetup } from "@/components/ApiKeySetup";
+import { ensureServerConnection } from "@/lib/client-connection";
+import type { QueryResult, TokenUsage } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const SUGGESTIONS = [
-  'Show all users',
-  'List first 10 posts',
-  'How many students are there?',
+  "Show all users",
+  "List first 10 posts",
+  "How many students are there?",
 ];
 
 const SQL_SUGGESTIONS = [
   'SELECT * FROM "Users" LIMIT 10',
   'SELECT * FROM "Posts" LIMIT 10',
-  'SELECT * FROM students LIMIT 10',
+  "SELECT * FROM students LIMIT 10",
 ];
 
-type InputMode = 'natural' | 'sql';
+type InputMode = "natural" | "sql";
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   sql?: string;
   result?: QueryResult | null;
@@ -49,11 +56,11 @@ interface QueryInterfaceProps {
 }
 
 function formatApiError(message: string): string {
-  if (message.includes('credit balance') || message.includes('billing')) {
-    return 'Your Anthropic account has no credits. Add a Groq key in Settings, add Anthropic credits, or use Run SQL mode.';
+  if (message.includes("credit balance") || message.includes("billing")) {
+    return "Your Anthropic account has no credits. Add a Groq key in Settings, add Anthropic credits, or use Run SQL mode.";
   }
-  if (message.includes('API key')) {
-    return 'AI API key is missing or invalid. Open Settings to add a Groq (gsk_...) or Anthropic key.';
+  if (message.includes("API key")) {
+    return "AI API key is missing or invalid. Open Settings to add a Groq (gsk_...) or Anthropic key.";
   }
   return message;
 }
@@ -67,7 +74,9 @@ function SqlBlock({ sql }: { sql: string }) {
   };
   return (
     <div className="relative mt-3 group">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Generated SQL</p>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Generated SQL
+      </p>
       <pre className="overflow-x-auto rounded-xl border border-primary/25 bg-primary/5 p-4 pr-12 font-mono text-xs text-foreground shadow-inner">
         <code>{sql}</code>
       </pre>
@@ -77,7 +86,11 @@ function SqlBlock({ sql }: { sql: string }) {
         className="absolute right-2.5 top-9 rounded-lg bg-card border border-border p-1.5 text-muted-foreground opacity-0 shadow-sm transition-all group-hover:opacity-100 hover:text-primary hover:border-primary/30 cursor-pointer"
         title="Copy SQL"
       >
-        {copied ? <Check className="h-3.5 w-3.5 text-emerald-500 animate-in fade-in" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-emerald-500 animate-in fade-in" />
+        ) : (
+          <Copy className="h-3.5 w-3.5" />
+        )}
       </button>
     </div>
   );
@@ -101,15 +114,15 @@ export function QueryInterface({
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = 'auto';
+      textarea.style.height = "auto";
       const maxH = Math.min(250, window.innerHeight * 0.25);
       textarea.style.height = `${Math.min(textarea.scrollHeight, maxH)}px`;
     }
   }, [prompt]);
 
-  const [generatedSql, setGeneratedSql] = useState('');
+  const [generatedSql, setGeneratedSql] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [hasQueried, setHasQueried] = useState(false);
 
   // Token usage state
@@ -125,9 +138,13 @@ export function QueryInterface({
 
   const fetchTokenUsage = useCallback(async () => {
     try {
-      const res = await fetch('/api/token-usage', { credentials: 'same-origin' });
+      const res = await fetch("/api/token-usage", {
+        credentials: "same-origin",
+      });
       if (res.ok) setTokenUsage(await res.json());
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
   }, []);
 
   // Fetch on mount, then poll every 15s
@@ -140,25 +157,28 @@ export function QueryInterface({
   // Close popup on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (tokenBarRef.current && !tokenBarRef.current.contains(e.target as Node)) {
+      if (
+        tokenBarRef.current &&
+        !tokenBarRef.current.contains(e.target as Node)
+      ) {
         setShowTokenPopup(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   // Chat message history for Natural Language mode (persisted via /api/chat)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatLoading, setChatLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load chat messages from the server-side store (MongoDB) on connectionId change
   useEffect(() => {
     if (!connectionId) return;
     let cancelled = false;
-    setChatLoading(true);
-    fetch(`/api/chat?connectionId=${encodeURIComponent(connectionId)}`, { credentials: 'same-origin' })
+    fetch(`/api/chat?connectionId=${encodeURIComponent(connectionId)}`, {
+      credentials: "same-origin",
+    })
       .then((res) => (res.ok ? res.json() : { messages: [] }))
       .then((data) => {
         if (cancelled) return;
@@ -168,18 +188,16 @@ export function QueryInterface({
             ? messages
             : [
                 {
-                  id: 'welcome',
-                  role: 'assistant',
-                  content: "Hi! I'm your SQL assistant. Ask me to query your database, explore your tables, or modify data in natural language, or switch to 'Run SQL' to execute raw queries.",
+                  id: "welcome",
+                  role: "assistant",
+                  content:
+                    "Hi! I'm your SQL assistant. Ask me to query your database, explore your tables, or modify data in natural language, or switch to 'Run SQL' to execute raw queries.",
                 },
               ],
         );
       })
       .catch(() => {
         if (!cancelled) setChatMessages([]);
-      })
-      .finally(() => {
-        if (!cancelled) setChatLoading(false);
       });
     return () => {
       cancelled = true;
@@ -191,10 +209,10 @@ export function QueryInterface({
     (messages: ChatMessage[]) => {
       if (!connectionId || messages.length === 0) return;
       try {
-        fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
+        fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           body: JSON.stringify({ connectionId, messages }),
         });
       } catch {
@@ -205,17 +223,17 @@ export function QueryInterface({
   );
 
   useEffect(() => {
-    if (inputMode === 'natural' && connectionId && chatMessages.length > 0) {
+    if (inputMode === "natural" && connectionId && chatMessages.length > 0) {
       persistChat(chatMessages);
     }
   }, [chatMessages, connectionId, inputMode, persistChat]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
-    if (inputMode === 'natural') {
+    if (inputMode === "natural") {
       scrollToBottom();
     }
   }, [chatMessages, generating, inputMode]);
@@ -225,18 +243,20 @@ export function QueryInterface({
     if (!query) return;
 
     setGenerating(true);
-    setError('');
+    setError("");
     setGeneratedSql(query);
     setHasQueried(true);
 
     try {
       const connected = await ensureServerConnection();
       if (!connected) {
-        throw new Error('No database connection. Please connect first from All connections.');
+        throw new Error(
+          "No database connection. Please connect first from All connections.",
+        );
       }
       await onExecute(query);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Query failed');
+      setError(err instanceof Error ? err.message : "Query failed");
     } finally {
       setGenerating(false);
     }
@@ -249,11 +269,11 @@ export function QueryInterface({
     // Add user query to chat history
     const userMsg: ChatMessage = {
       id: Math.random().toString(),
-      role: 'user',
+      role: "user",
       content: query,
     };
     setChatMessages((prev) => [...prev, userMsg]);
-    setPrompt(''); // Clear the input field
+    setPrompt(""); // Clear the input field
 
     setGenerating(true);
     setHasQueried(true);
@@ -261,28 +281,30 @@ export function QueryInterface({
     try {
       const connected = await ensureServerConnection();
       if (!connected) {
-        throw new Error('No database connection. Please connect first from All connections.');
+        throw new Error(
+          "No database connection. Please connect first from All connections.",
+        );
       }
 
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ prompt: query }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(formatApiError(data.error || 'Failed to generate SQL'));
+        throw new Error(formatApiError(data.error || "Failed to generate SQL"));
       }
 
       const data = await res.json();
 
-      if (data.type === 'sql') {
+      if (data.type === "sql") {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
-          role: 'assistant',
-          content: data.explanation || '',
+          role: "assistant",
+          content: data.explanation || "",
           sql: data.sql,
           result: data.result || null,
           usage: data.usage,
@@ -293,22 +315,24 @@ export function QueryInterface({
         if (data.usage) {
           fetchTokenUsage();
         }
-      } else if (data.type === 'pending_approval') {
+      } else if (data.type === "pending_approval") {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
-          role: 'assistant',
-          content: data.explanation || `This query wants to ${data.mutationType} data. Please approve or reject:`,
+          role: "assistant",
+          content:
+            data.explanation ||
+            `This query wants to ${data.mutationType} data. Please approve or reject:`,
           sql: data.sql,
           pendingApproval: true,
           mutationType: data.mutationType,
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(null);
-      } else if (data.type === 'error') {
+      } else if (data.type === "error") {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
-          role: 'assistant',
-          content: data.message || 'Query execution failed.',
+          role: "assistant",
+          content: data.message || "Query execution failed.",
           error: data.message,
           sql: data.sql,
         };
@@ -317,18 +341,18 @@ export function QueryInterface({
       } else {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
-          role: 'assistant',
-          content: data.message || data.question || '',
+          role: "assistant",
+          content: data.message || data.question || "",
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(null);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Generation failed';
+      const msg = err instanceof Error ? err.message : "Generation failed";
       const assistantMsg: ChatMessage = {
         id: Math.random().toString(),
-        role: 'assistant',
-        content: 'I encountered an error while processing your request.',
+        role: "assistant",
+        content: "I encountered an error while processing your request.",
         error: formatApiError(msg),
       };
       setChatMessages((prev) => [...prev, assistantMsg]);
@@ -337,12 +361,15 @@ export function QueryInterface({
     }
   };
 
-  const handleApproval = async (messageId: string, action: 'approve' | 'reject') => {
+  const handleApproval = async (
+    messageId: string,
+    action: "approve" | "reject",
+  ) => {
     // Clear pendingApproval flag immediately to avoid double clicks
     setChatMessages((prev) =>
       prev.map((msg) =>
-        msg.id === messageId ? { ...msg, pendingApproval: false } : msg
-      )
+        msg.id === messageId ? { ...msg, pendingApproval: false } : msg,
+      ),
     );
 
     setGenerating(true);
@@ -350,28 +377,32 @@ export function QueryInterface({
     try {
       const connected = await ensureServerConnection();
       if (!connected) {
-        throw new Error('No database connection. Please connect first from All connections.');
+        throw new Error(
+          "No database connection. Please connect first from All connections.",
+        );
       }
 
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ action }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(formatApiError(data.error || 'Failed to process approval'));
+        throw new Error(
+          formatApiError(data.error || "Failed to process approval"),
+        );
       }
 
       const data = await res.json();
 
-      if (data.type === 'sql') {
+      if (data.type === "sql") {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
-          role: 'assistant',
-          content: data.explanation || '',
+          role: "assistant",
+          content: data.explanation || "",
           sql: data.sql,
           result: data.result || null,
           usage: data.usage,
@@ -382,11 +413,11 @@ export function QueryInterface({
         if (data.usage) {
           fetchTokenUsage();
         }
-      } else if (data.type === 'error') {
+      } else if (data.type === "error") {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
-          role: 'assistant',
-          content: data.message || 'Query execution failed.',
+          role: "assistant",
+          content: data.message || "Query execution failed.",
           error: data.message,
           sql: data.sql,
         };
@@ -395,18 +426,18 @@ export function QueryInterface({
       } else {
         const assistantMsg: ChatMessage = {
           id: Math.random().toString(),
-          role: 'assistant',
-          content: data.message || data.question || '',
+          role: "assistant",
+          content: data.message || data.question || "",
         };
         setChatMessages((prev) => [...prev, assistantMsg]);
         onQueryResult?.(null);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Approval failed';
+      const msg = err instanceof Error ? err.message : "Approval failed";
       const assistantMsg: ChatMessage = {
         id: Math.random().toString(),
-        role: 'assistant',
-        content: 'I encountered an error while processing your approval.',
+        role: "assistant",
+        content: "I encountered an error while processing your approval.",
         error: formatApiError(msg),
       };
       setChatMessages((prev) => [...prev, assistantMsg]);
@@ -416,32 +447,37 @@ export function QueryInterface({
   };
 
   const handleSubmit = async (text?: string) => {
-    if (inputMode === 'sql') {
+    if (inputMode === "sql") {
       await handleSqlSubmit(text ?? prompt);
     } else {
       await handleNaturalSubmit(text);
     }
   };
 
-  const suggestions = inputMode === 'sql' ? SQL_SUGGESTIONS : SUGGESTIONS;
-  const showWelcome = inputMode === 'sql' ? !hasQueried && !result : chatMessages.length <= 1;
+  const suggestions = inputMode === "sql" ? SQL_SUGGESTIONS : SUGGESTIONS;
+  const showWelcome =
+    inputMode === "sql" ? !hasQueried && !result : chatMessages.length <= 1;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {inputMode === 'natural' && <ApiKeySetup onOpenSettings={() => onOpenSettings?.()} />}
+      {inputMode === "natural" && (
+        <ApiKeySetup onOpenSettings={() => onOpenSettings?.()} />
+      )}
       <div className="flex flex-1 flex-col overflow-y-auto">
         {showWelcome ? (
           <div className="flex flex-1 flex-col items-center justify-center px-8 pb-32">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-              {inputMode === 'sql' ? 'Run SQL' : 'Ask anything'}
+              {inputMode === "sql" ? "Run SQL" : "Ask anything"}
             </p>
             <h1 className="mb-4 text-center text-3xl font-bold tracking-tight text-slate-900">
-              {inputMode === 'sql' ? 'Write SQL directly' : 'What do you want to know?'}
+              {inputMode === "sql"
+                ? "Write SQL directly"
+                : "What do you want to know?"}
             </h1>
             <p className="mb-10 max-w-md text-center text-sm leading-relaxed text-slate-500">
-              {inputMode === 'sql'
-                ? 'Run queries against your connected database without using Claude AI.'
-                : 'Type a question in plain English. PrepSQL grounds it in your schema, generates SQL, validates it, then executes.'}
+              {inputMode === "sql"
+                ? "Run queries against your connected database without using Claude AI."
+                : "Type a question in plain English. PrepSQL grounds it in your schema, generates SQL, validates it, then executes."}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {suggestions.map((s) => (
@@ -461,27 +497,29 @@ export function QueryInterface({
           </div>
         ) : (
           <div className="flex-1 space-y-5 p-6 lg:p-8">
-            {inputMode === 'natural' ? (
+            {inputMode === "natural" ? (
               <div className="space-y-6">
                 {chatMessages.map((msg) => (
                   <div
                     key={msg.id}
                     className={cn(
-                      'flex max-w-full flex-col gap-2',
-                      msg.role === 'user' ? 'items-end' : 'items-start'
+                      "flex max-w-full flex-col gap-2",
+                      msg.role === "user" ? "items-end" : "items-start",
                     )}
                   >
                     <div
                       className={cn(
-                        'max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm',
-                        msg.role === 'user'
-                          ? 'bg-primary text-white rounded-br-md'
-                          : 'rounded-bl-md border border-border bg-card text-foreground'
+                        "max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm",
+                        msg.role === "user"
+                          ? "bg-primary text-white rounded-br-md"
+                          : "rounded-bl-md border border-border bg-card text-foreground",
                       )}
                     >
                       {/* Natural Language Response Content */}
                       {msg.content && (
-                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        <p className="whitespace-pre-wrap leading-relaxed">
+                          {msg.content}
+                        </p>
                       )}
 
                       {/* Error Alert */}
@@ -499,12 +537,13 @@ export function QueryInterface({
                       {msg.pendingApproval && (
                         <div className="mt-4 space-y-3 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
                           <p className="text-xs font-medium text-amber-800">
-                            Safety Check: This query requires your approval to modify database records.
+                            Safety Check: This query requires your approval to
+                            modify database records.
                           </p>
                           <div className="mt-1 flex gap-2">
                             <button
                               type="button"
-                              onClick={() => handleApproval(msg.id, 'approve')}
+                              onClick={() => handleApproval(msg.id, "approve")}
                               disabled={generating}
                               className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-amber-500 disabled:opacity-50"
                             >
@@ -512,7 +551,7 @@ export function QueryInterface({
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleApproval(msg.id, 'reject')}
+                              onClick={() => handleApproval(msg.id, "reject")}
                               disabled={generating}
                               className="rounded-lg border border-amber-300 bg-card px-4 py-2 text-xs font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-50/50 disabled:opacity-50"
                             >
@@ -526,14 +565,22 @@ export function QueryInterface({
                       {msg.usage && (
                         <div className="mt-3 flex items-center gap-4 border-t border-slate-200/60 pt-3 text-[10px] text-slate-400">
                           <span>
-                            Prompt: <strong className="font-medium text-slate-600">{msg.usage.promptTokens}</strong>
+                            Prompt:{" "}
+                            <strong className="font-medium text-slate-600">
+                              {msg.usage.promptTokens}
+                            </strong>
                           </span>
                           <span>
-                            Completion: <strong className="font-medium text-slate-600">{msg.usage.completionTokens}</strong>
+                            Completion:{" "}
+                            <strong className="font-medium text-slate-600">
+                              {msg.usage.completionTokens}
+                            </strong>
                           </span>
                           <span>
-                            Total: <strong className="font-medium text-slate-600">
-                              {msg.usage.promptTokens + msg.usage.completionTokens}
+                            Total:{" "}
+                            <strong className="font-medium text-slate-600">
+                              {msg.usage.promptTokens +
+                                msg.usage.completionTokens}
                             </strong>
                           </span>
                         </div>
@@ -598,24 +645,24 @@ export function QueryInterface({
           <div className="flex rounded-xl border border-border bg-muted/40 p-1 backdrop-blur-md">
             <button
               type="button"
-              onClick={() => setInputMode('natural')}
+              onClick={() => setInputMode("natural")}
               className={cn(
-                'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer',
-                inputMode === 'natural'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                "rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer",
+                inputMode === "natural"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               Natural language
             </button>
             <button
               type="button"
-              onClick={() => setInputMode('sql')}
+              onClick={() => setInputMode("sql")}
               className={cn(
-                'rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer',
-                inputMode === 'sql'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                "rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer",
+                inputMode === "sql"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               Run SQL
@@ -635,21 +682,21 @@ export function QueryInterface({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSubmit();
                 }
               }}
               placeholder={
-                inputMode === 'sql'
-                  ? 'SELECT * FROM users LIMIT 10'
-                  : 'Ask a question in plain English...'
+                inputMode === "sql"
+                  ? "SELECT * FROM users LIMIT 10"
+                  : "Ask a question in plain English..."
               }
               rows={1}
               disabled={generating || isLoading}
               className={cn(
                 "w-full resize-none bg-transparent focus:outline-none focus:ring-0 border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground/60 py-1.5 pr-2 max-h-[250px] overflow-y-auto",
-                inputMode === 'sql' ? 'font-mono' : 'font-sans'
+                inputMode === "sql" ? "font-mono" : "font-sans",
               )}
             />
           </div>
@@ -667,11 +714,8 @@ export function QueryInterface({
         </form>
 
         {/* ── Token Usage Status Bar ── */}
-        {tokenUsage !== null && inputMode === 'natural' && (
-          <div
-            ref={tokenBarRef}
-            className="mx-auto max-w-2xl mt-2 relative"
-          >
+        {tokenUsage !== null && inputMode === "natural" && (
+          <div ref={tokenBarRef} className="mx-auto max-w-2xl mt-2 relative">
             {/* Popup (opens upward) */}
             {showTokenPopup && (
               <div className="absolute bottom-full mb-2 left-0 right-0 z-50 rounded-xl border border-border bg-popover shadow-2xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-150">
@@ -684,39 +728,63 @@ export function QueryInterface({
                 <div className="relative w-full h-2.5 rounded-full bg-muted overflow-hidden mb-1.5">
                   <div
                     className={cn(
-                      'absolute left-0 top-0 h-full rounded-full transition-all duration-700',
-                      tokenUsage.percentage >= 90 ? 'bg-red-500'
-                        : tokenUsage.percentage >= 70 ? 'bg-amber-500'
-                        : tokenUsage.percentage >= 50 ? 'bg-yellow-400'
-                        : 'bg-emerald-500'
+                      "absolute left-0 top-0 h-full rounded-full transition-all duration-700",
+                      tokenUsage.percentage >= 90
+                        ? "bg-red-500"
+                        : tokenUsage.percentage >= 70
+                          ? "bg-amber-500"
+                          : tokenUsage.percentage >= 50
+                            ? "bg-yellow-400"
+                            : "bg-emerald-500",
                     )}
                     style={{ width: `${tokenUsage.percentage}%` }}
                   />
                   {[25, 50, 75].map((tick) => (
-                    <div key={tick} className="absolute top-0 bottom-0 w-px bg-background/50" style={{ left: `${tick}%` }} />
+                    <div
+                      key={tick}
+                      className="absolute top-0 bottom-0 w-px bg-background/50"
+                      style={{ left: `${tick}%` }}
+                    />
                   ))}
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground mb-3">
                   <span>0 tokens</span>
-                  <span className={cn(
-                    'font-semibold',
-                    tokenUsage.percentage >= 90 ? 'text-red-500' : tokenUsage.percentage >= 70 ? 'text-amber-500' : 'text-foreground'
-                  )}>{tokenUsage.percentage}% used</span>
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      tokenUsage.percentage >= 90
+                        ? "text-red-500"
+                        : tokenUsage.percentage >= 70
+                          ? "text-amber-500"
+                          : "text-foreground",
+                    )}
+                  >
+                    {tokenUsage.percentage}% used
+                  </span>
                   <span>{(tokenUsage.budget / 1000).toFixed(0)}K limit</span>
                 </div>
 
                 <div className="space-y-1.5 text-[11px]">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Prompt tokens</span>
-                    <span className="font-medium tabular-nums">{tokenUsage.promptTokens.toLocaleString()}</span>
+                    <span className="font-medium tabular-nums">
+                      {tokenUsage.promptTokens.toLocaleString()}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Completion tokens</span>
-                    <span className="font-medium tabular-nums">{tokenUsage.completionTokens.toLocaleString()}</span>
+                    <span className="text-muted-foreground">
+                      Completion tokens
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {tokenUsage.completionTokens.toLocaleString()}
+                    </span>
                   </div>
                   <div className="border-t border-border pt-1.5 flex justify-between font-medium">
                     <span>Total used today</span>
-                    <span className="tabular-nums">{tokenUsage.totalTokens.toLocaleString()} / {tokenUsage.budget.toLocaleString()}</span>
+                    <span className="tabular-nums">
+                      {tokenUsage.totalTokens.toLocaleString()} /{" "}
+                      {tokenUsage.budget.toLocaleString()}
+                    </span>
                   </div>
                 </div>
 
@@ -725,7 +793,9 @@ export function QueryInterface({
                     ⚠ Approaching daily limit. Resets at midnight UTC.
                   </p>
                 ) : (
-                  <p className="mt-2 text-[10px] text-muted-foreground">Resets daily at midnight UTC</p>
+                  <p className="mt-2 text-[10px] text-muted-foreground">
+                    Resets daily at midnight UTC
+                  </p>
                 )}
               </div>
             )}
@@ -737,42 +807,61 @@ export function QueryInterface({
               className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-muted/40 transition-colors group cursor-pointer"
             >
               {/* Colored status dot */}
-              <span className={cn(
-                'h-2 w-2 rounded-full shrink-0 transition-colors',
-                tokenUsage.percentage >= 90 ? 'bg-red-500 animate-pulse'
-                  : tokenUsage.percentage >= 70 ? 'bg-amber-500'
-                  : 'bg-emerald-500'
-              )} />
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full shrink-0 transition-colors",
+                  tokenUsage.percentage >= 90
+                    ? "bg-red-500 animate-pulse"
+                    : tokenUsage.percentage >= 70
+                      ? "bg-amber-500"
+                      : "bg-emerald-500",
+                )}
+              />
 
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">SESSION</span>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                SESSION
+              </span>
 
-              <span className={cn(
-                'text-[11px] font-bold tabular-nums',
-                tokenUsage.percentage >= 90 ? 'text-red-500'
-                  : tokenUsage.percentage >= 70 ? 'text-amber-500'
-                  : tokenUsage.percentage >= 50 ? 'text-yellow-600'
-                  : 'text-muted-foreground'
-              )}>{tokenUsage.percentage}%</span>
+              <span
+                className={cn(
+                  "text-[11px] font-bold tabular-nums",
+                  tokenUsage.percentage >= 90
+                    ? "text-red-500"
+                    : tokenUsage.percentage >= 70
+                      ? "text-amber-500"
+                      : tokenUsage.percentage >= 50
+                        ? "text-yellow-600"
+                        : "text-muted-foreground",
+                )}
+              >
+                {tokenUsage.percentage}%
+              </span>
 
               {/* Mini progress slider */}
               <div className="flex-1 relative h-1 rounded-full bg-muted/60 overflow-hidden">
                 <div
                   className={cn(
-                    'absolute left-0 top-0 h-full rounded-full transition-all duration-700',
-                    tokenUsage.percentage >= 90 ? 'bg-red-500'
-                      : tokenUsage.percentage >= 70 ? 'bg-amber-500'
-                      : tokenUsage.percentage >= 50 ? 'bg-yellow-400'
-                      : 'bg-emerald-500'
+                    "absolute left-0 top-0 h-full rounded-full transition-all duration-700",
+                    tokenUsage.percentage >= 90
+                      ? "bg-red-500"
+                      : tokenUsage.percentage >= 70
+                        ? "bg-amber-500"
+                        : tokenUsage.percentage >= 50
+                          ? "bg-yellow-400"
+                          : "bg-emerald-500",
                   )}
                   style={{ width: `${tokenUsage.percentage}%` }}
                 />
               </div>
 
               <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                ~{tokenUsage.totalTokens.toLocaleString()} / {(tokenUsage.budget / 1000).toFixed(0)}K tokens
+                ~{tokenUsage.totalTokens.toLocaleString()} /{" "}
+                {(tokenUsage.budget / 1000).toFixed(0)}K tokens
               </span>
 
-              <span className="text-muted-foreground/40 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↑</span>
+              <span className="text-muted-foreground/40 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+                ↑
+              </span>
             </button>
           </div>
         )}

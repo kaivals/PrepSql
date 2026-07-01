@@ -1,18 +1,18 @@
-import { getDb } from './mongodb';
-import type { DatabaseConnection, QueryHistoryItem, QueryMode, TimelineStep } from './types';
+import { getDb } from "./mongodb";
+import type { QueryHistoryItem, QueryMode, TimelineStep } from "./types";
 
 // ── Collection names ──────────────────────────────────────────────────────────
 
 const COLLECTIONS = {
-  QUERY_HISTORY: 'query_history',
-  ANALYSIS_RESULTS: 'analysis_results',
-  CHAT_MESSAGES: 'chat_messages',
-  SAVED_CONNECTION: 'saved_connection',
-  APP_SETTINGS: 'app_settings',
-  CONNECTIONS: 'connections',
-  API_KEYS: 'api_keys',
-  SESSIONS: 'sessions',
-  TOKEN_USAGE: 'token_usage',
+  QUERY_HISTORY: "query_history",
+  ANALYSIS_RESULTS: "analysis_results",
+  CHAT_MESSAGES: "chat_messages",
+  SAVED_CONNECTION: "saved_connection",
+  APP_SETTINGS: "app_settings",
+  CONNECTIONS: "connections",
+  API_KEYS: "api_keys",
+  SESSIONS: "sessions",
+  TOKEN_USAGE: "token_usage",
 } as const;
 
 // ── Index creation (call once at startup) ──────────────────────────────────────
@@ -20,46 +20,38 @@ const COLLECTIONS = {
 export async function ensureIndexes(): Promise<void> {
   const db = getDb();
 
-  await db.collection(COLLECTIONS.QUERY_HISTORY).createIndex(
-    { sessionId: 1, timestamp: -1 },
-  );
-  await db.collection(COLLECTIONS.ANALYSIS_RESULTS).createIndex(
-    { sessionId: 1, createdAt: -1 },
-  );
-  await db.collection(COLLECTIONS.CHAT_MESSAGES).createIndex(
-    { connectionId: 1 },
-    { unique: true },
-  );
-  await db.collection(COLLECTIONS.APP_SETTINGS).createIndex(
-    { sessionId: 1, key: 1 },
-    { unique: true },
-  );
-  await db.collection(COLLECTIONS.SAVED_CONNECTION).createIndex(
-    { sessionId: 1 },
-    { unique: true },
-  );
-  await db.collection(COLLECTIONS.CONNECTIONS).createIndex(
-    { sessionId: 1 },
-  );
-  await db.collection(COLLECTIONS.API_KEYS).createIndex(
-    { sessionId: 1 },
-    { unique: true },
-  );
-  await db.collection(COLLECTIONS.SESSIONS).createIndex(
-    { sessionId: 1 },
-    { unique: true },
-  );
-  await db.collection(COLLECTIONS.TOKEN_USAGE).createIndex(
-    { sessionId: 1, dateKey: 1 },
-    { unique: true },
-  );
+  await db
+    .collection(COLLECTIONS.QUERY_HISTORY)
+    .createIndex({ sessionId: 1, timestamp: -1 });
+  await db
+    .collection(COLLECTIONS.ANALYSIS_RESULTS)
+    .createIndex({ sessionId: 1, createdAt: -1 });
+  await db
+    .collection(COLLECTIONS.CHAT_MESSAGES)
+    .createIndex({ connectionId: 1 }, { unique: true });
+  await db
+    .collection(COLLECTIONS.APP_SETTINGS)
+    .createIndex({ sessionId: 1, key: 1 }, { unique: true });
+  await db
+    .collection(COLLECTIONS.SAVED_CONNECTION)
+    .createIndex({ sessionId: 1 }, { unique: true });
+  await db.collection(COLLECTIONS.CONNECTIONS).createIndex({ sessionId: 1 });
+  await db
+    .collection(COLLECTIONS.API_KEYS)
+    .createIndex({ sessionId: 1 }, { unique: true });
+  await db
+    .collection(COLLECTIONS.SESSIONS)
+    .createIndex({ sessionId: 1 }, { unique: true });
+  await db
+    .collection(COLLECTIONS.TOKEN_USAGE)
+    .createIndex({ sessionId: 1, dateKey: 1 }, { unique: true });
 }
 
 // ── Query History ──────────────────────────────────────────────────────────────
 
 export async function insertQueryHistory(
   sessionId: string,
-  item: Omit<QueryHistoryItem, 'id'>,
+  item: Omit<QueryHistoryItem, "id">,
 ): Promise<QueryHistoryItem> {
   const db = getDb();
   const doc = {
@@ -97,7 +89,7 @@ export async function getQueryHistory(
 
   const mapped: QueryHistoryItem[] = items.map((doc: any) => ({
     id: doc._id.toString(),
-    prompt: doc.prompt || '',
+    prompt: doc.prompt || "",
     sql: doc.sql,
     timestamp: doc.timestamp,
     success: doc.success,
@@ -197,7 +189,9 @@ export async function getChatMessages(
   connectionId: string,
 ): Promise<ChatMessageDoc | null> {
   const db = getDb();
-  const doc = await db.collection(COLLECTIONS.CHAT_MESSAGES).findOne({ connectionId });
+  const doc = await db
+    .collection(COLLECTIONS.CHAT_MESSAGES)
+    .findOne({ connectionId });
   if (!doc) return null;
   return {
     connectionId: doc.connectionId,
@@ -227,7 +221,7 @@ export async function saveChatMessages(
 
 export interface SavedConnectionDoc {
   sessionId: string;
-  type: 'postgresql' | 'sqlite' | 'mysql' | 'mariadb';
+  type: "postgresql" | "sqlite" | "mysql" | "mariadb";
   name: string;
   host?: string;
   port?: number;
@@ -242,13 +236,15 @@ export async function getSavedConnection(
   sessionId: string,
 ): Promise<SavedConnectionDoc | null> {
   const db = getDb();
-  const doc = await db.collection(COLLECTIONS.SAVED_CONNECTION).findOne({ sessionId });
+  const doc = await db
+    .collection(COLLECTIONS.SAVED_CONNECTION)
+    .findOne({ sessionId });
   return doc as unknown as SavedConnectionDoc | null;
 }
 
 export async function saveSavedConnection(
   sessionId: string,
-  data: Omit<SavedConnectionDoc, 'sessionId' | 'updatedAt'>,
+  data: Omit<SavedConnectionDoc, "sessionId" | "updatedAt">,
 ): Promise<void> {
   const db = getDb();
   await db.collection(COLLECTIONS.SAVED_CONNECTION).updateOne(
@@ -275,7 +271,9 @@ export async function getAppSetting(
   key: string,
 ): Promise<any | null> {
   const db = getDb();
-  const doc = await db.collection(COLLECTIONS.APP_SETTINGS).findOne({ sessionId, key });
+  const doc = await db
+    .collection(COLLECTIONS.APP_SETTINGS)
+    .findOne({ sessionId, key });
   return doc ? doc.value : null;
 }
 
@@ -285,11 +283,13 @@ export async function setAppSetting(
   value: any,
 ): Promise<void> {
   const db = getDb();
-  await db.collection(COLLECTIONS.APP_SETTINGS).updateOne(
-    { sessionId, key },
-    { $set: { value, updatedAt: new Date() } },
-    { upsert: true },
-  );
+  await db
+    .collection(COLLECTIONS.APP_SETTINGS)
+    .updateOne(
+      { sessionId, key },
+      { $set: { value, updatedAt: new Date() } },
+      { upsert: true },
+    );
 }
 
 export async function getAllAppSettings(
@@ -312,7 +312,7 @@ export async function getAllAppSettings(
 export interface ConnectionDoc {
   id: string;
   sessionId: string;
-  type: 'postgresql' | 'sqlite' | 'mysql' | 'mariadb';
+  type: "postgresql" | "sqlite" | "mysql" | "mariadb";
   name: string;
   host?: string;
   port?: number;
@@ -337,7 +337,7 @@ export async function getConnections(
 
 export async function addConnection(
   sessionId: string,
-  data: Omit<ConnectionDoc, 'sessionId' | 'updatedAt'>,
+  data: Omit<ConnectionDoc, "sessionId" | "updatedAt">,
 ): Promise<ConnectionDoc> {
   const db = getDb();
   const doc = { ...data, sessionId, updatedAt: new Date() };
@@ -348,13 +348,15 @@ export async function addConnection(
 export async function updateConnection(
   sessionId: string,
   id: string,
-  updates: Partial<Omit<ConnectionDoc, 'id' | 'sessionId'>>,
+  updates: Partial<Omit<ConnectionDoc, "id" | "sessionId">>,
 ): Promise<void> {
   const db = getDb();
-  await db.collection(COLLECTIONS.CONNECTIONS).updateOne(
-    { sessionId, id },
-    { $set: { ...updates, updatedAt: new Date() } },
-  );
+  await db
+    .collection(COLLECTIONS.CONNECTIONS)
+    .updateOne(
+      { sessionId, id },
+      { $set: { ...updates, updatedAt: new Date() } },
+    );
 }
 
 export async function removeConnection(
@@ -411,7 +413,8 @@ export interface SessionDataDoc {
   sessionId: string;
   queryMode: QueryMode;
   activeConnectionId?: string;
-  pendingTimeline?: TimelineStep[] | { steps: TimelineStep[]; threadId: string };
+  pendingTimeline?:
+    TimelineStep[] | { steps: TimelineStep[]; threadId: string };
   updatedAt: Date;
 }
 
@@ -423,7 +426,7 @@ export async function getSessionData(
   if (!doc) return null;
   return {
     sessionId: doc.sessionId,
-    queryMode: doc.queryMode || 'crud',
+    queryMode: doc.queryMode || "crud",
     activeConnectionId: doc.activeConnectionId,
     pendingTimeline: doc.pendingTimeline,
     updatedAt: doc.updatedAt,
@@ -432,7 +435,7 @@ export async function getSessionData(
 
 export async function saveSessionData(
   sessionId: string,
-  data: Partial<Omit<SessionDataDoc, 'sessionId' | 'updatedAt'>>,
+  data: Partial<Omit<SessionDataDoc, "sessionId" | "updatedAt">>,
 ): Promise<void> {
   const db = getDb();
   await db.collection(COLLECTIONS.SESSIONS).updateOne(

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { KeyRound, Settings, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from "react";
+import { KeyRound, Settings, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SettingsModalProps {
   open: boolean;
@@ -12,34 +12,34 @@ interface SettingsModalProps {
 
 interface KeyInfo {
   configured: boolean;
-  provider?: 'groq' | 'anthropic';
-  source: 'env' | 'client' | 'none';
+  provider?: "groq" | "anthropic";
+  source: "env" | "client" | "none";
   maskedKey?: string;
 }
 
 export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
   const [info, setInfo] = useState<KeyInfo | null>(null);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const loadInfo = async () => {
     try {
-      const res = await fetch('/api/settings', { credentials: 'same-origin' });
+      const res = await fetch("/api/settings", { credentials: "same-origin" });
       if (res.ok) {
         setInfo(await res.json());
       }
     } catch {
-      setInfo({ configured: false, source: 'none' });
+      setInfo({ configured: false, source: "none" });
     }
   };
 
   useEffect(() => {
     if (open) {
-      setError('');
-      setSuccess('');
-      setApiKey('');
+      setError("");
+      setSuccess("");
+      setApiKey("");
       loadInfo();
     }
   }, [open]);
@@ -49,47 +49,51 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
     if (!apiKey.trim()) return;
 
     setSaving(true);
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ apiKey: apiKey.trim() }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save API key');
+      if (!res.ok) throw new Error(data.error || "Failed to save API key");
 
-      setApiKey('');
-      setSuccess('API key saved successfully.');
+      setApiKey("");
+      setSuccess("API key saved successfully.");
       setInfo(data);
       onSaved?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save API key');
+      setError(err instanceof Error ? err.message : "Failed to save API key");
     } finally {
       setSaving(false);
     }
   };
 
   const handleRemove = async () => {
-    if (!confirm('Remove the saved API key?')) return;
+    if (!confirm("Remove the saved API key?")) return;
 
     setSaving(true);
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     try {
-      const res = await fetch('/api/settings', {
-        method: 'DELETE',
-        credentials: 'same-origin',
+      const res = await fetch("/api/settings", {
+        method: "DELETE",
+        credentials: "same-origin",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to remove API key');
+      if (!res.ok) throw new Error(data.error || "Failed to remove API key");
 
-      setSuccess(data.configured ? 'Saved key removed. Falling back to .env.local key.' : 'API key removed.');
+      setSuccess(
+        data.configured
+          ? "Saved key removed. Falling back to .env.local key."
+          : "API key removed.",
+      );
       setInfo({
         configured: data.configured,
         source: data.source,
@@ -98,7 +102,7 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
       });
       onSaved?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove API key');
+      setError(err instanceof Error ? err.message : "Failed to remove API key");
     } finally {
       setSaving(false);
     }
@@ -116,8 +120,12 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
               <Settings className="h-5 w-5 text-white transition-transform duration-500 hover:rotate-90" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-foreground tracking-tight">Settings</h2>
-              <p className="text-[11px] font-medium text-foreground/60">Manage your AI API configurations</p>
+              <h2 className="text-base font-semibold text-foreground tracking-tight">
+                Settings
+              </h2>
+              <p className="text-[11px] font-medium text-foreground/60">
+                Manage your AI API configurations
+              </p>
             </div>
           </div>
           <button
@@ -136,11 +144,14 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <KeyRound className="h-4 w-4" />
               </div>
-              <h3 className="text-xs font-semibold tracking-wider uppercase text-foreground/80">AI API Key</h3>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-foreground/80">
+                AI API Key
+              </h3>
             </div>
 
             <p className="mb-5 text-xs leading-relaxed font-medium text-foreground/80">
-              Required for natural language to SQL queries. Provide a free Groq key from{' '}
+              Required for natural language to SQL queries. Provide a free Groq
+              key from{" "}
               <a
                 href="https://console.groq.com/keys"
                 target="_blank"
@@ -148,8 +159,8 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                 className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors font-medium"
               >
                 console.groq.com
-              </a>{' '}
-              (recommended) or an Anthropic key from{' '}
+              </a>{" "}
+              (recommended) or an Anthropic key from{" "}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
@@ -164,20 +175,30 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
             {info?.configured && (
               <div className="mb-5 space-y-3 rounded-xl border border-white/60 bg-white/40 p-4 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-foreground/75">Current key</span>
-                  <span className="font-mono text-xs text-foreground font-semibold px-2 py-0.5 rounded bg-primary/10 border border-primary/20 shadow-sm">{info.maskedKey}</span>
+                  <span className="text-[11px] font-semibold text-foreground/75">
+                    Current key
+                  </span>
+                  <span className="font-mono text-xs text-foreground font-semibold px-2 py-0.5 rounded bg-primary/10 border border-primary/20 shadow-sm">
+                    {info.maskedKey}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-primary/5 pt-2.5">
-                  <span className="text-[11px] font-semibold text-foreground/75">Provider</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">{info.provider === 'groq' ? 'Groq' : 'Anthropic'}</span>
+                  <span className="text-[11px] font-semibold text-foreground/75">
+                    Provider
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 uppercase tracking-wider">
+                    {info.provider === "groq" ? "Groq" : "Anthropic"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-primary/5 pt-2.5">
-                  <span className="text-[11px] font-semibold text-foreground/75">Source</span>
+                  <span className="text-[11px] font-semibold text-foreground/75">
+                    Source
+                  </span>
                   <span className="text-xs text-foreground/80 font-semibold flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {info.source === 'env'
-                      ? '.env.local key'
-                      : 'Saved in app settings'}
+                    {info.source === "env"
+                      ? ".env.local key"
+                      : "Saved in app settings"}
                   </span>
                 </div>
               </div>
@@ -202,9 +223,13 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
                   disabled={saving || !apiKey.trim()}
                   className="rounded-xl bg-gradient-to-r from-primary to-[#25A691] text-primary-foreground hover:shadow-lg hover:shadow-primary/20 active:scale-[0.98] transition-all px-5 py-2.5 text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  {saving ? 'Saving...' : info?.configured ? 'Update key' : 'Save key'}
+                  {saving
+                    ? "Saving..."
+                    : info?.configured
+                      ? "Update key"
+                      : "Save key"}
                 </Button>
-                {info?.configured && info.source === 'client' && (
+                {info?.configured && info.source === "client" && (
                   <Button
                     type="button"
                     variant="outline"
@@ -218,11 +243,18 @@ export function SettingsModal({ open, onClose, onSaved }: SettingsModalProps) {
               </div>
             </form>
 
-            {error && <p className="mt-3 text-xs font-medium text-red-600 animate-pulse">{error}</p>}
-            {success && <p className="mt-3 text-xs font-medium text-emerald-600">{success}</p>}
+            {error && (
+              <p className="mt-3 text-xs font-medium text-red-600 animate-pulse">
+                {error}
+              </p>
+            )}
+            {success && (
+              <p className="mt-3 text-xs font-medium text-emerald-600">
+                {success}
+              </p>
+            )}
           </section>
         </div>
-
       </div>
     </div>
   );

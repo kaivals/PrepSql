@@ -1,13 +1,13 @@
-import type { AgentStateType } from '../state';
+import type { AgentStateType } from "../state";
 
-type DbDialect = AgentStateType['dbDialect'];
-type Intent = AgentStateType['intent'];
+type DbDialect = AgentStateType["dbDialect"];
+type Intent = AgentStateType["intent"];
 
 export interface SystemPromptParams {
   dbDialect: DbDialect;
   schemaFormatted: string;
   intent: Intent;
-  queryMode: 'crud' | 'analytics' | 'schema' | 'readonly';
+  queryMode: "crud" | "analytics" | "schema" | "readonly";
 }
 
 const dialectHints: Record<DbDialect, string> = {
@@ -32,25 +32,26 @@ const dialectHints: Record<DbDialect, string> = {
 };
 
 const modeRules: Record<string, string> = {
-  readonly: 'You MUST only generate SELECT, SHOW, DESCRIBE, or EXPLAIN queries. Any mutation (INSERT/UPDATE/DELETE/DROP/TRUNCATE/ALTER) is FORBIDDEN.',
-  crud: 'You may generate SELECT, INSERT, UPDATE, or DELETE queries. DDL (DROP/TRUNCATE/ALTER TABLE) is FORBIDDEN unless the user explicitly asks.',
+  readonly:
+    "You MUST only generate SELECT, SHOW, DESCRIBE, or EXPLAIN queries. Any mutation (INSERT/UPDATE/DELETE/DROP/TRUNCATE/ALTER) is FORBIDDEN.",
+  crud: "You may generate SELECT, INSERT, UPDATE, or DELETE queries. DDL (DROP/TRUNCATE/ALTER TABLE) is FORBIDDEN unless the user explicitly asks.",
   analytics:
-    'Generate analytical queries with aggregations, window functions, CTEs, and JOINs as appropriate. Avoid mutations unless explicitly requested.',
+    "Generate analytical queries with aggregations, window functions, CTEs, and JOINs as appropriate. Avoid mutations unless explicitly requested.",
   schema:
-    'You may generate any SQL including DDL statements. Always confirm destructive operations.',
+    "You may generate any SQL including DDL statements. Always confirm destructive operations.",
 };
 
 const intentHints: Partial<Record<Intent, string>> = {
   sql_analytics:
-    'Use JOINs across related tables. Apply GROUP BY with aggregates (SUM, COUNT, AVG, MAX, MIN). Use window functions (ROW_NUMBER, RANK, LAG) when rankings or running totals are needed. Always alias aggregated columns.',
+    "Use JOINs across related tables. Apply GROUP BY with aggregates (SUM, COUNT, AVG, MAX, MIN). Use window functions (ROW_NUMBER, RANK, LAG) when rankings or running totals are needed. Always alias aggregated columns.",
   boolean_check:
-    'Use EXISTS or SELECT COUNT(*) > 0 pattern. Never fetch all rows — use EXISTS(SELECT 1 ...) for efficiency.',
+    "Use EXISTS or SELECT COUNT(*) > 0 pattern. Never fetch all rows — use EXISTS(SELECT 1 ...) for efficiency.",
   sql_modification:
-    'Generate precise WHERE clauses. Never update/delete without a WHERE clause unless the user explicitly requests all rows. Return the affected row count using RETURNING (PostgreSQL) or ROW_COUNT().',
+    "Generate precise WHERE clauses. Never update/delete without a WHERE clause unless the user explicitly requests all rows. Return the affected row count using RETURNING (PostgreSQL) or ROW_COUNT().",
   sql_schema:
-    'Query information_schema or dialect-specific catalog tables. For PostgreSQL, use pg_catalog.',
+    "Query information_schema or dialect-specific catalog tables. For PostgreSQL, use pg_catalog.",
   table_structure:
-    'Generate a query that returns column names, types, and constraints for the requested table(s).',
+    "Generate a query that returns column names, types, and constraints for the requested table(s).",
 };
 
 export function buildSystemPrompt({
@@ -59,7 +60,6 @@ export function buildSystemPrompt({
   intent,
   queryMode,
 }: SystemPromptParams): string {
-
   return `
 You are an expert ${dbDialect} SQL assistant.
 
@@ -113,7 +113,7 @@ Available tables are:
 ---
 
 ## Dialect Rules
-${dialectHints[dbDialect] || ''}
+${dialectHints[dbDialect] || ""}
 
 ---
 
@@ -163,7 +163,7 @@ a safe WHERE clause:
 This is the ONLY source of truth. Nothing outside this section 
 exists in the database.
 
-${schemaFormatted || 'No schema loaded.'}
+${schemaFormatted || "No schema loaded."}
 
 --- End of Schema ---
 

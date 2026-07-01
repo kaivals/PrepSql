@@ -1,6 +1,6 @@
-import { Annotation, messagesStateReducer } from '@langchain/langgraph';
-import { BaseMessage } from '@langchain/core/messages';
-import type { DatabaseType, SchemaTable } from '../types';
+import { Annotation, messagesStateReducer } from "@langchain/langgraph";
+import { BaseMessage } from "@langchain/core/messages";
+import type { DatabaseType, SchemaTable } from "../types";
 
 export const AgentState = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
@@ -9,19 +9,19 @@ export const AgentState = Annotation.Root({
   }),
   userPrompt: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
   threadId: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
   dbDialect: Annotation<DatabaseType>({
     reducer: (x, y) => y ?? x,
-    default: () => 'sqlite',
+    default: () => "sqlite",
   }),
   connectionId: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
   schemaInfo: Annotation<SchemaTable[] | null>({
     reducer: (x, y) => y ?? x,
@@ -29,29 +29,29 @@ export const AgentState = Annotation.Root({
   }),
   schemaFormatted: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
   intent: Annotation<
-    | 'sql_retrieval'
-    | 'sql_analytics'
-    | 'sql_modification'
-    | 'sql_schema'
-    | 'boolean_check'
-    | 'table_structure'
-    | 'greeting'
-    | 'clarify_needed'
-    | 'out_of_scope'
+    | "sql_retrieval"
+    | "sql_analytics"
+    | "sql_modification"
+    | "sql_schema"
+    | "boolean_check"
+    | "table_structure"
+    | "greeting"
+    | "clarify_needed"
+    | "out_of_scope"
   >({
     reducer: (x, y) => y ?? x,
-    default: () => 'clarify_needed',
+    default: () => "clarify_needed",
   }),
   generatedSQL: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
   explanation: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
   identifierCorrections: Annotation<string[]>({
     reducer: (x, y) => y ?? x,
@@ -67,7 +67,7 @@ export const AgentState = Annotation.Root({
   }),
   mutationType: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
   humanApproved: Annotation<boolean | null>({
     reducer: (x, y) => y ?? x,
@@ -91,7 +91,7 @@ export const AgentState = Annotation.Root({
   }),
   lastFailedSQL: Annotation<string>({
     reducer: (x, y) => y ?? x,
-    default: () => '',
+    default: () => "",
   }),
   finalResponse: Annotation<{
     type: string;
@@ -111,9 +111,9 @@ export const AgentState = Annotation.Root({
     default: () => null,
   }),
   pendingClarification: Annotation<{
-    reason: 'placeholder' | 'mutation_ambiguity' | 'missing_field';
+    reason: "placeholder" | "mutation_ambiguity" | "missing_field";
     missingFields: string[];
-    partialSQL: string;      // SQL with placeholders, saved for resume
+    partialSQL: string; // SQL with placeholders, saved for resume
     question: string;
   } | null>({
     reducer: (x, y) => (y === undefined ? x : y),

@@ -6,7 +6,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  serverExternalPackages: ['sqlite3', 'pg', 'mysql2', 'mongodb'],
-}
+  serverExternalPackages: ["sqlite3", "pg", "mysql2", "mongodb"],
+};
 
-export default nextConfig
+export default nextConfig;

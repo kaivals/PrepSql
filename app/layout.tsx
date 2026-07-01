@@ -1,36 +1,36 @@
-import { Analytics } from '@vercel/analytics/next'
-import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
-import { QueryProvider } from '@/components/QueryProvider'
-import './globals.css'
+import { Analytics } from "@vercel/analytics/next";
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { QueryProvider } from "@/components/QueryProvider";
+import "./globals.css";
 
 const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
 
 const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: 'PrepSQL',
-  description: 'Natural language to SQL — grounded in your schema',
+  title: "PrepSQL",
+  description: "Natural language to SQL — grounded in your schema",
   icons: {
-    icon: '/icon.svg',
+    icon: "/icon.svg",
   },
-}
+};
 
 export const viewport: Viewport = {
-  colorScheme: 'light',
-  themeColor: '#F9FAFB',
-}
+  colorScheme: "light",
+  themeColor: "#F9FAFB",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
@@ -44,9 +44,9 @@ export default function RootLayout({
             <div className="absolute top-[10%] right-[20%] w-[35%] h-[35%] rounded-full bg-[#BFDBFE]/30 blur-[110px]" />
           </div>
           {children}
-          {process.env.NODE_ENV === 'production' && <Analytics />}
+          {process.env.NODE_ENV === "production" && <Analytics />}
         </QueryProvider>
       </body>
     </html>
-  )
+  );
 }

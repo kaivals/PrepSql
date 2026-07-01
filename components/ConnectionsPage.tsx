@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Database, Plus, Trash2, Zap, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ConnectionForm } from '@/components/ConnectionForm';
-import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
-import { cn } from '@/lib/utils';
-import { ResponsiveContainer, AreaChart, Area, Tooltip } from 'recharts';
+import { useState, useEffect, useRef } from "react";
+import { Database, Plus, Trash2, Zap, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ConnectionForm } from "@/components/ConnectionForm";
+import type { DatabaseConnection, QueryHistoryItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { ResponsiveContainer, AreaChart, Area, Tooltip } from "recharts";
 
 interface ConnectionsPageProps {
   connections: DatabaseConnection[];
@@ -44,18 +44,18 @@ export function ConnectionsPage({
     if (openFormOnLoad && connections.length === 0) {
       setShowModal(true);
     }
-  }, []);
+  }, [connections.length, openFormOnLoad]);
 
   const getConnectionPath = (conn: DatabaseConnection) => {
-    if (conn.type === 'sqlite') return conn.filepath || '';
+    if (conn.type === "sqlite") return conn.filepath || "";
     return `${conn.host}:${conn.port}/${conn.database}`;
   };
 
   const dbTypeColor: Record<string, string> = {
-    postgresql: 'bg-blue-50 text-blue-700 border-blue-200',
-    mysql: 'bg-orange-50 text-orange-700 border-orange-200',
-    mariadb: 'bg-amber-50 text-amber-700 border-amber-200',
-    sqlite: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    postgresql: "bg-blue-50 text-blue-700 border-blue-200",
+    mysql: "bg-orange-50 text-orange-700 border-orange-200",
+    mariadb: "bg-amber-50 text-amber-700 border-amber-200",
+    sqlite: "bg-emerald-50 text-emerald-700 border-emerald-200",
   };
 
   return (
@@ -66,18 +66,28 @@ export function ConnectionsPage({
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
             Step 01 — Connect
           </p>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Your databases</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Your databases
+          </h1>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-slate-500">
-            Add a Postgres, MySQL or SQLite connection. We introspect the schema and cache it for
-            prompt grounding.
+            Add a Postgres, MySQL or SQLite connection. We introspect the schema
+            and cache it for prompt grounding.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2.5">
-          <Button variant="outline" onClick={onDemo} disabled={loading} className="gap-2 rounded-lg px-4 py-2 text-sm">
+          <Button
+            variant="outline"
+            onClick={onDemo}
+            disabled={loading}
+            className="gap-2 rounded-lg px-4 py-2 text-sm"
+          >
             <Zap className="h-3.5 w-3.5" />
             Try demo DB
           </Button>
-          <Button onClick={() => setShowModal(true)} className="gap-2 rounded-lg px-4 py-2 text-sm">
+          <Button
+            onClick={() => setShowModal(true)}
+            className="gap-2 rounded-lg px-4 py-2 text-sm"
+          >
             <Plus className="h-3.5 w-3.5" />
             New connection
           </Button>
@@ -90,8 +100,12 @@ export function ConnectionsPage({
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
             <Database className="h-7 w-7 text-primary" />
           </div>
-          <p className="text-sm font-medium text-foreground">No connections yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">Try the demo DB or add a new connection.</p>
+          <p className="text-sm font-medium text-foreground">
+            No connections yet
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Try the demo DB or add a new connection.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -100,7 +114,7 @@ export function ConnectionsPage({
               key={conn.id}
               className="group relative cursor-pointer rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-200 hover:shadow-md"
               onClick={() => onSelect(conn)}
-              onKeyDown={(e) => e.key === 'Enter' && onSelect(conn)}
+              onKeyDown={(e) => e.key === "Enter" && onSelect(conn)}
               role="button"
               tabIndex={0}
             >
@@ -122,41 +136,83 @@ export function ConnectionsPage({
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
-              <h3 className="text-base font-semibold text-slate-900">{conn.name}</h3>
+              <h3 className="text-base font-semibold text-slate-900">
+                {conn.name}
+              </h3>
               <div className="mt-2 flex items-center gap-2">
-                <span className={cn(
-                  'inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
-                  dbTypeColor[conn.type] || 'bg-slate-50 text-slate-600 border-slate-200'
-                )}>
+                <span
+                  className={cn(
+                    "inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                    dbTypeColor[conn.type] ||
+                      "bg-slate-50 text-slate-600 border-slate-200",
+                  )}
+                >
                   {conn.type}
                 </span>
               </div>
-              <p className="mt-3 truncate font-mono text-xs text-slate-400">{getConnectionPath(conn)}</p>
-              
+              <p className="mt-3 truncate font-mono text-xs text-slate-400">
+                {getConnectionPath(conn)}
+              </p>
+
               {/* Sparkline Latency Graph */}
               {(() => {
-                const connHistory = history?.filter((h) => h.connectionId === conn.id && h.executionTime !== undefined) || [];
+                const connHistory =
+                  history?.filter(
+                    (h) =>
+                      h.connectionId === conn.id &&
+                      h.executionTime !== undefined,
+                  ) || [];
                 if (connHistory.length === 0) return null;
-                const avgLatency = Math.round(connHistory.reduce((sum, h) => sum + (h.executionTime || 0), 0) / connHistory.length);
-                const sparkData = connHistory.slice(0, 20).reverse().map((h, idx) => ({
-                  index: idx,
-                  latency: h.executionTime || 0,
-                }));
-                
+                const avgLatency = Math.round(
+                  connHistory.reduce(
+                    (sum, h) => sum + (h.executionTime || 0),
+                    0,
+                  ) / connHistory.length,
+                );
+                const sparkData = connHistory
+                  .slice(0, 20)
+                  .reverse()
+                  .map((h, idx) => ({
+                    index: idx,
+                    latency: h.executionTime || 0,
+                  }));
+
                 return (
-                  <div className="mt-4 border-t border-slate-100 pt-4" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="mt-4 border-t border-slate-100 pt-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5">
                       <span>Latency Trend</span>
-                      <span className="tabular-nums text-slate-700 font-bold">{avgLatency}ms avg</span>
+                      <span className="tabular-nums text-slate-700 font-bold">
+                        {avgLatency}ms avg
+                      </span>
                     </div>
                     <div className="h-8 w-full">
                       {isMounted && (
                         <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                          <AreaChart
+                            data={sparkData}
+                            margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
+                          >
                             <defs>
-                              <linearGradient id={`sparkGrad-${conn.id}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
-                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                              <linearGradient
+                                id={`sparkGrad-${conn.id}`}
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                <stop
+                                  offset="5%"
+                                  stopColor="#3b82f6"
+                                  stopOpacity={0.25}
+                                />
+                                <stop
+                                  offset="95%"
+                                  stopColor="#3b82f6"
+                                  stopOpacity={0}
+                                />
                               </linearGradient>
                             </defs>
                             <Tooltip
@@ -197,8 +253,12 @@ export function ConnectionsPage({
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">New connection</h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">Connect to your database</p>
+                <h2 className="text-lg font-semibold text-foreground">
+                  New connection
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Connect to your database
+                </p>
               </div>
               <button
                 type="button"

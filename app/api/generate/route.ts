@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { runAgent } from '@/lib/agent';
+import { NextRequest, NextResponse } from "next/server";
+import { runAgent } from "@/lib/agent";
 import {
   getClientId,
   getPendingTimeline,
@@ -7,10 +7,11 @@ import {
   clearPendingTimeline,
   addToHistory,
   getConnection,
-} from '@/lib/app-state';
-import { runWithQueryLogger } from '@/lib/query-logger';
-import { classifyQuery } from '@/lib/history-classify';
-import { trackTokenUsage } from '@/lib/token-tracker';
+} from "@/lib/app-state";
+import type { TimelineStep } from "@/lib/types";
+import { runWithQueryLogger } from "@/lib/query-logger";
+import { classifyQuery } from "@/lib/history-classify";
+import { trackTokenUsage } from "@/lib/token-tracker";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +19,10 @@ export async function POST(request: NextRequest) {
     const { prompt, action } = body;
 
     if (!prompt && !action) {
-      return NextResponse.json({ error: 'Prompt or action is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Prompt or action is required" },
+        { status: 400 },
+      );
     }
 
     const clientId = await getClientId();
@@ -26,7 +30,7 @@ export async function POST(request: NextRequest) {
     const threadId = connection ? `${clientId}-${connection.id}` : clientId;
 
     // Fetch previous steps if we are resuming from an approval/rejection
-    let previousSteps: any[] = [];
+    let previousSteps: TimelineStep[] = [];
     let resumeThreadId = threadId;
     if (action) {
       const pendingData = await getPendingTimeline();
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     const { result: response, steps } = await runWithQueryLogger(async () => {
       return await runAgent({
-        prompt: prompt || '',
+        prompt: prompt || "",
         threadId: action ? resumeThreadId : threadId,
         action,
       });
@@ -56,41 +60,43 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      if (response.type === 'pending_approval') {
+      if (response.type === "pending_approval") {
         // Store steps and threadId for the next approval/rejection action
         await setPendingTimeline({ steps: allSteps, threadId });
-      } else if (action === 'reject') {
+      } else if (action === "reject") {
         await clearPendingTimeline();
-      } else if (response.type === 'sql') {
+      } else if (response.type === "sql") {
         const rowsCount = response.result?.rows?.length ?? 0;
         // Persist this AI-generated execution to MongoDB as query history.
         await addToHistory({
-          prompt: prompt || 'AI Query',
-          sql: response.sql || '',
+          prompt: prompt || "AI Query",
+          sql: response.sql || "",
           timestamp: Date.now(),
           success: true,
-          queryType: classifyQuery(response.sql || ''),
+          queryType: classifyQuery(response.sql || ""),
           executionTime: response.result?.executionTime || 0,
           rowsAffected: response.result?.rowsAffected || 0,
           rowsScanned: response.result?.rowsScanned ?? rowsCount,
           rowsReturned: response.result?.rowsReturned ?? rowsCount,
           cpuUsage: response.result?.cpuUsage || 0,
           memoryUsage: response.result?.memoryUsage || 0,
-          indexesUsed: response.result?.indexesUsed || (response.sql?.toUpperCase().includes('WHERE') ? ['pk_index'] : []),
+          indexesUsed:
+            response.result?.indexesUsed ||
+            (response.sql?.toUpperCase().includes("WHERE") ? ["pk_index"] : []),
           timeline: allSteps,
           connectionId: connection?.id,
           connectionName: connection?.name,
         });
         await clearPendingTimeline();
-      } else if (response.type === 'error') {
+      } else if (response.type === "error") {
         // Failed queries are recorded as well so they appear in history.
         await addToHistory({
-          prompt: prompt || 'AI Query',
-          sql: response.sql || '',
+          prompt: prompt || "AI Query",
+          sql: response.sql || "",
           timestamp: Date.now(),
           success: false,
-          error: response.message || 'Execution failed',
-          queryType: classifyQuery(response.sql || ''),
+          error: response.message || "Execution failed",
+          queryType: classifyQuery(response.sql || ""),
           executionTime: 0,
           rowsScanned: 0,
           rowsReturned: 0,
@@ -106,11 +112,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(response);
-  } catch (error: any) {
-    console.error('Agent execution/generation error:', error);
+  } catch (error: unknown) {
+    console.error("Agent execution/generation error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Agent execution failed' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Agent execution failed",
+      },
+      { status: 500 },
     );
   }
 }

@@ -1,8 +1,8 @@
-import type { AgentStateType } from '../state';
-import type { SchemaTable } from '../../types';
-import { introspectSchema } from '../../schema';
-import { formatSchemaForPrompt } from '../../schema-format';
-import { getConnection } from '../../app-state';
+import type { AgentStateType } from "../state";
+import type { SchemaTable } from "../../types";
+import { introspectSchema } from "../../schema";
+import { formatSchemaForPrompt } from "../../schema-format";
+import { getConnection } from "../../app-state";
 
 // ---------------------------------------------------------------------------
 // Simple in-memory cache with 5-minute TTL
@@ -38,10 +38,10 @@ export async function schemaLoadNode(
   }
 
   // ── Intents that don't need schema ────────────────────────────────────────
-  const noSchemaNeeded: AgentStateType['intent'][] = [
-    'greeting',
-    'out_of_scope',
-    'clarify_needed',
+  const noSchemaNeeded: AgentStateType["intent"][] = [
+    "greeting",
+    "out_of_scope",
+    "clarify_needed",
   ];
   if (noSchemaNeeded.includes(state.intent)) {
     return {};
@@ -52,7 +52,8 @@ export async function schemaLoadNode(
     const connection = await getConnection();
     if (!connection) {
       return {
-        error: 'No active database connection. Please connect to a database first.',
+        error:
+          "No active database connection. Please connect to a database first.",
       };
     }
 

@@ -54,38 +54,46 @@ Here is an overview of the key directories and files in the codebase:
 ## 2. Core Database Operations
 
 The application leverages distinct drivers to connect to and introspect client databases:
-* **PostgreSQL**: Handled using the `pg` Pool client.
-* **MySQL/MariaDB**: Handled using the `mysql2/promise` client.
-* **SQLite**: Uses the built-in `node:sqlite` module (specifically `DatabaseSync` in newer Node versions). The `lib/sqlite-adapter.ts` file adapts the synchronous `DatabaseSync` APIs into asynchronous, callback-based signatures compatible with standard query execution models.
+
+- **PostgreSQL**: Handled using the `pg` Pool client.
+- **MySQL/MariaDB**: Handled using the `mysql2/promise` client.
+- **SQLite**: Uses the built-in `node:sqlite` module (specifically `DatabaseSync` in newer Node versions). The `lib/sqlite-adapter.ts` file adapts the synchronous `DatabaseSync` APIs into asynchronous, callback-based signatures compatible with standard query execution models.
 
 All connection pools are cached in-memory and mapped by their connection details inside [lib/database.ts](file:///home/jainam/Documents/PrepSql/lib/database.ts) to minimize handshake latency.
 
 ### Query Performance Telemetry & Analytics
+
 Telemetry measurements are centralized in a shared helper module [telemetry.ts](file:///home/jainam/Desktop/PrepSql/lib/telemetry.ts). For SELECT queries, it automatically runs `EXPLAIN` planning queries to retrieve actual metrics rather than generic simulations:
-* **SQLite / Turso**: Runs `EXPLAIN QUERY PLAN`. If a table scan (`SCAN`) is detected, it executes a fast row-count query (`SELECT COUNT(*)`) on that table to determine the exact number of rows scanned; otherwise it estimates rows scanned based on rows returned.
-* **PostgreSQL**: Runs `EXPLAIN (FORMAT JSON)` and sums the estimated rows across all scan nodes (e.g., `Seq Scan`, `Index Scan`).
-* **MySQL / MariaDB**: Runs `EXPLAIN FORMAT=JSON` and parses the plan to sum `rows_examined_per_scan`.
+
+- **SQLite / Turso**: Runs `EXPLAIN QUERY PLAN`. If a table scan (`SCAN`) is detected, it executes a fast row-count query (`SELECT COUNT(*)`) on that table to determine the exact number of rows scanned; otherwise it estimates rows scanned based on rows returned.
+- **PostgreSQL**: Runs `EXPLAIN (FORMAT JSON)` and sums the estimated rows across all scan nodes (e.g., `Seq Scan`, `Index Scan`).
+- **MySQL / MariaDB**: Runs `EXPLAIN FORMAT=JSON` and parses the plan to sum `rows_examined_per_scan`.
 
 For resource usage (CPU/Memory):
-* **Local SQLite**: Monitored in real-time using native Node process hooks (`process.cpuUsage()` and `process.memoryUsage()`) before and after query execution.
-* **Remote Databases**: Estimated client-side processing metrics based on row count and execution speed, clearly marked in the UI via descriptive hover tooltips.
+
+- **Local SQLite**: Monitored in real-time using native Node process hooks (`process.cpuUsage()` and `process.memoryUsage()`) before and after query execution.
+- **Remote Databases**: Estimated client-side processing metrics based on row count and execution speed, clearly marked in the UI via descriptive hover tooltips.
 
 This telemetry module is utilized by both manual executions via [/api/execute](file:///home/jainam/Desktop/PrepSql/app/api/execute/route.ts) and AI-generated query executions via [/api/generate](file:///home/jainam/Desktop/PrepSql/app/api/generate/route.ts) (within the LangGraph [execute.ts](file:///home/jainam/Desktop/PrepSql/lib/agent/nodes/execute.ts) node).
 
 ### Query History Filtering & Cache Busting
+
 Query executions are saved in MongoDB with their corresponding `connectionId` and `connectionName`.
-* **API Filtering**: The `/api/history` endpoint accepts an optional `connectionId` parameter, which filters the history items stored in the MongoDB collection to retrieve records specifically for that connection.
-* **Client Dashboards**: The active connection ID is supplied as a filter in all `/api/history` fetch requests from the main [AnalyticsPage.tsx](file:///home/jainam/Desktop/PrepSql/components/AnalyticsPage.tsx) dashboard and the [SchemaSidebar.tsx](file:///home/jainam/Desktop/PrepSql/components/SchemaSidebar.tsx) history panel.
-* **Cache Busting**: Client-side history queries append a timestamp parameter (`t=${Date.now()}`) and use `{ cache: 'no-store' }` options to bypass aggressively cached fetches.
+
+- **API Filtering**: The `/api/history` endpoint accepts an optional `connectionId` parameter, which filters the history items stored in the MongoDB collection to retrieve records specifically for that connection.
+- **Client Dashboards**: The active connection ID is supplied as a filter in all `/api/history` fetch requests from the main [AnalyticsPage.tsx](file:///home/jainam/Desktop/PrepSql/components/AnalyticsPage.tsx) dashboard and the [SchemaSidebar.tsx](file:///home/jainam/Desktop/PrepSql/components/SchemaSidebar.tsx) history panel.
+- **Cache Busting**: Client-side history queries append a timestamp parameter (`t=${Date.now()}`) and use `{ cache: 'no-store' }` options to bypass aggressively cached fetches.
 
 ### Charting & Live Monitoring Visualization
+
 The telemetry data is rendered interactively using the `recharts` package, which is fully compatible with the Next.js React 19 Client Component environment. Visualizations include:
-* **Query Latencies (Last 10 Queries)**: A custom color-coded Bar Chart denoting fast, medium, and slow (exceeding 100ms) execution profiles. It live-polls the query history API silently every 3 seconds to update and display query runs in real-time.
-* **Most Consulted Tables**: A horizontal Bar Chart rendering frequency counts of the most accessed tables dynamically scanned from query syntax.
-* **Live Query Latency Trend (Last 20 Runs)**: A full-width Area Chart showing the latency execution trends of the last 20 queries with a reference warning threshold line at 100ms. It polls query history silently in the background every 3 seconds to display new query runs in real-time.
-* **Health Dial**: An interactive Recharts Donut/Pie Chart representing the sub-scores (Efficiency, Index Coverage, Schema Quality) with custom colored indicators, featuring the overall health score embedded inside the center. Audits are connection-specific and persisted in MongoDB. The dashboard automatically pulls and loads the last saved audit for the active connection upon mounting or switching connections.
-* **Connection Latency Sparklines**: Embedded micro-sparkline Area Charts rendered directly inside connection selection cards on the connections overview page, summarizing average latency and mapping the trend of the last 20 queries run against that database.
-* **Interactive Recent Executions Table**: Powered by the modern `@tanstack/react-table` (v8) library, styled natively using raw Tailwind CSS. Displays query history runs with client-side live search filtering (searching across SQL statements and prompt inputs), multi-column sorting (Status, Query, Time, Scanned, Returned, Index, CPU, and Memory) with sorting indicators, and custom pagination featuring page number selectors (e.g. `1, 2, ...` with page size settings). Clicking any row transitions the view inside the card to the nested lifecycle timeline explorer.
+
+- **Query Latencies (Last 10 Queries)**: A custom color-coded Bar Chart denoting fast, medium, and slow (exceeding 100ms) execution profiles. It live-polls the query history API silently every 3 seconds to update and display query runs in real-time.
+- **Most Consulted Tables**: A horizontal Bar Chart rendering frequency counts of the most accessed tables dynamically scanned from query syntax.
+- **Live Query Latency Trend (Last 20 Runs)**: A full-width Area Chart showing the latency execution trends of the last 20 queries with a reference warning threshold line at 100ms. It polls query history silently in the background every 3 seconds to display new query runs in real-time.
+- **Health Dial**: An interactive Recharts Donut/Pie Chart representing the sub-scores (Efficiency, Index Coverage, Schema Quality) with custom colored indicators, featuring the overall health score embedded inside the center. Audits are connection-specific and persisted in MongoDB. The dashboard automatically pulls and loads the last saved audit for the active connection upon mounting or switching connections.
+- **Connection Latency Sparklines**: Embedded micro-sparkline Area Charts rendered directly inside connection selection cards on the connections overview page, summarizing average latency and mapping the trend of the last 20 queries run against that database.
+- **Interactive Recent Executions Table**: Powered by the modern `@tanstack/react-table` (v8) library, styled natively using raw Tailwind CSS. Displays query history runs with client-side live search filtering (searching across SQL statements and prompt inputs), multi-column sorting (Status, Query, Time, Scanned, Returned, Index, CPU, and Memory) with sorting indicators, and custom pagination featuring page number selectors (e.g. `1, 2, ...` with page size settings). Clicking any row transitions the view inside the card to the nested lifecycle timeline explorer.
 
 All charts incorporate custom responsive glassmorphic hover tooltips displaying rich context such as executed SQL query text, row scanner counts, memory consumption, CPU load, and response timestamps.
 
@@ -107,30 +115,39 @@ graph TD
 ```
 
 ### Stage 1: Live Introspection (`lib/schema.ts`)
+
 When a generation request starts, the backend executes schema queries tailored to the active database dialect to map out all tables, columns, types, primary keys, foreign keys, and indexes:
-* **PostgreSQL**: Queries are run against `pg_catalog.pg_class`, `pg_catalog.pg_attribute`, and `pg_catalog.pg_constraint` rather than `information_schema`. This ensures that **original casing** (e.g. `userId` or `createdAt` in camelCase/mixedCase) is preserved, as `information_schema` normalizes all identifier names to lowercase.
-* **SQLite**: Queries use `PRAGMA table_info`, `PRAGMA foreign_key_list`, and `PRAGMA index_list`.
-* **MySQL**: Queries use `information_schema.COLUMNS` and `information_schema.KEY_COLUMN_USAGE`.
+
+- **PostgreSQL**: Queries are run against `pg_catalog.pg_class`, `pg_catalog.pg_attribute`, and `pg_catalog.pg_constraint` rather than `information_schema`. This ensures that **original casing** (e.g. `userId` or `createdAt` in camelCase/mixedCase) is preserved, as `information_schema` normalizes all identifier names to lowercase.
+- **SQLite**: Queries use `PRAGMA table_info`, `PRAGMA foreign_key_list`, and `PRAGMA index_list`.
+- **MySQL**: Queries use `information_schema.COLUMNS` and `information_schema.KEY_COLUMN_USAGE`.
 
 ### Stage 2: Schema Formatting (`lib/schema-format.ts`)
+
 The introspected schema metadata is formatted into a clear, structured text representation.
-* For **PostgreSQL**, every table and column name is pre-wrapped in double-quotes (e.g. `Table "Users"` and `- "userId" (varchar)`).
-* Crucially, a mandatory PostgreSQL warning is appended instructing the AI model to copy all identifiers **verbatim** including the double-quotes to prevent PostgreSQL runtime errors caused by automatic lowercasing.
+
+- For **PostgreSQL**, every table and column name is pre-wrapped in double-quotes (e.g. `Table "Users"` and `- "userId" (varchar)`).
+- Crucially, a mandatory PostgreSQL warning is appended instructing the AI model to copy all identifiers **verbatim** including the double-quotes to prevent PostgreSQL runtime errors caused by automatic lowercasing.
 
 ### Stage 3: LLM Invocation & Parsing (`lib/claude.ts`)
+
 The system prompt is dynamically assembled combining database metadata, query mode rules (e.g., `readonly` disallows mutations; `schema` allows DDL), and the schema context:
-* The user prompt is sent to either **Anthropic (Claude 3.5 Sonnet)** or **Groq (Llama 3.1 8B)**.
-* The model output is parsed to extract the SQL query block (delimited by ` ```sql `) and the explanation.
-* **LangGraph Checkpoint Threading**: The conversational agent memory (LangGraph checkpoint state) is partitioned connection-wise. The `thread_id` is constructed as `${clientId}-${connection.id}`, ensuring conversational memory does not leak between database configurations.
+
+- The user prompt is sent to either **Anthropic (Claude 3.5 Sonnet)** or **Groq (Llama 3.1 8B)**.
+- The model output is parsed to extract the SQL query block (delimited by ` ```sql `) and the explanation.
+- **LangGraph Checkpoint Threading**: The conversational agent memory (LangGraph checkpoint state) is partitioned connection-wise. The `thread_id` is constructed as `${clientId}-${connection.id}`, ensuring conversational memory does not leak between database configurations.
 
 ### Stage 4: Post-Generation Casing Correction (`lib/sql-validator.ts`)
+
 Even with strong prompting rules, LLMs sometimes lowercase mixed-cased columns or omit double-quotes. PrepSQL runs a custom tokenizer that parses the SQL string:
+
 1. It ignores string literals (`'...'`), already double-quoted regions (`"..."`), backticks (`` `...` ``), and positional parameters (`$1`).
 2. Bare identifiers are extracted and matched case-insensitively against the real schema.
 3. If there is a casing mismatch, it automatically replaces the identifier with the exact casing from the schema.
 4. For PostgreSQL, if a bare identifier is identified as a schema table or column, it is automatically wrapped in double-quotes.
 
 ### Stage 5: Execution Safety Check (`lib/claude.ts`)
+
 Before returning the final SQL to the client, the backend analyzes the queries to flag mutations (e.g. `DROP`, `TRUNCATE`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`). If a mutation is detected, it is marked as `isMutation: true` and surfaced in the client. Depending on the connection mode settings, client-side safety warnings are displayed to prompt the user before execution.
 
 ---
@@ -138,12 +155,14 @@ Before returning the final SQL to the client, the backend analyzes the queries t
 ## 4. Main API Endpoints
 
 ### `POST /api/generate`
+
 Generates an SQL query based on the user's natural language request.
-* **Payload**:
+
+- **Payload**:
   ```json
   { "prompt": "Show me the top 3 products ordered by price" }
   ```
-* **Response**:
+- **Response**:
   ```json
   {
     "sql": "SELECT * FROM products ORDER BY price DESC LIMIT 3",
@@ -157,19 +176,39 @@ Generates an SQL query based on the user's natural language request.
   ```
 
 ### `POST /api/execute`
+
 Executes an SQL query against the active database.
-* **Payload**:
+
+- **Payload**:
   ```json
   { "sql": "SELECT * FROM products ORDER BY price DESC LIMIT 3" }
   ```
-* **Response**:
+- **Response**:
   ```json
   {
     "columns": ["id", "name", "price", "stock", "category"],
     "rows": [
-      { "id": 2, "name": "Mechanical Keyboard", "price": 89.99, "stock": 80, "category": "Electronics" },
-      { "id": 1, "name": "Wireless Mouse", "price": 29.99, "stock": 150, "category": "Electronics" },
-      { "id": 3, "name": "USB-C Hub", "price": 19.99, "stock": 200, "category": "Electronics" }
+      {
+        "id": 2,
+        "name": "Mechanical Keyboard",
+        "price": 89.99,
+        "stock": 80,
+        "category": "Electronics"
+      },
+      {
+        "id": 1,
+        "name": "Wireless Mouse",
+        "price": 29.99,
+        "stock": 150,
+        "category": "Electronics"
+      },
+      {
+        "id": 3,
+        "name": "USB-C Hub",
+        "price": 19.99,
+        "stock": 200,
+        "category": "Electronics"
+      }
     ],
     "rowCount": 3
   }
@@ -182,6 +221,7 @@ Executes an SQL query against the active database.
 PrepSQL implements a cohesive developer-focused interface tailored for high readability and layout density.
 
 ### A. Design Aesthetic: "Blue Aurora Glassmorphism with #F9FAFB Base"
+
 - **Background**:
   - Base Layout: Cool near-white base (`#F9FAFB`)
   - Backdrops: Soft blue (`#93C5FD`/35%), ice cyan (`#A5F3FC`/28%), pale lavender (`#C4B5F4`/22%), and whisper blue (`#BFDBFE`/30%) ambient background blobs, heavily blurred (`blur-[100px] to blur-[130px]`).
@@ -201,13 +241,16 @@ PrepSQL implements a cohesive developer-focused interface tailored for high read
   - Error Indicator: Red (`#EF4444`)
 
 ### B. Typography Pairings
+
 - **UI Elements**: **Geist Sans** (with **Inter** fallback) for premium developer-tool layout density and high readability.
 - **SQL Editors & Schemas**: **Geist Mono** (with **JetBrains Mono** / **Fira Code** fallbacks) for vertical spacing and layout precision.
 
 ### C. Sidebar Integration
+
 - Schema edits are initiated inline by clicking the **Pencil (Edit)** icon next to any table in the `SchemaSidebar.tsx`. The icon is always visible (at a lower opacity) to make the feature easily discoverable, and highlights to full opacity on hover, launching the `SchemaEditor.tsx` in the main workspace panel.
 
 ### D. Integrated User Profile Dropdown
+
 - The upper-right portion of the header features a unified, click-outside-aware user avatar dropdown trigger.
 - Instead of multiple separate profile and logout buttons, the interface provides a single, cohesive menu with exactly two selections:
   - **Profile**: Triggers the `SettingsModal` to manage AI API configurations (uses the Lucide `User` icon).
@@ -215,6 +258,7 @@ PrepSQL implements a cohesive developer-focused interface tailored for high read
 - Both options are styled with corresponding Lucide icons and hover states matching the light teal glassmorphic theme.
 
 ### E. Nested Query Execution Lifecycle Explorer
+
 - The query execution lifecycle timeline and explorer panel is embedded natively inside the **Recent Executions** card rather than opening as a separate card below it.
 - **View Transition**: Selecting any row in the executions list replaces the list table dynamically with the detailed lifecycle timeline view, eliminating vertical layout shifts.
 - **Breadcrumb Navigation**: A clean breadcrumb separator (`Recent Executions / Query #<id> Lifecycle`) combined with a square back button (`ChevronLeft`) placed inline next to the section title, as well as an explicit **"Back to Executions List"** button on the top right, makes the back actions highly clear and intuitive.

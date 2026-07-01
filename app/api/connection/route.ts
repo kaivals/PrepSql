@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 import {
   getClientId,
   getConnections,
@@ -8,10 +8,10 @@ import {
   getConnection,
   validateConnection,
   stripPassword,
-} from '@/lib/app-state';
-import { testConnection } from '@/lib/database';
-import { saveSavedConnection } from '@/lib/db';
-import type { DatabaseConnection } from '@/lib/types';
+} from "@/lib/app-state";
+import { testConnection } from "@/lib/database";
+import { saveSavedConnection } from "@/lib/db";
+import type { DatabaseConnection } from "@/lib/types";
 
 export async function GET() {
   try {
@@ -24,15 +24,20 @@ export async function GET() {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to get connections' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to get connections",
+      },
+      { status: 500 },
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as Omit<DatabaseConnection, 'id'> & { activate?: boolean };
+    const body = (await request.json()) as Omit<DatabaseConnection, "id"> & {
+      activate?: boolean;
+    };
 
     const validation = validateConnection(body);
     if (!validation.valid) {
@@ -41,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     await testConnection({
       ...body,
-      password: typeof body.password === 'string' ? body.password : '',
+      password: typeof body.password === "string" ? body.password : "",
     });
 
     const connection = await addConnection({
@@ -50,7 +55,7 @@ export async function POST(request: NextRequest) {
       host: body.host,
       port: body.port,
       user: body.user,
-      password: typeof body.password === 'string' ? body.password : '',
+      password: typeof body.password === "string" ? body.password : "",
       database: body.database,
       filepath: body.filepath,
     });
@@ -70,13 +75,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Connected successfully',
+      message: "Connected successfully",
       connection: stripPassword(connection),
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to set connection' },
-      { status: 400 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to set connection",
+      },
+      { status: 400 },
     );
   }
 }
@@ -87,17 +95,27 @@ export async function PATCH(request: NextRequest) {
     const { id } = body;
 
     if (!id) {
-      return NextResponse.json({ error: 'Connection id is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Connection id is required" },
+        { status: 400 },
+      );
     }
 
     await setActiveConnection(id);
     const connection = await getConnection();
 
-    return NextResponse.json({ connection: connection ? stripPassword(connection) : null });
+    return NextResponse.json({
+      connection: connection ? stripPassword(connection) : null,
+    });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to activate connection' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to activate connection",
+      },
+      { status: 500 },
     );
   }
 }
@@ -105,7 +123,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const id = searchParams.get("id");
 
     if (id) {
       await removeConnection(id);
@@ -114,8 +132,13 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to remove connection' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to remove connection",
+      },
+      { status: 500 },
     );
   }
 }

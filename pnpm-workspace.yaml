@@ -2,3 +2,4 @@ allowBuilds:
   msw: false
   sharp: false
   sqlite3: false
+  unrs-resolver: true

@@ -1,26 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getConnection, addToHistory } from '@/lib/app-state';
-import { getOrCreatePool, executeQuery } from '@/lib/database';
-import { runWithQueryLogger, getLoggedSteps } from '@/lib/query-logger';
-import { classifyQuery } from '@/lib/history-classify';
-import { calculateQueryTelemetry } from '@/lib/telemetry';
-
+import { NextRequest, NextResponse } from "next/server";
+import { getConnection, addToHistory } from "@/lib/app-state";
+import { getOrCreatePool, executeQuery } from "@/lib/database";
+import { runWithQueryLogger, getLoggedSteps } from "@/lib/query-logger";
+import { classifyQuery } from "@/lib/history-classify";
+import { calculateQueryTelemetry } from "@/lib/telemetry";
 
 export async function POST(request: NextRequest) {
-  const { result, steps } = await runWithQueryLogger(async () => {
-    let sql = '';
+  const { result } = await runWithQueryLogger(async () => {
+    let sql = "";
     try {
       const body = await request.json();
       sql = body.sql;
 
-      if (!sql || typeof sql !== 'string') {
-        return { error: 'SQL is required', status: 400 };
+      if (!sql || typeof sql !== "string") {
+        return { error: "SQL is required", status: 400 };
       }
 
       // Get current connection
       const connection = await getConnection();
       if (!connection) {
-        return { error: 'No database connection. Please connect first.', status: 400 };
+        return {
+          error: "No database connection. Please connect first.",
+          status: 400,
+        };
       }
 
       // Get or create connection pool
@@ -28,22 +30,31 @@ export async function POST(request: NextRequest) {
 
       // Execute the query with timeout
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Query timeout (30s)')), 30000)
+        setTimeout(() => reject(new Error("Query timeout (30s)")), 30000),
       );
 
-      const isLocalSQLite = connection.type === 'sqlite' &&
+      const isLocalSQLite =
+        connection.type === "sqlite" &&
         connection.filepath &&
-        !connection.filepath.startsWith('libsql://') &&
-        !connection.filepath.startsWith('https://') &&
-        !connection.filepath.startsWith('http://');
+        !connection.filepath.startsWith("libsql://") &&
+        !connection.filepath.startsWith("https://") &&
+        !connection.filepath.startsWith("http://");
 
       const startCpu = isLocalSQLite ? process.cpuUsage() : null;
       const startMem = isLocalSQLite ? process.memoryUsage().heapUsed : null;
 
       const startTime = performance.now();
-      let queryResult: any;
+      let queryResult: {
+        columns: string[];
+        rows: Record<string, unknown>[];
+        rowsAffected?: number;
+        rowCount?: number;
+      };
       try {
-        queryResult = await Promise.race([executeQuery(pool, sql), timeoutPromise]);
+        queryResult = await Promise.race([
+          executeQuery(pool, sql),
+          timeoutPromise,
+        ]);
       } catch (timeoutError) {
         throw timeoutError;
       }
@@ -58,25 +69,28 @@ export async function POST(request: NextRequest) {
       const rowsReturned = queryResult.rows ? queryResult.rows.length : 0;
 
       const cpuDiff = isLocalSQLite ? process.cpuUsage(startCpu!) : null;
-      const memDiff = isLocalSQLite ? process.memoryUsage().heapUsed - startMem! : null;
+      const memDiff = isLocalSQLite
+        ? process.memoryUsage().heapUsed - startMem!
+        : null;
 
-      const { cpuUsage, memoryUsage, rowsScanned, indexesUsed } = await calculateQueryTelemetry(
-        connection,
-        pool,
-        sql,
-        executionTime,
-        rowsReturned,
-        queryResult,
-        cpuDiff,
-        memDiff
-      );
+      const { cpuUsage, memoryUsage, rowsScanned, indexesUsed } =
+        await calculateQueryTelemetry(
+          connection,
+          pool,
+          sql,
+          executionTime,
+          rowsReturned,
+          queryResult,
+          cpuDiff,
+          memDiff,
+        );
 
       const timeline = getLoggedSteps();
 
       // Persist this execution to MongoDB as query history — the single
       // source of truth for the History sidebar and the Analytics tab.
       await addToHistory({
-        prompt: '',
+        prompt: "",
         sql,
         timestamp: Date.now(),
         success: true,
@@ -109,15 +123,16 @@ export async function POST(request: NextRequest) {
         },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to execute query';
-      console.error('[api/execute] execution failed:', errorMessage);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to execute query";
+      console.error("[api/execute] execution failed:", errorMessage);
 
       // Persist failed executions too, so they appear in history.
       if (sql) {
         try {
           const connection = await getConnection();
           await addToHistory({
-            prompt: '',
+            prompt: "",
             sql,
             timestamp: Date.now(),
             success: false,
@@ -137,8 +152,11 @@ export async function POST(request: NextRequest) {
     }
   });
 
-  if ('error' in result) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+  if ("error" in result) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status },
+    );
   }
 
   return NextResponse.json(result.response);

@@ -1,21 +1,21 @@
-import { ChatGroq } from '@langchain/groq';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
-import { getGroqApiKey } from '../../app-state';
-import type { AgentStateType } from '../state';
+import { ChatGroq } from "@langchain/groq";
+import { SystemMessage } from "@langchain/core/messages";
+import { getGroqApiKey } from "../../app-state";
+import type { AgentStateType } from "../state";
 
 const VALID_INTENTS = [
-  'sql_retrieval',
-  'sql_analytics',
-  'sql_modification',
-  'sql_schema',
-  'boolean_check',
-  'table_structure',
-  'greeting',
-  'clarify_needed',
-  'out_of_scope',
+  "sql_retrieval",
+  "sql_analytics",
+  "sql_modification",
+  "sql_schema",
+  "boolean_check",
+  "table_structure",
+  "greeting",
+  "clarify_needed",
+  "out_of_scope",
 ] as const;
 
-type ValidIntent = typeof VALID_INTENTS[number];
+type ValidIntent = (typeof VALID_INTENTS)[number];
 
 const SYSTEM_PROMPT = `You are an intent classifier for a SQL assistant.
 Given the conversation history and the latest user message, classify the intent into exactly one of:
@@ -44,7 +44,7 @@ export async function intentNode(
   const apiKey = await getGroqApiKey();
   const llm = new ChatGroq({
     apiKey,
-    model: 'llama-3.3-70b-versatile',
+    model: "llama-3.3-70b-versatile",
     temperature: 0,
     maxTokens: 40,
     maxRetries: 0,
@@ -54,32 +54,33 @@ export async function intentNode(
   const recentMessages = state.messages.slice(-6);
 
   const response = await llm.invoke(
-    [
-      new SystemMessage(SYSTEM_PROMPT),
-      ...recentMessages,
-    ],
+    [new SystemMessage(SYSTEM_PROMPT), ...recentMessages],
     {
-      response_format: { type: 'json_object' }
-    }
+      response_format: { type: "json_object" },
+    },
   );
 
   // Parse and validate the intent from the raw response
   const rawResponse =
-    typeof response.content === 'string'
-      ? response.content.trim()
-      : '';
+    typeof response.content === "string" ? response.content.trim() : "";
 
-  let intent: AgentStateType['intent'] = 'clarify_needed';
+  let intent: AgentStateType["intent"] = "clarify_needed";
 
   try {
     const data = JSON.parse(rawResponse);
     if (VALID_INTENTS.includes(data.intent)) {
       intent = data.intent as ValidIntent;
     } else {
-      console.warn(`[Intent Classifier] Classified intent "${data.intent}" is not in the list of valid intents. defaulting to clarify_needed.`);
+      console.warn(
+        `[Intent Classifier] Classified intent "${data.intent}" is not in the list of valid intents. defaulting to clarify_needed.`,
+      );
     }
   } catch (e) {
-    console.warn('[Intent Classifier] Failed to parse JSON response from LLM:', rawResponse, e);
+    console.warn(
+      "[Intent Classifier] Failed to parse JSON response from LLM:",
+      rawResponse,
+      e,
+    );
     // Fallback to substring matching if the response format is somehow not valid JSON
     const lowerRaw = rawResponse.toLowerCase();
     const found = VALID_INTENTS.find((i) => lowerRaw.includes(i));
