@@ -44,7 +44,7 @@ export function ConnectionsPage({
     if (openFormOnLoad && connections.length === 0) {
       setShowModal(true);
     }
-  }, []);
+  }, [connections.length, openFormOnLoad]);
 
   const getConnectionPath = (conn: DatabaseConnection) => {
     if (conn.type === "sqlite") return conn.filepath || "";

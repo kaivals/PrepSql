@@ -8,6 +8,7 @@ import {
   addToHistory,
   getConnection,
 } from "@/lib/app-state";
+import type { TimelineStep } from "@/lib/types";
 import { runWithQueryLogger } from "@/lib/query-logger";
 import { classifyQuery } from "@/lib/history-classify";
 import { trackTokenUsage } from "@/lib/token-tracker";
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     const threadId = connection ? `${clientId}-${connection.id}` : clientId;
 
     // Fetch previous steps if we are resuming from an approval/rejection
-    let previousSteps: any[] = [];
+    let previousSteps: TimelineStep[] = [];
     let resumeThreadId = threadId;
     if (action) {
       const pendingData = await getPendingTimeline();
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Agent execution/generation error:", error);
     return NextResponse.json(
       {

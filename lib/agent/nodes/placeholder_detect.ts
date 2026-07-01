@@ -29,7 +29,7 @@ function extractMissingFieldNames(placeholders: string[]): string[] {
 
 function buildClarificationQuestion(
   missingFields: string[],
-  userPrompt: string,
+  _userPrompt: string,
 ): string {
   if (missingFields.length === 1) {
     return `To complete this query safely, I need one more detail: what is the ${missingFields[0]}?`;

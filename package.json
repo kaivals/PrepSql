@@ -7,12 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
     "lint:test": "eslint .",
-    "prettier:fix": "prettier --write .",
+    "lint:fix": "eslint . --fix",
     "prettier:test": "prettier --check .",
-    "format:check": "prettier --check .",
-    "prepare": "husky"
+    "prettier:fix": "prettier --write ."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
@@ -54,7 +52,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.9",
-    "husky": "^9.1.7",
     "postcss": "^8.5",
     "prettier": "^3.9.4",
     "tailwindcss": "^4.2.0",

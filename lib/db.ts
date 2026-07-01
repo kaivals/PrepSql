@@ -1,10 +1,5 @@
 import { getDb } from "./mongodb";
-import type {
-  DatabaseConnection,
-  QueryHistoryItem,
-  QueryMode,
-  TimelineStep,
-} from "./types";
+import type { QueryHistoryItem, QueryMode, TimelineStep } from "./types";
 
 // ── Collection names ──────────────────────────────────────────────────────────
 

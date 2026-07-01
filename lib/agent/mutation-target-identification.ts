@@ -302,6 +302,7 @@ export async function verifyUniqueTarget(
     const connection = await getConnection();
     if (!connection) return null;
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...poolConfig } = connection;
     const pool = await getOrCreatePool(poolConfig);
     const sql = buildCountSql(target, dialect);

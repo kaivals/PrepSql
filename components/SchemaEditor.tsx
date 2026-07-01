@@ -6,7 +6,6 @@ import {
   Plus,
   Trash2,
   Save,
-  Key,
   Table2,
   ShieldAlert,
   AlertTriangle,
@@ -196,10 +195,10 @@ function SchemaEditorRaw({
     setColumns([...columns, newCol]);
   };
 
-  const handleUpdateField = (
+  const handleUpdateField = <K extends keyof EditableColumn>(
     index: number,
-    field: keyof EditableColumn,
-    value: any,
+    field: K,
+    value: EditableColumn[K],
   ) => {
     const updated = [...columns];
     updated[index] = {

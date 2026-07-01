@@ -10,7 +10,7 @@ interface Props {
   isLoading?: boolean;
 }
 
-export function ResultsTable({ result, isLoading = false }: Props) {
+export function ResultsTable({ result, isLoading: _isLoading = false }: Props) {
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 20;
 

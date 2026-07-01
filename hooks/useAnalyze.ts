@@ -1,16 +1,16 @@
 import { useMutation } from "@tanstack/react-query";
 
 export type AnalyzeParams =
-  | { action: "query"; sql: string; timeline?: any[]; history?: any[] }
+  | { action: "query"; sql: string; timeline?: unknown[]; history?: unknown[] }
   | {
       action: "timeline" | "db";
-      timeline?: any[];
-      history?: any[];
+      timeline?: unknown[];
+      history?: unknown[];
       sql?: string;
     };
 
 export function useAnalyze() {
-  return useMutation<any, Error, AnalyzeParams>({
+  return useMutation<unknown, Error, AnalyzeParams>({
     mutationFn: async (params) => {
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -19,7 +19,7 @@ export function useAnalyze() {
       });
 
       if (!res.ok) {
-        let errData: any;
+        let errData: { error?: string } | Record<string, unknown>;
         try {
           const text = await res.text();
           errData = text ? JSON.parse(text) : {};

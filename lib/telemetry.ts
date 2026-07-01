@@ -1,4 +1,3 @@
-import { executeQuery } from "./database";
 import type { DatabaseConnection } from "./types";
 
 // Internal non-logging query execution for telemetry probes

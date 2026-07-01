@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getClientId } from "@/lib/app-state";
 import * as db from "@/lib/db";
 
 /**

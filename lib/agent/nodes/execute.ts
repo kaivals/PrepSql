@@ -112,7 +112,7 @@ Please write a brief explanation of why the query failed without disclosing sens
     );
 
     return String(response.content).trim();
-  } catch (e) {
+  } catch {
     return `We couldn't fulfill this request. The query failed with a database error. Please verify your instructions and database schema.`;
   }
 }
@@ -142,6 +142,7 @@ export async function executeNode(
 
     // 2. Get or create a connection pool from the connection config
     //    getOrCreatePool expects Omit<DatabaseConnection, 'id'>
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _id, ...poolConfig } = connection;
     const pool = await getOrCreatePool(poolConfig);
 

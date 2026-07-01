@@ -7,7 +7,7 @@ export async function GET() {
     const clientId = await getClientId();
     const usage = await getTokenUsage(clientId);
     return NextResponse.json(usage);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to fetch token usage" },
       { status: 500 },
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const usage = await getTokenUsage(clientId);
     return NextResponse.json(usage);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to update token usage" },
       { status: 500 },

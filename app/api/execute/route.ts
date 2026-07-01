@@ -6,7 +6,7 @@ import { classifyQuery } from "@/lib/history-classify";
 import { calculateQueryTelemetry } from "@/lib/telemetry";
 
 export async function POST(request: NextRequest) {
-  const { result, steps } = await runWithQueryLogger(async () => {
+  const { result } = await runWithQueryLogger(async () => {
     let sql = "";
     try {
       const body = await request.json();
@@ -44,7 +44,12 @@ export async function POST(request: NextRequest) {
       const startMem = isLocalSQLite ? process.memoryUsage().heapUsed : null;
 
       const startTime = performance.now();
-      let queryResult: any;
+      let queryResult: {
+        columns: string[];
+        rows: Record<string, unknown>[];
+        rowsAffected?: number;
+        rowCount?: number;
+      };
       try {
         queryResult = await Promise.race([
           executeQuery(pool, sql),

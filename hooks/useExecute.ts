@@ -15,7 +15,7 @@ export function useExecute() {
       });
 
       if (!res.ok) {
-        let errData: any;
+        let errData: Record<string, unknown>;
         try {
           const text = await res.text();
           errData = text ? JSON.parse(text) : {};

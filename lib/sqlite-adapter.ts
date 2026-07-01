@@ -1,5 +1,6 @@
 import { createRequire } from "module";
 import { createClient } from "@libsql/client/web";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const req = createRequire(import.meta.url);
 const { DatabaseSync } = eval("req('node:sqlite')");
 

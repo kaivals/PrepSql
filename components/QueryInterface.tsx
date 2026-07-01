@@ -170,14 +170,12 @@ export function QueryInterface({
 
   // Chat message history for Natural Language mode (persisted via /api/chat)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatLoading, setChatLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load chat messages from the server-side store (MongoDB) on connectionId change
   useEffect(() => {
     if (!connectionId) return;
     let cancelled = false;
-    setChatLoading(true);
     fetch(`/api/chat?connectionId=${encodeURIComponent(connectionId)}`, {
       credentials: "same-origin",
     })
@@ -200,9 +198,6 @@ export function QueryInterface({
       })
       .catch(() => {
         if (!cancelled) setChatMessages([]);
-      })
-      .finally(() => {
-        if (!cancelled) setChatLoading(false);
       });
     return () => {
       cancelled = true;

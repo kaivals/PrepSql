@@ -1,5 +1,5 @@
 import { ChatGroq } from "@langchain/groq";
-import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import { getGroqApiKey } from "../../app-state";
 import type { AgentStateType } from "../state";
 

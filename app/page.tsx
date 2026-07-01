@@ -24,7 +24,7 @@ type NavSection = QueryMode | "history";
 
 // ── Client-side helpers for preferences (backed by /api/preferences) ─────────
 
-async function loadPreferences(): Promise<Record<string, any>> {
+async function loadPreferences(): Promise<Record<string, unknown>> {
   try {
     const res = await fetch("/api/preferences", { credentials: "same-origin" });
     if (res.ok) {
@@ -37,7 +37,7 @@ async function loadPreferences(): Promise<Record<string, any>> {
   return {};
 }
 
-function savePreference(key: string, value: any): void {
+function savePreference(key: string, value: unknown): void {
   try {
     fetch("/api/preferences", {
       method: "PUT",
@@ -351,7 +351,7 @@ export default function Home() {
     await executeQueryInternal(sql, prompt);
   };
 
-  const executeQueryInternal = async (sql: string, prompt?: string) => {
+  const executeQueryInternal = async (sql: string, _prompt?: string) => {
     setLoading(true);
     setResult(null);
 

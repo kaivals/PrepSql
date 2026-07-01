@@ -35,6 +35,7 @@ import {
   flexRender,
   ColumnDef,
   SortingState,
+  Column,
 } from "@tanstack/react-table";
 import {
   ResponsiveContainer,
@@ -78,6 +79,32 @@ interface DBHealthReport {
   recommendations: string[];
 }
 
+interface TimelineQueryAnalysis {
+  sql: string;
+  purpose: string;
+  duration?: number;
+}
+
+interface ChangeExplanation {
+  sql: string;
+  whatChanged: string;
+  whyNeeded: string;
+  expectedImpact: string;
+  performanceImprovement: string;
+  readabilityImprovement: string;
+  maintainabilityImprovement: string;
+}
+
+interface TimelineAnalysisReport {
+  queries?: TimelineQueryAnalysis[];
+  principlesValidation?: {
+    valid: boolean;
+    feedback: string;
+    concerns: string[];
+  };
+  changeExplanations?: ChangeExplanation[];
+}
+
 const DEFAULT_HEALTH_REPORT: DBHealthReport = {
   queryEfficiency: 85,
   indexCoverage: 70,
@@ -97,16 +124,16 @@ function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-function isDBHealthReport(obj: any): obj is DBHealthReport {
+function isDBHealthReport(obj: unknown): obj is DBHealthReport {
+  if (typeof obj !== "object" || obj === null) return false;
+  const report = obj as Record<string, unknown>;
   return (
-    obj !== null &&
-    typeof obj === "object" &&
-    typeof obj.queryEfficiency === "number" &&
-    typeof obj.indexCoverage === "number" &&
-    typeof obj.schemaQuality === "number" &&
-    typeof obj.overallScore === "number" &&
-    Array.isArray(obj.recommendations) &&
-    obj.recommendations.every((r: any) => typeof r === "string")
+    typeof report.queryEfficiency === "number" &&
+    typeof report.indexCoverage === "number" &&
+    typeof report.schemaQuality === "number" &&
+    typeof report.overallScore === "number" &&
+    Array.isArray(report.recommendations) &&
+    report.recommendations.every((r: unknown) => typeof r === "string")
   );
 }
 
@@ -143,7 +170,8 @@ function AnalyticsPageRaw({
   // Timeline & Lifecycle analysis states
   const [selectedRun, setSelectedRun] = useState<QueryHistoryItem | null>(null);
   const [analyzingTimeline, setAnalyzingTimeline] = useState(false);
-  const [timelineAnalysis, setTimelineAnalysis] = useState<any | null>(null);
+  const [timelineAnalysis, setTimelineAnalysis] =
+    useState<TimelineAnalysisReport | null>(null);
 
   // TanStack Table states and configurations
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -154,7 +182,11 @@ function AnalyticsPageRaw({
   });
 
   const createSortableHeader = (label: string) => {
-    return ({ column }: { column: any }) => (
+    const SortableHeader = ({
+      column,
+    }: {
+      column: Column<QueryHistoryItem, unknown>;
+    }) => (
       <button
         type="button"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
@@ -170,6 +202,8 @@ function AnalyticsPageRaw({
         )}
       </button>
     );
+    SortableHeader.displayName = `SortableHeader(${label})`;
+    return SortableHeader;
   };
 
   const columns = useMemo<ColumnDef<QueryHistoryItem>[]>(
@@ -433,44 +467,47 @@ function AnalyticsPageRaw({
   };
 
   // Load latest connection-specific health score/report from DB
-  const loadLatestHealthReport = async (connId: string) => {
-    // Reset to defaults so previous connection's data is not visible
-    setHealthReport(DEFAULT_HEALTH_REPORT);
+  const loadLatestHealthReport = useCallback(
+    async (connId: string) => {
+      // Reset to defaults so previous connection's data is not visible
+      setHealthReport(DEFAULT_HEALTH_REPORT);
 
-    try {
-      const res = await fetch(
-        `/api/analysis?connectionId=${encodeURIComponent(connId)}&action=db&limit=1`,
-        { credentials: "same-origin" },
-      );
-      if (!res.ok) {
-        throw new Error("Failed to load connection-specific health report");
-      }
-      const data = await res.json();
+      try {
+        const res = await fetch(
+          `/api/analysis?connectionId=${encodeURIComponent(connId)}&action=db&limit=1`,
+          { credentials: "same-origin" },
+        );
+        if (!res.ok) {
+          throw new Error("Failed to load connection-specific health report");
+        }
+        const data = await res.json();
 
-      // Prevent stale response from overwriting active connection view
-      if (connection.id !== connId) {
-        return;
-      }
+        // Prevent stale response from overwriting active connection view
+        if (connection.id !== connId) {
+          return;
+        }
 
-      const analyses = data.analyses || [];
-      const dbReport = analyses[0];
-      if (dbReport && dbReport.result && isDBHealthReport(dbReport.result)) {
-        setHealthReport(dbReport.result);
-      } else {
-        setHealthReport(DEFAULT_HEALTH_REPORT);
+        const analyses = data.analyses || [];
+        const dbReport = analyses[0];
+        if (dbReport && dbReport.result && isDBHealthReport(dbReport.result)) {
+          setHealthReport(dbReport.result);
+        } else {
+          setHealthReport(DEFAULT_HEALTH_REPORT);
+        }
+      } catch (err) {
+        console.error("Failed to load health report:", err);
+        if (connection.id === connId) {
+          setHealthReport(DEFAULT_HEALTH_REPORT);
+        }
       }
-    } catch (err) {
-      console.error("Failed to load health report:", err);
-      if (connection.id === connId) {
-        setHealthReport(DEFAULT_HEALTH_REPORT);
-      }
-    }
-  };
+    },
+    [connection.id],
+  );
 
   // Load history from MongoDB via API. This is the single source of truth for
   // execution metrics (execution_time, rows_scanned, cpu_usage, etc.) and
   // survives page reloads because it is persisted server-side.
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
     setHistoryError(null);
     try {
@@ -492,14 +529,14 @@ function AnalyticsPageRaw({
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [connection.id]);
 
   useEffect(() => {
     loadHistory();
     loadLatestHealthReport(connection.id);
     setSelectedRun(null);
     setTimelineAnalysis(null);
-  }, [connection.id]);
+  }, [connection.id, loadHistory, loadLatestHealthReport]);
 
   // Aggregate metrics for the summary cards. Computed from the real,
   // complete data fetched from the server-side query_history collection.
@@ -1355,7 +1392,7 @@ function AnalyticsPageRaw({
                           }}
                           className={cn(
                             "cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/50",
-                            (selectedRun as any)?.id === row.original.id &&
+                            selectedRun?.id === row.original.id &&
                               "bg-primary/5 font-medium",
                           )}
                         >
@@ -1700,8 +1737,9 @@ function AnalyticsPageRaw({
                       Query Lifecycle Analysis Pending
                     </p>
                     <p className="mt-1.5 max-w-sm text-xs text-slate-400">
-                      Click "AI Lifecycle Analysis" to analyze every query step
-                      and evaluate optimization rewrites.
+                      {
+                        'Click "AI Lifecycle Analysis" to analyze every query step and evaluate optimization rewrites.'
+                      }
                     </p>
                   </div>
                 ) : (
@@ -1713,7 +1751,7 @@ function AnalyticsPageRaw({
                       </span>
                       <div className="space-y-4">
                         {timelineAnalysis.queries?.map(
-                          (q: any, idx: number) => (
+                          (q: TimelineQueryAnalysis, idx: number) => (
                             <div
                               key={idx}
                               className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/30 p-4"
@@ -1854,7 +1892,7 @@ function AnalyticsPageRaw({
                         </span>
                         <div className="space-y-4">
                           {timelineAnalysis.changeExplanations.map(
-                            (exp: any, idx: number) => (
+                            (exp: ChangeExplanation, idx: number) => (
                               <div
                                 key={idx}
                                 className="space-y-4 rounded-xl border border-amber-200/80 bg-amber-50/20 p-4"

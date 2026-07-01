@@ -40,6 +40,7 @@ export async function getClientId(): Promise<string> {
 export function stripPassword(
   connection: DatabaseConnection,
 ): DatabaseConnection {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password: _, ...rest } = connection;
   return rest;
 }
