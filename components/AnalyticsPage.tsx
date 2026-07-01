@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo,useCallback } from "react";
 import { withWorkspacePadding } from "@/components/withWorkspacePadding";
 import {
   TrendingUp,
