@@ -399,7 +399,6 @@ export default function Home() {
           onOpenSettings={() => setShowSettings(true)}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           connectionId={activeConnection?.id}
-          refreshTrigger={historyRefresh}
           connections={connections}
           activeConnection={activeConnection}
           onSelectConnection={handleSelectConnection}

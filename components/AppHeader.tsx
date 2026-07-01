@@ -12,7 +12,6 @@ interface AppHeaderProps {
   onOpenSettings?: () => void;
   onToggleSidebar?: () => void;
   connectionId?: string;
-  refreshTrigger?: number;
   connections?: DatabaseConnection[];
   activeConnection?: DatabaseConnection | null;
   onSelectConnection?: (connection: DatabaseConnection) => void;
@@ -48,7 +47,6 @@ export function AppHeader({
   onConnected,
   onViewAllConnections,
   loading = false,
-  refreshTrigger,
 }: AppHeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [connDropdownOpen, setConnDropdownOpen] = useState(false);

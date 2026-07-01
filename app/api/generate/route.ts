@@ -45,13 +45,15 @@ export async function POST(request: NextRequest) {
     const allSteps = [...previousSteps, ...steps];
 
     if (response) {
-      // Track token usage server-side if usage data is present
+      // Track token usage server-side if usage data is present (best-effort)
       if (response.usage?.promptTokens || response.usage?.completionTokens) {
         trackTokenUsage(
           clientId,
           response.usage.promptTokens ?? 0,
           response.usage.completionTokens ?? 0,
-        );
+        ).catch(() => {
+          // Non-critical — token tracking should never break normal flow
+        });
       }
 
       if (response.type === 'pending_approval') {
