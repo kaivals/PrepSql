@@ -1,0 +1,5 @@
+- playwright mcp : ai can directly use this tool to check ui functionaltiies and validations.
+- selenium
+- awsome kali mcp servers
+- mcp accessibiliy scanner
+- mcp frontend testing
