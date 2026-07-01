@@ -1,8 +1,8 @@
-import type { BaseMessage } from '@langchain/core/messages';
-import type { SchemaTable } from '../types';
-import { getOrCreatePool, executeQuery } from '../database';
-import { getConnection } from '../app-state';
-import { quotePgTable, quotePgColumn } from '../pg-identifiers';
+import type { BaseMessage } from "@langchain/core/messages";
+import type { SchemaTable } from "../types";
+import { getOrCreatePool, executeQuery } from "../database";
+import { getConnection } from "../app-state";
+import { quotePgTable, quotePgColumn } from "../pg-identifiers";
 
 export interface TargetIdentifiers {
   table: string;
@@ -10,11 +10,11 @@ export interface TargetIdentifiers {
 }
 
 function quoteTable(table: string, dialect: string): string {
-  return dialect === 'postgresql' ? quotePgTable(table) : table;
+  return dialect === "postgresql" ? quotePgTable(table) : table;
 }
 
 function quoteColumn(column: string, dialect: string): string {
-  return dialect === 'postgresql' ? quotePgColumn(column) : column;
+  return dialect === "postgresql" ? quotePgColumn(column) : column;
 }
 
 function escapeSqlString(value: string): string {
@@ -22,22 +22,28 @@ function escapeSqlString(value: string): string {
 }
 
 function formatSqlValue(value: string | number): string {
-  if (typeof value === 'number') return String(value);
+  if (typeof value === "number") return String(value);
   return `'${escapeSqlString(value)}'`;
 }
 
 function getMessageType(msg: BaseMessage): string {
-  if (typeof msg._getType === 'function') return msg._getType();
-  return (msg as { type?: string }).type || '';
+  if (typeof msg._getType === "function") return msg._getType();
+  return (msg as { type?: string }).type || "";
 }
 
 function getMessageContent(msg: BaseMessage): string {
   const content = msg.content;
-  if (typeof content === 'string') return content;
+  if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
-      .map((part) => (typeof part === 'string' ? part : 'text' in part ? String(part.text) : ''))
-      .join('\n');
+      .map((part) =>
+        typeof part === "string"
+          ? part
+          : "text" in part
+            ? String(part.text)
+            : "",
+      )
+      .join("\n");
   }
   return String(content);
 }
@@ -50,15 +56,18 @@ export function buildConversationContext(
   const history = messages
     .slice(-maxMessages)
     .map((msg) => {
-      const role = getMessageType(msg) === 'human' ? 'user' : 'assistant';
+      const role = getMessageType(msg) === "human" ? "user" : "assistant";
       return `${role}: ${getMessageContent(msg)}`;
     })
-    .join('\n');
+    .join("\n");
 
   return `${history}\nuser: ${userPrompt}`.trim();
 }
 
-export function inferTargetTable(context: string, schemaInfo: SchemaTable[] | null): string | null {
+export function inferTargetTable(
+  context: string,
+  schemaInfo: SchemaTable[] | null,
+): string | null {
   if (!schemaInfo?.length) return null;
 
   const lowerContext = context.toLowerCase();
@@ -69,13 +78,15 @@ export function inferTargetTable(context: string, schemaInfo: SchemaTable[] | nu
   if (mentioned.length > 1) return mentioned[0].name;
 
   if (/\bemployee(s)?\b/i.test(context)) {
-    const employees = schemaInfo.find((table) => table.name.toLowerCase() === 'employees');
+    const employees = schemaInfo.find(
+      (table) => table.name.toLowerCase() === "employees",
+    );
     if (employees) return employees.name;
   }
 
   const nameTables = schemaInfo.filter((table) => {
     const columns = table.columns.map((col) => col.name.toLowerCase());
-    return columns.includes('first_name') && columns.includes('last_name');
+    return columns.includes("first_name") && columns.includes("last_name");
   });
   if (nameTables.length === 1) return nameTables[0].name;
 
@@ -102,34 +113,66 @@ function extractId(context: string): number | null {
 
 function isLikelyPersonName(value: string): boolean {
   const stopWords = new Set([
-    'all', 'any', 'each', 'every', 'name', 'names', 'employee', 'employees',
-    'user', 'users', 'row', 'rows', 'record', 'records', 'this', 'that', 'the',
-    'with', 'without', 'from', 'into', 'to', 'for', 'and', 'or', 'now', 'do',
+    "all",
+    "any",
+    "each",
+    "every",
+    "name",
+    "names",
+    "employee",
+    "employees",
+    "user",
+    "users",
+    "row",
+    "rows",
+    "record",
+    "records",
+    "this",
+    "that",
+    "the",
+    "with",
+    "without",
+    "from",
+    "into",
+    "to",
+    "for",
+    "and",
+    "or",
+    "now",
+    "do",
   ]);
   return /^[A-Z][a-z]+$/.test(value) && !stopWords.has(value.toLowerCase());
 }
 
-function extractFirstAndLastName(context: string): { firstName: string; lastName: string } | null {
+function extractFirstAndLastName(
+  context: string,
+): { firstName: string; lastName: string } | null {
   let collectedFirst: string | null = null;
   let collectedLast: string | null = null;
 
   const firstMentions = [
-    ...context.matchAll(/first[_\s-]*name\s*(?:is|=|:)?\s*['"]?([A-Za-z]+)['"]?/gi),
+    ...context.matchAll(
+      /first[_\s-]*name\s*(?:is|=|:)?\s*['"]?([A-Za-z]+)['"]?/gi,
+    ),
     ...context.matchAll(/\bfirst\s+name\s+is\s+['"]?([A-Za-z]+)['"]?/gi),
   ];
   const lastMentions = [
-    ...context.matchAll(/last[_\s-]*name\s*(?:is|=|:)?\s*['"]?([A-Za-z]+)['"]?/gi),
+    ...context.matchAll(
+      /last[_\s-]*name\s*(?:is|=|:)?\s*['"]?([A-Za-z]+)['"]?/gi,
+    ),
     ...context.matchAll(/\blast\s+name\s+is\s+['"]?([A-Za-z]+)['"]?/gi),
   ];
 
   for (const match of firstMentions) {
     if (match[1].length > 1) {
-      collectedFirst = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+      collectedFirst =
+        match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
     }
   }
   for (const match of lastMentions) {
     if (match[1].length > 1) {
-      collectedLast = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+      collectedLast =
+        match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
     }
   }
   if (collectedFirst && collectedLast) {
@@ -145,12 +188,14 @@ function extractFirstAndLastName(context: string): { firstName: string; lastName
   for (const pattern of explicitPatterns) {
     const match = context.match(pattern);
     if (!match) continue;
-    const firstName = pattern.source.startsWith('last') ? match[2] : match[1];
-    const lastName = pattern.source.startsWith('last') ? match[1] : match[2];
+    const firstName = pattern.source.startsWith("last") ? match[2] : match[1];
+    const lastName = pattern.source.startsWith("last") ? match[1] : match[2];
     if (firstName.length > 1 && lastName.length > 1) {
       return {
-        firstName: firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase(),
-        lastName: lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase(),
+        firstName:
+          firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase(),
+        lastName:
+          lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase(),
       };
     }
   }
@@ -173,7 +218,12 @@ function extractFirstAndLastName(context: string): { firstName: string; lastName
     /\b([A-Z][a-z]+)\t([A-Z][a-z]+)\b.*@|\bfirst_name\b[^\n]*\b([A-Za-z]+)\b[^\n]*\blast_name\b[^\n]*\b([A-Za-z]+)\b/i,
   );
   if (rowMatch) {
-    if (rowMatch[3] && rowMatch[4] && isLikelyPersonName(rowMatch[3]) && isLikelyPersonName(rowMatch[4])) {
+    if (
+      rowMatch[3] &&
+      rowMatch[4] &&
+      isLikelyPersonName(rowMatch[3]) &&
+      isLikelyPersonName(rowMatch[4])
+    ) {
       return { firstName: rowMatch[3], lastName: rowMatch[4] };
     }
     if (isLikelyPersonName(rowMatch[1]) && isLikelyPersonName(rowMatch[2])) {
@@ -181,11 +231,13 @@ function extractFirstAndLastName(context: string): { firstName: string; lastName
     }
   }
 
-  const resultRowMatch = context.match(/\b\d+\s+([A-Z][a-z]+)\s+([A-Z][a-z]+)\b/);
+  const resultRowMatch = context.match(
+    /\b\d+\s+([A-Z][a-z]+)\s+([A-Z][a-z]+)\b/,
+  );
   if (
-    resultRowMatch
-    && isLikelyPersonName(resultRowMatch[1])
-    && isLikelyPersonName(resultRowMatch[2])
+    resultRowMatch &&
+    isLikelyPersonName(resultRowMatch[1]) &&
+    isLikelyPersonName(resultRowMatch[2])
   ) {
     return { firstName: resultRowMatch[1], lastName: resultRowMatch[2] };
   }
@@ -203,23 +255,25 @@ export function extractTargetIdentifiers(
   const tableSchema = schemaInfo?.find((entry) => entry.name === table);
   if (!tableSchema) return null;
 
-  const columnNames = new Set(tableSchema.columns.map((col) => col.name.toLowerCase()));
+  const columnNames = new Set(
+    tableSchema.columns.map((col) => col.name.toLowerCase()),
+  );
   const conditions: Record<string, string | number> = {};
 
   const id = extractId(context);
-  if (id !== null && columnNames.has('id')) {
+  if (id !== null && columnNames.has("id")) {
     conditions.id = id;
     return { table, conditions };
   }
 
   const email = extractEmail(context);
-  if (email && columnNames.has('email')) {
+  if (email && columnNames.has("email")) {
     conditions.email = email;
     return { table, conditions };
   }
 
   const names = extractFirstAndLastName(context);
-  if (names && columnNames.has('first_name') && columnNames.has('last_name')) {
+  if (names && columnNames.has("first_name") && columnNames.has("last_name")) {
     conditions.first_name = names.firstName;
     conditions.last_name = names.lastName;
     return { table, conditions };
@@ -228,17 +282,14 @@ export function extractTargetIdentifiers(
   return Object.keys(conditions).length > 0 ? { table, conditions } : null;
 }
 
-function buildCountSql(
-  target: TargetIdentifiers,
-  dialect: string,
-): string {
+function buildCountSql(target: TargetIdentifiers, dialect: string): string {
   const tableRef = quoteTable(target.table, dialect);
   const whereClause = Object.entries(target.conditions)
     .map(([column, value]) => {
       const columnRef = quoteColumn(column, dialect);
       return `${columnRef} = ${formatSqlValue(value)}`;
     })
-    .join(' AND ');
+    .join(" AND ");
 
   return `SELECT COUNT(*) AS count FROM ${tableRef} WHERE ${whereClause}`;
 }
@@ -259,7 +310,10 @@ export async function verifyUniqueTarget(
     if (Number.isNaN(count) || count < 0) return null;
     return { unique: count === 1, count };
   } catch (error) {
-    console.error('[Mutation Target Identification] Count query failed:', error);
+    console.error(
+      "[Mutation Target Identification] Count query failed:",
+      error,
+    );
     return null;
   }
 }
@@ -269,18 +323,26 @@ export function identifiersFromExecutionResult(
   schemaInfo: SchemaTable[] | null,
   tableHint?: string | null,
 ): TargetIdentifiers | null {
-  if (!executionResult || executionResult.rowCount !== 1 || !executionResult.rows[0]) {
+  if (
+    !executionResult ||
+    executionResult.rowCount !== 1 ||
+    !executionResult.rows[0]
+  ) {
     return null;
   }
 
   const row = executionResult.rows[0];
   const table =
-    tableHint
-    ?? schemaInfo?.find((entry) => {
-      const columnNames = new Set(entry.columns.map((col) => col.name.toLowerCase()));
-      return Object.keys(row).every((key) => columnNames.has(key.toLowerCase()));
-    })?.name
-    ?? null;
+    tableHint ??
+    schemaInfo?.find((entry) => {
+      const columnNames = new Set(
+        entry.columns.map((col) => col.name.toLowerCase()),
+      );
+      return Object.keys(row).every((key) =>
+        columnNames.has(key.toLowerCase()),
+      );
+    })?.name ??
+    null;
 
   if (!table) return null;
 
@@ -289,11 +351,11 @@ export function identifiersFromExecutionResult(
     conditions.id = Number(row.id);
     return { table, conditions };
   }
-  if (typeof row.email === 'string') {
+  if (typeof row.email === "string") {
     conditions.email = row.email;
     return { table, conditions };
   }
-  if (typeof row.first_name === 'string' && typeof row.last_name === 'string') {
+  if (typeof row.first_name === "string" && typeof row.last_name === "string") {
     conditions.first_name = row.first_name;
     conditions.last_name = row.last_name;
     return { table, conditions };

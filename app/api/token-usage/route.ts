@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getClientId } from '@/lib/app-state';
-import { getTokenUsage, trackTokenUsage } from '@/lib/token-tracker';
+import { NextRequest, NextResponse } from "next/server";
+import { getClientId } from "@/lib/app-state";
+import { getTokenUsage, trackTokenUsage } from "@/lib/token-tracker";
 
 export async function GET() {
   try {
@@ -8,7 +8,10 @@ export async function GET() {
     const usage = await getTokenUsage(clientId);
     return NextResponse.json(usage);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch token usage' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch token usage" },
+      { status: 500 },
+    );
   }
 }
 
@@ -30,8 +33,11 @@ export async function POST(request: NextRequest) {
       !Number.isInteger(completionTokens)
     ) {
       return NextResponse.json(
-        { error: 'promptTokens and completionTokens must be non-negative integers' },
-        { status: 400 }
+        {
+          error:
+            "promptTokens and completionTokens must be non-negative integers",
+        },
+        { status: 400 },
       );
     }
 
@@ -41,6 +47,9 @@ export async function POST(request: NextRequest) {
     const usage = await getTokenUsage(clientId);
     return NextResponse.json(usage);
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to update token usage' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update token usage" },
+      { status: 500 },
+    );
   }
 }

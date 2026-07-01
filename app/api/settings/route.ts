@@ -1,9 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  clearAiApiKey,
-  getAiKeyInfo,
-  setAiApiKey,
-} from '@/lib/app-state';
+import { NextRequest, NextResponse } from "next/server";
+import { clearAiApiKey, getAiKeyInfo, setAiApiKey } from "@/lib/app-state";
 
 export async function GET() {
   const info = await getAiKeyInfo();
@@ -20,15 +16,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { apiKey } = body;
 
-    if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
-      return NextResponse.json({ error: 'API key is required' }, { status: 400 });
+    if (!apiKey || typeof apiKey !== "string" || !apiKey.trim()) {
+      return NextResponse.json(
+        { error: "API key is required" },
+        { status: 400 },
+      );
     }
 
     const trimmed = apiKey.trim();
-    if (!trimmed.startsWith('gsk_') && !trimmed.startsWith('sk-ant-')) {
+    if (!trimmed.startsWith("gsk_") && !trimmed.startsWith("sk-ant-")) {
       return NextResponse.json(
-        { error: 'Invalid API key format. Use a Groq key (gsk_...) or Anthropic key (sk-ant-...).' },
-        { status: 400 }
+        {
+          error:
+            "Invalid API key format. Use a Groq key (gsk_...) or Anthropic key (sk-ant-...).",
+        },
+        { status: 400 },
       );
     }
 
@@ -44,8 +46,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to save API key' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to save API key",
+      },
+      { status: 500 },
     );
   }
 }
@@ -63,8 +68,11 @@ export async function DELETE() {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to remove API key' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to remove API key",
+      },
+      { status: 500 },
     );
   }
 }

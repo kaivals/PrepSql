@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { POSTGRES_DEFAULTS } from '@/lib/connection-defaults';
-import type { DatabaseConnection } from '@/lib/types';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { POSTGRES_DEFAULTS } from "@/lib/connection-defaults";
+import type { DatabaseConnection } from "@/lib/types";
 
 interface Props {
   onConnected: (connection: DatabaseConnection) => void;
@@ -14,30 +14,37 @@ interface Props {
   prefillSaved?: boolean;
 }
 
-export function ConnectionForm({ onConnected, isLoading = false, autoConnect = false, prefillSaved = false }: Props) {
-  const [dbType, setDbType] = useState<'sqlite' | 'postgresql' | 'mysql' | 'mariadb'>('postgresql');
+export function ConnectionForm({
+  onConnected,
+  isLoading = false,
+  autoConnect = false,
+  prefillSaved = false,
+}: Props) {
+  const [dbType, setDbType] = useState<
+    "sqlite" | "postgresql" | "mysql" | "mariadb"
+  >("postgresql");
   const [name, setName] = useState(POSTGRES_DEFAULTS.name);
   const [host, setHost] = useState(POSTGRES_DEFAULTS.host);
   const [port, setPort] = useState(String(POSTGRES_DEFAULTS.port));
   const [user, setUser] = useState(POSTGRES_DEFAULTS.user);
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState("");
   const [database, setDatabase] = useState(POSTGRES_DEFAULTS.database);
-  const [filepath, setFilepath] = useState('');
-  const [error, setError] = useState('');
+  const [filepath, setFilepath] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
-  const isRemoteSqlite = dbType === 'sqlite' && (
-    filepath.startsWith('libsql://') || 
-    filepath.startsWith('https://') || 
-    filepath.startsWith('http://')
-  );
+  const isRemoteSqlite =
+    dbType === "sqlite" &&
+    (filepath.startsWith("libsql://") ||
+      filepath.startsWith("https://") ||
+      filepath.startsWith("http://"));
 
   const portDefaults = {
     postgresql: String(POSTGRES_DEFAULTS.port),
-    mysql: '3306',
-    mariadb: '3306',
-    sqlite: '',
+    mysql: "3306",
+    mariadb: "3306",
+    sqlite: "",
   };
 
   useEffect(() => {
@@ -45,9 +52,9 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
     // Keep the POSTGRES_DEFAULTS for host/port/user as hints, but clear name,
     // password, and database. Credentials are persisted server-side via
     // /api/connection (which calls db.saveSavedConnection in MongoDB).
-    setName('');
-    setPassword('');
-    setDatabase('');
+    setName("");
+    setPassword("");
+    setDatabase("");
     setReady(true);
   }, [prefillSaved]);
 
@@ -62,23 +69,23 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
   const handleDbTypeChange = (type: typeof dbType) => {
     setDbType(type);
     setPort(portDefaults[type]);
-    setError('');
-    if (type === 'postgresql') {
+    setError("");
+    if (type === "postgresql") {
       applyPostgresDefaults();
     }
   };
 
   const connect = async () => {
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const payload: Omit<DatabaseConnection, 'id'> = {
+      const payload: Omit<DatabaseConnection, "id"> = {
         type: dbType,
         name: name || dbType,
       };
 
-      if (dbType === 'sqlite') {
+      if (dbType === "sqlite") {
         payload.filepath = filepath;
         if (isRemoteSqlite) {
           payload.password = password;
@@ -91,16 +98,16 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
         payload.database = database;
       }
 
-      const res = await fetch('/api/connection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        credentials: 'same-origin',
+        credentials: "same-origin",
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to connect');
+        throw new Error(data.error || "Failed to connect");
       }
 
       const data = await res.json();
@@ -108,7 +115,7 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
       // (app-state.addConnection -> db.saveSavedConnection in MongoDB).
       onConnected(data.connection);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connection failed');
+      setError(err instanceof Error ? err.message : "Connection failed");
     } finally {
       setLoading(false);
     }
@@ -132,25 +139,29 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
       <div className="space-y-2">
         <label className="text-sm font-medium">Database Type</label>
         <div className="grid grid-cols-2 gap-2">
-          {(['sqlite', 'postgresql', 'mysql', 'mariadb'] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => handleDbTypeChange(type)}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                dbType === type
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-muted'
-              }`}
-            >
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </button>
-          ))}
+          {(["sqlite", "postgresql", "mysql", "mariadb"] as const).map(
+            (type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleDbTypeChange(type)}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  dbType === type
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-muted"
+                }`}
+              >
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Connection Name</label>
+        <label className="mb-1 block text-sm font-medium">
+          Connection Name
+        </label>
         <input
           type="text"
           value={name}
@@ -160,10 +171,12 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
         />
       </div>
 
-      {dbType === 'sqlite' ? (
+      {dbType === "sqlite" ? (
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">File Path / URL</label>
+            <label className="mb-1 block text-sm font-medium">
+              File Path / URL
+            </label>
             <input
               type="text"
               value={filepath}
@@ -174,7 +187,9 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
           </div>
           {isRemoteSqlite && (
             <div>
-              <label className="mb-1 block text-sm font-medium">Turso Auth Token (Optional)</label>
+              <label className="mb-1 block text-sm font-medium">
+                Turso Auth Token (Optional)
+              </label>
               <input
                 type="password"
                 value={password}
@@ -249,11 +264,13 @@ export function ConnectionForm({ onConnected, isLoading = false, autoConnect = f
       )}
 
       {error && (
-        <div className="rounded bg-destructive/10 p-2 text-sm text-destructive">{error}</div>
+        <div className="rounded bg-destructive/10 p-2 text-sm text-destructive">
+          {error}
+        </div>
       )}
 
       <Button type="submit" disabled={loading || isLoading} className="w-full">
-        {loading ? 'Connecting...' : 'Connect Database'}
+        {loading ? "Connecting..." : "Connect Database"}
       </Button>
     </form>
   );

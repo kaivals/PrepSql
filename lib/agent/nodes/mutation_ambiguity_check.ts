@@ -1,23 +1,27 @@
-import { ChatGroq } from '@langchain/groq';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
-import { getGroqApiKey } from '../../app-state';
-import type { AgentStateType } from '../state';
+import { ChatGroq } from "@langchain/groq";
+import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { getGroqApiKey } from "../../app-state";
+import type { AgentStateType } from "../state";
 import {
   buildConversationContext,
   extractTargetIdentifiers,
   identifiersFromExecutionResult,
   inferTargetTable,
   verifyUniqueTarget,
-} from '../mutation-target-identification';
+} from "../mutation-target-identification";
 
 function isMutationIntent(intent: string): boolean {
-  return intent === 'sql_modification' || intent === 'sql_schema';
+  return intent === "sql_modification" || intent === "sql_schema";
 }
 
 function isIntentionalBulkMutation(context: string): boolean {
-  return /\b(all|every)\s+(employees?|users?|rows?|records?|entries)\b/i.test(context)
-    || /\bupdate\s+all\b/i.test(context)
-    || /\bdelete\s+all\b/i.test(context);
+  return (
+    /\b(all|every)\s+(employees?|users?|rows?|records?|entries)\b/i.test(
+      context,
+    ) ||
+    /\bupdate\s+all\b/i.test(context) ||
+    /\bdelete\s+all\b/i.test(context)
+  );
 }
 
 async function hasSufficientTargetIdentification(
@@ -48,7 +52,7 @@ async function hasSufficientTargetIdentification(
 }
 
 export async function mutationAmbiguityCheckNode(
-  state: AgentStateType
+  state: AgentStateType,
 ): Promise<Partial<AgentStateType>> {
   if (!isMutationIntent(state.intent)) return {};
 
@@ -63,13 +67,16 @@ export async function mutationAmbiguityCheckNode(
   const apiKey = await getGroqApiKey();
   const llm = new ChatGroq({
     apiKey,
-    model: 'llama-3.3-70b-versatile',
+    model: "llama-3.3-70b-versatile",
     temperature: 0,
     maxTokens: 200,
     maxRetries: 0,
   });
 
-  const conversationContext = buildConversationContext(state.userPrompt, state.messages);
+  const conversationContext = buildConversationContext(
+    state.userPrompt,
+    state.messages,
+  );
 
   const systemPrompt = `
 You are checking if a database mutation request has enough 
@@ -101,7 +108,7 @@ Rules:
 
   const userMessage = `
 Database schema summary:
-${state.schemaFormatted || 'No schema available.'}
+${state.schemaFormatted || "No schema available."}
 
 Full conversation:
 ${conversationContext}
@@ -112,34 +119,37 @@ Is there enough information to safely identify the target row(s)?
 `.trim();
 
   try {
-    const response = await llm.invoke([
-      new SystemMessage(systemPrompt),
-      new HumanMessage(userMessage),
-    ], {
-      response_format: { type: 'json_object' },
-    });
+    const response = await llm.invoke(
+      [new SystemMessage(systemPrompt), new HumanMessage(userMessage)],
+      {
+        response_format: { type: "json_object" },
+      },
+    );
 
-    const raw = typeof response.content === 'string' ? response.content.trim() : '';
-    const result = JSON.parse(raw || '{}');
+    const raw =
+      typeof response.content === "string" ? response.content.trim() : "";
+    const result = JSON.parse(raw || "{}");
 
     if (result.sufficient === false) {
-      const question = result.question || 'Could you provide more specific criteria to target the rows for mutation?';
+      const question =
+        result.question ||
+        "Could you provide more specific criteria to target the rows for mutation?";
       return {
-        generatedSQL: '',
+        generatedSQL: "",
         pendingClarification: {
-          reason: 'mutation_ambiguity',
+          reason: "mutation_ambiguity",
           missingFields: result.missing ?? [],
-          partialSQL: '',
+          partialSQL: "",
           question: question,
         },
         finalResponse: {
-          type: 'clarification',
+          type: "clarification",
           message: question,
         },
       };
     }
   } catch (error) {
-    console.error('[Mutation Ambiguity Check] Error:', error);
+    console.error("[Mutation Ambiguity Check] Error:", error);
   }
 
   return {};

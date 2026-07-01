@@ -1,12 +1,12 @@
-import { Command } from '@langchain/langgraph';
-import { HumanMessage } from '@langchain/core/messages';
-import { graph } from './graph';
-import { getConnection } from '../app-state';
+import { Command } from "@langchain/langgraph";
+import { HumanMessage } from "@langchain/core/messages";
+import { graph } from "./graph";
+import { getConnection } from "../app-state";
 
 export interface RunAgentInput {
   prompt: string;
   threadId: string;
-  action?: 'approve' | 'reject';
+  action?: "approve" | "reject";
 }
 
 export async function runAgent(input: RunAgentInput) {
@@ -22,12 +22,12 @@ export async function runAgent(input: RunAgentInput) {
   if (action) {
     const finalState = (await graph.invoke(
       new Command({ resume: action }),
-      config
+      config,
     )) as any;
 
     if (finalState?.__interrupt__ && finalState.__interrupt__.length > 0) {
       return {
-        type: 'pending_approval',
+        type: "pending_approval",
         pendingApproval: true,
         sql: finalState.generatedSQL,
         explanation: finalState.explanation,
@@ -47,7 +47,9 @@ export async function runAgent(input: RunAgentInput) {
   // Otherwise, start a new execution
   const connection = await getConnection();
   if (!connection) {
-    throw new Error('No active database connection. Please connect to a database first.');
+    throw new Error(
+      "No active database connection. Please connect to a database first.",
+    );
   }
 
   const initialState = {
@@ -63,7 +65,7 @@ export async function runAgent(input: RunAgentInput) {
 
   if (finalState?.__interrupt__ && finalState.__interrupt__.length > 0) {
     return {
-      type: 'pending_approval',
+      type: "pending_approval",
       pendingApproval: true,
       sql: finalState.generatedSQL,
       explanation: finalState.explanation,

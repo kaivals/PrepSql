@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { withWorkspacePadding } from '@/components/withWorkspacePadding';
+import { useState, useEffect, useMemo } from "react";
+import { withWorkspacePadding } from "@/components/withWorkspacePadding";
 import {
   TrendingUp,
   Activity,
@@ -25,7 +25,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -35,7 +35,7 @@ import {
   flexRender,
   ColumnDef,
   SortingState,
-} from '@tanstack/react-table';
+} from "@tanstack/react-table";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -47,20 +47,20 @@ import {
   PieChart,
   Pie,
   Cell,
-} from 'recharts';
-import type { DatabaseConnection, QueryHistoryItem } from '@/lib/types';
-import { cn } from '@/lib/utils';
+} from "recharts";
+import type { DatabaseConnection, QueryHistoryItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface AnalyticsPageProps {
   connection: DatabaseConnection;
   showConfirmation: (message: string, onConfirm: () => void) => void;
-  showNotification: (message: string, type: 'success' | 'error') => void;
+  showNotification: (message: string, type: "success" | "error") => void;
   onRefreshSchema: () => void;
 }
 
 interface AIAnalysisResult {
   rootCause: string;
-  impact: 'High' | 'Medium' | 'Low';
+  impact: "High" | "Medium" | "Low";
   optimizedQuery: string;
   isDdl: boolean;
   explanation: string;
@@ -84,14 +84,14 @@ const DEFAULT_HEALTH_REPORT: DBHealthReport = {
   schemaQuality: 90,
   overallScore: 81,
   recommendations: [
-    'Add indexes to frequently searched columns.',
-    'Always limit results of analytical queries.',
+    "Add indexes to frequently searched columns.",
+    "Always limit results of analytical queries.",
   ],
 };
 
 function formatTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
-  if (diff < 60000) return 'just now';
+  if (diff < 60000) return "just now";
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   return new Date(timestamp).toLocaleDateString();
@@ -100,13 +100,13 @@ function formatTime(timestamp: number): string {
 function isDBHealthReport(obj: any): obj is DBHealthReport {
   return (
     obj !== null &&
-    typeof obj === 'object' &&
-    typeof obj.queryEfficiency === 'number' &&
-    typeof obj.indexCoverage === 'number' &&
-    typeof obj.schemaQuality === 'number' &&
-    typeof obj.overallScore === 'number' &&
+    typeof obj === "object" &&
+    typeof obj.queryEfficiency === "number" &&
+    typeof obj.indexCoverage === "number" &&
+    typeof obj.schemaQuality === "number" &&
+    typeof obj.overallScore === "number" &&
     Array.isArray(obj.recommendations) &&
-    obj.recommendations.every((r: any) => typeof r === 'string')
+    obj.recommendations.every((r: any) => typeof r === "string")
   );
 }
 
@@ -119,8 +119,11 @@ function AnalyticsPageRaw({
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [analyzingQuery, setAnalyzingQuery] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(null);
-  const [selectedQueryForAI, setSelectedQueryForAI] = useState<QueryHistoryItem | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AIAnalysisResult | null>(
+    null,
+  );
+  const [selectedQueryForAI, setSelectedQueryForAI] =
+    useState<QueryHistoryItem | null>(null);
 
   // DB Health Score State
   const [healthReport, setHealthReport] = useState<DBHealthReport>({
@@ -129,8 +132,8 @@ function AnalyticsPageRaw({
     schemaQuality: 90,
     overallScore: 81,
     recommendations: [
-      'Add indexes to frequently searched columns.',
-      'Always limit results of analytical queries.',
+      "Add indexes to frequently searched columns.",
+      "Always limit results of analytical queries.",
     ],
   });
   const [auditingDb, setAuditingDb] = useState(false);
@@ -144,7 +147,7 @@ function AnalyticsPageRaw({
 
   // TanStack Table states and configurations
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [globalFilter, setGlobalFilter] = useState("");
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
@@ -154,13 +157,13 @@ function AnalyticsPageRaw({
     return ({ column }: { column: any }) => (
       <button
         type="button"
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         className="flex items-center gap-1 font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
       >
         {label}
-        {column.getIsSorted() === 'asc' ? (
+        {column.getIsSorted() === "asc" ? (
           <ArrowUp className="h-3.5 w-3.5 text-slate-600" />
-        ) : column.getIsSorted() === 'desc' ? (
+        ) : column.getIsSorted() === "desc" ? (
           <ArrowDown className="h-3.5 w-3.5 text-slate-600" />
         ) : (
           <ArrowUpDown className="h-3.5 w-3.5 opacity-40 hover:opacity-75" />
@@ -169,94 +172,129 @@ function AnalyticsPageRaw({
     );
   };
 
-  const columns = useMemo<ColumnDef<QueryHistoryItem>[]>(() => [
-    {
-      id: 'status',
-      accessorFn: (row) => getQueryStatus(row.executionTime).label,
-      header: createSortableHeader('Status'),
-      cell: (info) => {
-        const stat = getQueryStatus(info.row.original.executionTime);
-        return (
-          <span className={cn('inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold', stat.color)}>
-            {stat.label}
+  const columns = useMemo<ColumnDef<QueryHistoryItem>[]>(
+    () => [
+      {
+        id: "status",
+        accessorFn: (row) => getQueryStatus(row.executionTime).label,
+        header: createSortableHeader("Status"),
+        cell: (info) => {
+          const stat = getQueryStatus(info.row.original.executionTime);
+          return (
+            <span
+              className={cn(
+                "inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold",
+                stat.color,
+              )}
+            >
+              {stat.label}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "sql",
+        header: createSortableHeader("Query"),
+        cell: (info) => (
+          <span
+            className="max-w-xs truncate block font-mono text-xs text-slate-700"
+            title={info.getValue() as string}
+          >
+            {info.getValue() as string}
           </span>
-        );
+        ),
       },
-    },
-    {
-      accessorKey: 'sql',
-      header: createSortableHeader('Query'),
-      cell: (info) => (
-        <span className="max-w-xs truncate block font-mono text-xs text-slate-700" title={info.getValue() as string}>
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'timestamp',
-      header: createSortableHeader('Executed'),
-      cell: (info) => {
-        const val = info.getValue() as number;
-        return <span className="text-slate-500 font-medium text-xs whitespace-nowrap">{formatTime(val)}</span>;
+      {
+        accessorKey: "timestamp",
+        header: createSortableHeader("Executed"),
+        cell: (info) => {
+          const val = info.getValue() as number;
+          return (
+            <span className="text-slate-500 font-medium text-xs whitespace-nowrap">
+              {formatTime(val)}
+            </span>
+          );
+        },
       },
-    },
-    {
-      accessorKey: 'executionTime',
-      header: createSortableHeader('Time'),
-      cell: (info) => {
-        const val = info.getValue() as number | undefined;
-        return <span className="tabular-nums text-slate-600 font-medium">{val != null ? `${val}ms` : '-'}</span>;
+      {
+        accessorKey: "executionTime",
+        header: createSortableHeader("Time"),
+        cell: (info) => {
+          const val = info.getValue() as number | undefined;
+          return (
+            <span className="tabular-nums text-slate-600 font-medium">
+              {val != null ? `${val}ms` : "-"}
+            </span>
+          );
+        },
       },
-    },
-    {
-      accessorKey: 'rowsScanned',
-      header: createSortableHeader('Scanned'),
-      cell: (info) => {
-        const val = info.getValue() as number | undefined;
-        return <span className="tabular-nums text-slate-600 font-medium">{val != null ? val.toLocaleString() : '-'}</span>;
+      {
+        accessorKey: "rowsScanned",
+        header: createSortableHeader("Scanned"),
+        cell: (info) => {
+          const val = info.getValue() as number | undefined;
+          return (
+            <span className="tabular-nums text-slate-600 font-medium">
+              {val != null ? val.toLocaleString() : "-"}
+            </span>
+          );
+        },
       },
-    },
-    {
-      accessorKey: 'rowsReturned',
-      header: createSortableHeader('Returned'),
-      cell: (info) => {
-        const val = info.getValue() as number | undefined;
-        return <span className="tabular-nums text-slate-600 font-medium">{val != null ? val.toLocaleString() : '-'}</span>;
+      {
+        accessorKey: "rowsReturned",
+        header: createSortableHeader("Returned"),
+        cell: (info) => {
+          const val = info.getValue() as number | undefined;
+          return (
+            <span className="tabular-nums text-slate-600 font-medium">
+              {val != null ? val.toLocaleString() : "-"}
+            </span>
+          );
+        },
       },
-    },
-    {
-      id: 'index',
-      accessorFn: (row) => row.indexesUsed?.[0] || 'Seq scan',
-      header: createSortableHeader('Index'),
-      cell: (info) => {
-        const indexes = info.row.original.indexesUsed;
-        return indexes && indexes.length > 0 ? (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
-            <Key className="h-3 w-3" />
-            {indexes[0]}
-          </span>
-        ) : (
-          <span className="text-xs text-slate-400">Seq scan</span>
-        );
+      {
+        id: "index",
+        accessorFn: (row) => row.indexesUsed?.[0] || "Seq scan",
+        header: createSortableHeader("Index"),
+        cell: (info) => {
+          const indexes = info.row.original.indexesUsed;
+          return indexes && indexes.length > 0 ? (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+              <Key className="h-3 w-3" />
+              {indexes[0]}
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400">Seq scan</span>
+          );
+        },
       },
-    },
-    {
-      accessorKey: 'cpuUsage',
-      header: createSortableHeader('CPU'),
-      cell: (info) => {
-        const val = info.getValue() as number | undefined;
-        return <span className="tabular-nums text-slate-600 font-medium">{val != null ? `${val}%` : '-'}</span>;
+      {
+        accessorKey: "cpuUsage",
+        header: createSortableHeader("CPU"),
+        cell: (info) => {
+          const val = info.getValue() as number | undefined;
+          return (
+            <span className="tabular-nums text-slate-600 font-medium">
+              {val != null ? `${val}%` : "-"}
+            </span>
+          );
+        },
       },
-    },
-    {
-      accessorKey: 'memoryUsage',
-      header: createSortableHeader('Memory'),
-      cell: (info) => {
-        const val = info.getValue() as number | undefined;
-        return <span className="tabular-nums text-slate-600 font-medium">{val != null ? `${val}MB` : '-'}</span>;
+      {
+        accessorKey: "memoryUsage",
+        header: createSortableHeader("Memory"),
+        cell: (info) => {
+          const val = info.getValue() as number | undefined;
+          return (
+            <span className="tabular-nums text-slate-600 font-medium">
+              {val != null ? `${val}MB` : "-"}
+            </span>
+          );
+        },
       },
-    },
-  ], []);
+    ],
+    [],
+  );
 
   const table = useReactTable<QueryHistoryItem>({
     data: history,
@@ -274,7 +312,8 @@ function AnalyticsPageRaw({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     globalFilterFn: (row, columnId, value) => {
-      const searchStr = `${row.original.sql} ${row.original.prompt || ''}`.toLowerCase();
+      const searchStr =
+        `${row.original.sql} ${row.original.prompt || ""}`.toLowerCase();
       return searchStr.includes(value.toLowerCase());
     },
   });
@@ -285,21 +324,44 @@ function AnalyticsPageRaw({
       for (let i = 0; i < total; i++) pages.push(i);
     } else {
       if (current <= 2) {
-        pages.push(0, 1, 2, 3, '...', total - 1);
+        pages.push(0, 1, 2, 3, "...", total - 1);
       } else if (current >= total - 3) {
-        pages.push(0, '...', total - 4, total - 3, total - 2, total - 1);
+        pages.push(0, "...", total - 4, total - 3, total - 2, total - 1);
       } else {
-        pages.push(0, '...', current - 1, current, current + 1, '...', total - 1);
+        pages.push(
+          0,
+          "...",
+          current - 1,
+          current,
+          current + 1,
+          "...",
+          total - 1,
+        );
       }
     }
     return pages;
   };
 
-  const healthPieData = useMemo(() => [
-    { name: 'Efficiency', value: healthReport.queryEfficiency, color: '#2563eb' },
-    { name: 'Index Coverage', value: healthReport.indexCoverage, color: '#60a5fa' },
-    { name: 'Schema Quality', value: healthReport.schemaQuality, color: '#e2e8f0' },
-  ], [healthReport]);
+  const healthPieData = useMemo(
+    () => [
+      {
+        name: "Efficiency",
+        value: healthReport.queryEfficiency,
+        color: "#2563eb",
+      },
+      {
+        name: "Index Coverage",
+        value: healthReport.indexCoverage,
+        color: "#60a5fa",
+      },
+      {
+        name: "Schema Quality",
+        value: healthReport.schemaQuality,
+        color: "#e2e8f0",
+      },
+    ],
+    [healthReport],
+  );
 
   const latencyChartData = useMemo(() => {
     return history
@@ -314,46 +376,59 @@ function AnalyticsPageRaw({
 
   const handleAnalyzeTimeline = async (run: QueryHistoryItem) => {
     if (!run.timeline || run.timeline.length === 0) {
-      showNotification('No timeline steps recorded for this execution.', 'error');
+      showNotification(
+        "No timeline steps recorded for this execution.",
+        "error",
+      );
       return;
     }
     setAnalyzingTimeline(true);
     setTimelineAnalysis(null);
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'timeline', timeline: run.timeline }),
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "timeline", timeline: run.timeline }),
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'Timeline analysis failed');
+        throw new Error(errData.error || "Timeline analysis failed");
       }
 
       const report = await res.json();
       setTimelineAnalysis(report);
-      saveAnalysis('timeline', run.sql, report);
-      showNotification('Lifecycle analysis completed!', 'success');
+      saveAnalysis("timeline", run.sql, report);
+      showNotification("Lifecycle analysis completed!", "success");
     } catch (err) {
-      showNotification(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showNotification(
+        `Analysis failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        "error",
+      );
     } finally {
       setAnalyzingTimeline(false);
     }
   };
 
-
-
   // Persist analysis result to MongoDB via API
-  const saveAnalysis = async (action: string, targetSql: string | null, result: Record<string, unknown>) => {
+  const saveAnalysis = async (
+    action: string,
+    targetSql: string | null,
+    result: Record<string, unknown>,
+  ) => {
     try {
-      await fetch('/api/analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, targetSql, result, connectionId: connection.id }),
+      await fetch("/api/analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          targetSql,
+          result,
+          connectionId: connection.id,
+        }),
       });
     } catch (err) {
-      console.error('Failed to persist analysis:', err);
+      console.error("Failed to persist analysis:", err);
     }
   };
 
@@ -363,12 +438,15 @@ function AnalyticsPageRaw({
     setHealthReport(DEFAULT_HEALTH_REPORT);
 
     try {
-      const res = await fetch(`/api/analysis?connectionId=${encodeURIComponent(connId)}&action=db&limit=1`, { credentials: 'same-origin' });
+      const res = await fetch(
+        `/api/analysis?connectionId=${encodeURIComponent(connId)}&action=db&limit=1`,
+        { credentials: "same-origin" },
+      );
       if (!res.ok) {
-        throw new Error('Failed to load connection-specific health report');
+        throw new Error("Failed to load connection-specific health report");
       }
       const data = await res.json();
-      
+
       // Prevent stale response from overwriting active connection view
       if (connection.id !== connId) {
         return;
@@ -382,7 +460,7 @@ function AnalyticsPageRaw({
         setHealthReport(DEFAULT_HEALTH_REPORT);
       }
     } catch (err) {
-      console.error('Failed to load health report:', err);
+      console.error("Failed to load health report:", err);
       if (connection.id === connId) {
         setHealthReport(DEFAULT_HEALTH_REPORT);
       }
@@ -396,15 +474,20 @@ function AnalyticsPageRaw({
     setLoadingHistory(true);
     setHistoryError(null);
     try {
-      const res = await fetch(`/api/history?limit=500&connectionId=${connection.id}`, { credentials: 'same-origin' });
+      const res = await fetch(
+        `/api/history?limit=500&connectionId=${connection.id}`,
+        { credentials: "same-origin" },
+      );
       if (!res.ok) {
-        throw new Error('Failed to load history');
+        throw new Error("Failed to load history");
       }
       const data = await res.json();
       const items: QueryHistoryItem[] = data.history || [];
       setHistory(items);
     } catch (err) {
-      setHistoryError(err instanceof Error ? err.message : 'Failed to load history');
+      setHistoryError(
+        err instanceof Error ? err.message : "Failed to load history",
+      );
       setHistory([]);
     } finally {
       setLoadingHistory(false);
@@ -423,20 +506,42 @@ function AnalyticsPageRaw({
   const metrics = useMemo(() => {
     const successful = history.filter((h) => h.success);
     const total = history.length;
-    const totalTime = successful.reduce((sum, h) => sum + (h.executionTime || 0), 0);
-    const totalScanned = successful.reduce((sum, h) => sum + (h.rowsScanned || 0), 0);
-    const totalReturned = successful.reduce((sum, h) => sum + (h.rowsReturned || 0), 0);
+    const totalTime = successful.reduce(
+      (sum, h) => sum + (h.executionTime || 0),
+      0,
+    );
+    const totalScanned = successful.reduce(
+      (sum, h) => sum + (h.rowsScanned || 0),
+      0,
+    );
+    const totalReturned = successful.reduce(
+      (sum, h) => sum + (h.rowsReturned || 0),
+      0,
+    );
     const totalCpu = successful.reduce((sum, h) => sum + (h.cpuUsage || 0), 0);
-    const totalMem = successful.reduce((sum, h) => sum + (h.memoryUsage || 0), 0);
-    const indexHits = successful.filter((h) => h.indexesUsed && h.indexesUsed.length > 0).length;
+    const totalMem = successful.reduce(
+      (sum, h) => sum + (h.memoryUsage || 0),
+      0,
+    );
+    const indexHits = successful.filter(
+      (h) => h.indexesUsed && h.indexesUsed.length > 0,
+    ).length;
     return {
       total,
-      avgTime: successful.length ? Math.round(totalTime / successful.length) : 0,
-      avgScanned: successful.length ? Math.round(totalScanned / successful.length) : 0,
-      avgReturned: successful.length ? Math.round(totalReturned / successful.length) : 0,
+      avgTime: successful.length
+        ? Math.round(totalTime / successful.length)
+        : 0,
+      avgScanned: successful.length
+        ? Math.round(totalScanned / successful.length)
+        : 0,
+      avgReturned: successful.length
+        ? Math.round(totalReturned / successful.length)
+        : 0,
       avgCpu: successful.length ? Math.round(totalCpu / successful.length) : 0,
       avgMem: successful.length ? Math.round(totalMem / successful.length) : 0,
-      indexHitRatio: successful.length ? Math.round((indexHits / successful.length) * 100) : 0,
+      indexHitRatio: successful.length
+        ? Math.round((indexHits / successful.length) * 100)
+        : 0,
       slowCount: successful.filter((h) => (h.executionTime || 0) > 100).length,
     };
   }, [history]);
@@ -445,23 +550,29 @@ function AnalyticsPageRaw({
   const handleDbAudit = async () => {
     setAuditingDb(true);
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'db', history }),
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "db", history }),
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'Failed to analyze DB health');
+        throw new Error(errData.error || "Failed to analyze DB health");
       }
 
       const report = await res.json();
       setHealthReport(report);
-      saveAnalysis('db', null, report);
-      showNotification('Database health audit completed successfully!', 'success');
+      saveAnalysis("db", null, report);
+      showNotification(
+        "Database health audit completed successfully!",
+        "success",
+      );
     } catch (err) {
-      showNotification(`Audit failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showNotification(
+        `Audit failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        "error",
+      );
     } finally {
       setAuditingDb(false);
     }
@@ -473,22 +584,25 @@ function AnalyticsPageRaw({
     setSelectedQueryForAI(queryItem);
     setAnalysisResult(null);
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'query', sql: queryItem.sql }),
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "query", sql: queryItem.sql }),
       });
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || 'AI optimization failed');
+        throw new Error(errData.error || "AI optimization failed");
       }
 
       const result = await res.json();
       setAnalysisResult(result);
-      saveAnalysis('query', queryItem.sql, result);
+      saveAnalysis("query", queryItem.sql, result);
     } catch (err) {
-      showNotification(`Optimization failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      showNotification(
+        `Optimization failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        "error",
+      );
     } finally {
       setAnalyzingQuery(null);
     }
@@ -500,18 +614,21 @@ function AnalyticsPageRaw({
       `Apply SQL optimization DDL?\n\nThis will execute:\n\n${ddl}`,
       async () => {
         try {
-          const res = await fetch('/api/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/api/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sql: ddl }),
           });
 
           if (!res.ok) {
             const errData = await res.json();
-            throw new Error(errData.error || 'Failed to execute DDL');
+            throw new Error(errData.error || "Failed to execute DDL");
           }
 
-          showNotification('Optimization DDL executed successfully!', 'success');
+          showNotification(
+            "Optimization DDL executed successfully!",
+            "success",
+          );
           onRefreshSchema();
           // The DDL ran through /api/execute, which records into history
           // server-side. Reload explicitly to refresh the metrics.
@@ -519,9 +636,12 @@ function AnalyticsPageRaw({
           setAnalysisResult(null);
           setSelectedQueryForAI(null);
         } catch (err) {
-          showNotification(`DDL failed: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+          showNotification(
+            `DDL failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+            "error",
+          );
         }
-      }
+      },
     );
   };
 
@@ -533,14 +653,28 @@ function AnalyticsPageRaw({
 
   // Helpers
   const getQueryStatus = (time?: number) => {
-    if (!time) return { label: 'Fast', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-    if (time > 100) return { label: 'Slow', color: 'bg-red-50 text-red-700 border-red-200' };
-    if (time > 50) return { label: 'Medium', color: 'bg-amber-50 text-amber-700 border-amber-200' };
-    return { label: 'Fast', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    if (!time)
+      return {
+        label: "Fast",
+        color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      };
+    if (time > 100)
+      return { label: "Slow", color: "bg-red-50 text-red-700 border-red-200" };
+    if (time > 50)
+      return {
+        label: "Medium",
+        color: "bg-amber-50 text-amber-700 border-amber-200",
+      };
+    return {
+      label: "Fast",
+      color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    };
   };
 
   // Filter slow queries (>100ms)
-  const slowQueries = history.filter((item) => item.success && item.executionTime && item.executionTime > 100);
+  const slowQueries = history.filter(
+    (item) => item.success && item.executionTime && item.executionTime > 100,
+  );
 
   // Compute table usage stats
   const tableStats: Record<string, number> = {};
@@ -560,9 +694,12 @@ function AnalyticsPageRaw({
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">AI Database Performance Advisor</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            AI Database Performance Advisor
+          </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Monitor query latencies, examine index coverage, and apply AI-driven suggestions.
+            Monitor query latencies, examine index coverage, and apply AI-driven
+            suggestions.
           </p>
         </div>
         <button
@@ -571,7 +708,7 @@ function AnalyticsPageRaw({
           disabled={auditingDb}
           className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
         >
-          <RefreshCw className={cn('h-4 w-4', auditingDb && 'animate-spin')} />
+          <RefreshCw className={cn("h-4 w-4", auditingDb && "animate-spin")} />
           Run Health Audit
         </button>
       </div>
@@ -579,15 +716,70 @@ function AnalyticsPageRaw({
       {/* Execution Metrics Summary Cards */}
       <div className="mb-8 grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
         {[
-          { label: 'Total Queries', value: metrics.total.toLocaleString(), icon: FileText, color: 'text-slate-700', iconBg: 'bg-slate-100' },
-          { label: 'Avg Time', value: `${metrics.avgTime}ms`, icon: Clock, color: metrics.avgTime > 100 ? 'text-red-600' : 'text-emerald-600', iconBg: metrics.avgTime > 100 ? 'bg-red-50' : 'bg-emerald-50' },
-          { label: 'Avg Scanned', value: metrics.avgScanned.toLocaleString(), icon: Database, color: 'text-slate-700', iconBg: 'bg-slate-100', tooltip: 'Represents rows read by the query planner. For SQLite, full table scans estimate actual table sizes; indexed lookups count matching keys. For Postgres/MySQL, this reflects the optimizer\'s scan plans.' },
-          { label: 'Avg Returned', value: metrics.avgReturned.toLocaleString(), icon: TrendingUp, color: 'text-slate-700', iconBg: 'bg-slate-100' },
-          { label: 'Avg CPU', value: `${metrics.avgCpu}%`, icon: Cpu, color: 'text-slate-700', iconBg: 'bg-slate-100', tooltip: 'Represents active Node process CPU consumption for local SQLite, or estimated server load based on query complexity for remote databases.' },
-          { label: 'Avg Memory', value: `${metrics.avgMem}MB`, icon: MemoryStick, color: 'text-slate-700', iconBg: 'bg-slate-100', tooltip: 'Represents heap allocation for local SQLite processing, or estimated client-side data buffering footprint for remote databases.' },
-          { label: 'Index Hit', value: `${metrics.indexHitRatio}%`, icon: Key, color: metrics.indexHitRatio > 50 ? 'text-emerald-600' : 'text-amber-600', iconBg: metrics.indexHitRatio > 50 ? 'bg-emerald-50' : 'bg-amber-50' },
+          {
+            label: "Total Queries",
+            value: metrics.total.toLocaleString(),
+            icon: FileText,
+            color: "text-slate-700",
+            iconBg: "bg-slate-100",
+          },
+          {
+            label: "Avg Time",
+            value: `${metrics.avgTime}ms`,
+            icon: Clock,
+            color: metrics.avgTime > 100 ? "text-red-600" : "text-emerald-600",
+            iconBg: metrics.avgTime > 100 ? "bg-red-50" : "bg-emerald-50",
+          },
+          {
+            label: "Avg Scanned",
+            value: metrics.avgScanned.toLocaleString(),
+            icon: Database,
+            color: "text-slate-700",
+            iconBg: "bg-slate-100",
+            tooltip:
+              "Represents rows read by the query planner. For SQLite, full table scans estimate actual table sizes; indexed lookups count matching keys. For Postgres/MySQL, this reflects the optimizer's scan plans.",
+          },
+          {
+            label: "Avg Returned",
+            value: metrics.avgReturned.toLocaleString(),
+            icon: TrendingUp,
+            color: "text-slate-700",
+            iconBg: "bg-slate-100",
+          },
+          {
+            label: "Avg CPU",
+            value: `${metrics.avgCpu}%`,
+            icon: Cpu,
+            color: "text-slate-700",
+            iconBg: "bg-slate-100",
+            tooltip:
+              "Represents active Node process CPU consumption for local SQLite, or estimated server load based on query complexity for remote databases.",
+          },
+          {
+            label: "Avg Memory",
+            value: `${metrics.avgMem}MB`,
+            icon: MemoryStick,
+            color: "text-slate-700",
+            iconBg: "bg-slate-100",
+            tooltip:
+              "Represents heap allocation for local SQLite processing, or estimated client-side data buffering footprint for remote databases.",
+          },
+          {
+            label: "Index Hit",
+            value: `${metrics.indexHitRatio}%`,
+            icon: Key,
+            color:
+              metrics.indexHitRatio > 50
+                ? "text-emerald-600"
+                : "text-amber-600",
+            iconBg:
+              metrics.indexHitRatio > 50 ? "bg-emerald-50" : "bg-amber-50",
+          },
         ].map((card) => (
-          <div key={card.label} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div
+            key={card.label}
+            className="rounded-xl border border-border bg-card p-4 shadow-sm"
+          >
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 {card.label}
@@ -597,11 +789,23 @@ function AnalyticsPageRaw({
                   </span>
                 )}
               </span>
-              <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', card.iconBg)}>
-                <card.icon className={cn('h-3.5 w-3.5', card.color)} />
+              <div
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-lg",
+                  card.iconBg,
+                )}
+              >
+                <card.icon className={cn("h-3.5 w-3.5", card.color)} />
               </div>
             </div>
-            <p className={cn('mt-2.5 text-xl font-bold tabular-nums', card.color)}>{card.value}</p>
+            <p
+              className={cn(
+                "mt-2.5 text-xl font-bold tabular-nums",
+                card.color,
+              )}
+            >
+              {card.value}
+            </p>
           </div>
         ))}
       </div>
@@ -611,7 +815,9 @@ function AnalyticsPageRaw({
         {/* Health Dial Card matching mockup style */}
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col justify-between min-h-[275px]">
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Database Health</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Database Health
+            </h3>
             <p className="text-5xl font-extrabold text-slate-900 mt-2 tabular-nums">
               {healthReport.overallScore}
             </p>
@@ -621,17 +827,36 @@ function AnalyticsPageRaw({
             {/* Left side: Capsule color legends */}
             <div className="flex flex-col gap-2.5 shrink-0">
               {[
-                { name: 'Efficiency', value: healthReport.queryEfficiency, color: '#2563eb' },
-                { name: 'Index Cov', value: healthReport.indexCoverage, color: '#60a5fa' },
-                { name: 'Schema', value: healthReport.schemaQuality, color: '#e2e8f0' },
+                {
+                  name: "Efficiency",
+                  value: healthReport.queryEfficiency,
+                  color: "#2563eb",
+                },
+                {
+                  name: "Index Cov",
+                  value: healthReport.indexCoverage,
+                  color: "#60a5fa",
+                },
+                {
+                  name: "Schema",
+                  value: healthReport.schemaQuality,
+                  color: "#e2e8f0",
+                },
               ].map((item) => (
-                <div key={item.name} className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                <div
+                  key={item.name}
+                  className="flex items-center gap-2 text-xs font-semibold text-slate-700"
+                >
                   <span
                     className="h-2 w-4 rounded-full shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-sm font-bold text-slate-800 tabular-nums">{item.value}%</span>
-                  <span className="text-[11px] text-slate-400 font-medium">{item.name}</span>
+                  <span className="text-sm font-bold text-slate-800 tabular-nums">
+                    {item.value}%
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {item.name}
+                  </span>
                 </div>
               ))}
             </div>
@@ -659,8 +884,12 @@ function AnalyticsPageRaw({
                         const data = payload[0].payload;
                         return (
                           <div className="rounded-lg border border-slate-100 bg-white p-2.5 shadow-md text-xs font-semibold">
-                            <span className="text-slate-500">{data.name}: </span>
-                            <span className="text-slate-850">{data.value}%</span>
+                            <span className="text-slate-500">
+                              {data.name}:{" "}
+                            </span>
+                            <span className="text-slate-850">
+                              {data.value}%
+                            </span>
                           </div>
                         );
                       }
@@ -692,7 +921,10 @@ function AnalyticsPageRaw({
             </ul>
           </div>
           <div className="mt-5 border-t border-slate-200/80 pt-3 text-[11px] text-slate-400">
-            Last audited: <span className="font-medium text-slate-600">{connection.name}</span>
+            Last audited:{" "}
+            <span className="font-medium text-slate-600">
+              {connection.name}
+            </span>
           </div>
         </div>
       </div>
@@ -712,37 +944,56 @@ function AnalyticsPageRaw({
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={latencyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart
+                  data={latencyChartData}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
                   <defs>
-                    <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <linearGradient
+                      id="latencyGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis
                     dataKey="index"
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 10 }}
+                    tick={{ fill: "#94a3b8", fontSize: 10 }}
                   />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: '#94a3b8', fontSize: 10 }}
+                    tick={{ fill: "#94a3b8", fontSize: 10 }}
                     unit="ms"
                   />
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#f1f5f9"
+                    vertical={false}
+                  />
                   <Tooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
                           <div className="rounded-lg border border-slate-100 bg-white p-3 shadow-lg text-xs max-w-xs space-y-1">
-                            <p className="font-semibold text-slate-700 font-medium">Run #{data.index}</p>
-                            <p className="text-slate-500 font-mono break-all line-clamp-2">{data.query}</p>
+                            <p className="font-semibold text-slate-700 font-medium">
+                              Run #{data.index}
+                            </p>
+                            <p className="text-slate-500 font-mono break-all line-clamp-2">
+                              {data.query}
+                            </p>
                             <p className="flex justify-between items-center gap-4 pt-1.5 border-t border-slate-100">
                               <span className="text-slate-400">Latency:</span>
-                              <span className="font-bold text-slate-900">{data.time}ms</span>
+                              <span className="font-bold text-slate-900">
+                                {data.time}ms
+                              </span>
                             </p>
                           </div>
                         );
@@ -783,10 +1034,15 @@ function AnalyticsPageRaw({
                   <div key={tbl} className="text-sm">
                     <div className="mb-1.5 flex justify-between text-xs font-medium">
                       <span className="text-slate-700">{tbl}</span>
-                      <span className="tabular-nums text-slate-400">{count} queries</span>
+                      <span className="tabular-nums text-slate-400">
+                        {count} queries
+                      </span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-primary/60 transition-all" style={{ width: `${pct}%` }} />
+                      <div
+                        className="h-full rounded-full bg-primary/60 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   </div>
                 );
@@ -817,7 +1073,9 @@ function AnalyticsPageRaw({
 
           <div className="space-y-5">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Target Query</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                Target Query
+              </p>
               <pre className="mt-2 overflow-x-auto rounded-lg border border-amber-200/80 bg-background p-4 font-mono text-xs text-amber-950">
                 <code>{selectedQueryForAI.sql}</code>
               </pre>
@@ -833,12 +1091,20 @@ function AnalyticsPageRaw({
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-4">
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Diagnosis</span>
-                      <p className="mt-1 text-sm text-amber-950">{analysisResult.rootCause}</p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                        Diagnosis
+                      </span>
+                      <p className="mt-1 text-sm text-amber-950">
+                        {analysisResult.rootCause}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Explanation</span>
-                      <p className="mt-1 text-sm leading-relaxed text-amber-900">{analysisResult.explanation}</p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                        Explanation
+                      </span>
+                      <p className="mt-1 text-sm leading-relaxed text-amber-900">
+                        {analysisResult.explanation}
+                      </p>
                     </div>
                     <div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
@@ -850,11 +1116,17 @@ function AnalyticsPageRaw({
                         </pre>
                         <button
                           type="button"
-                          onClick={() => handleCopyCode(analysisResult.optimizedQuery)}
+                          onClick={() =>
+                            handleCopyCode(analysisResult.optimizedQuery)
+                          }
                           className="absolute right-2.5 top-2.5 rounded-lg bg-slate-800 p-1.5 text-slate-400 transition-colors hover:text-white"
                           title="Copy SQL"
                         >
-                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                          {copied ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -862,7 +1134,9 @@ function AnalyticsPageRaw({
                     {analysisResult.isDdl && (
                       <button
                         type="button"
-                        onClick={() => handleApplyDdl(analysisResult.optimizedQuery)}
+                        onClick={() =>
+                          handleApplyDdl(analysisResult.optimizedQuery)
+                        }
                         className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
                       >
                         <Zap className="h-4 w-4" />
@@ -882,26 +1156,38 @@ function AnalyticsPageRaw({
                           <tr className="border-b border-amber-100 bg-amber-50/50 font-medium text-slate-500">
                             <th className="p-3">Metric</th>
                             <th className="p-3 text-amber-700">Before</th>
-                            <th className="p-3 text-emerald-700">After (Est)</th>
+                            <th className="p-3 text-emerald-700">
+                              After (Est)
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="text-slate-700">
                           <tr className="border-b border-amber-50">
                             <td className="p-3 font-medium">Exec Time</td>
-                            <td className="p-3 text-amber-600">{analysisResult.estTimeBefore}ms</td>
-                            <td className="p-3 font-semibold text-emerald-600">{analysisResult.estTimeAfter}ms</td>
+                            <td className="p-3 text-amber-600">
+                              {analysisResult.estTimeBefore}ms
+                            </td>
+                            <td className="p-3 font-semibold text-emerald-600">
+                              {analysisResult.estTimeAfter}ms
+                            </td>
                           </tr>
                           <tr className="border-b border-amber-50">
                             <td className="p-3 font-medium">Rows Scanned</td>
-                            <td className="p-3 text-amber-600">{analysisResult.estScannedBefore.toLocaleString()}</td>
+                            <td className="p-3 text-amber-600">
+                              {analysisResult.estScannedBefore.toLocaleString()}
+                            </td>
                             <td className="p-3 font-semibold text-emerald-600">
                               {analysisResult.estScannedAfter.toLocaleString()}
                             </td>
                           </tr>
                           <tr>
                             <td className="p-3 font-medium">Index Used</td>
-                            <td className="p-3 text-amber-600">No (Full Scan)</td>
-                            <td className="p-3 font-semibold text-emerald-600">Yes (Index Scan)</td>
+                            <td className="p-3 text-amber-600">
+                              No (Full Scan)
+                            </td>
+                            <td className="p-3 font-semibold text-emerald-600">
+                              Yes (Index Scan)
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -920,7 +1206,7 @@ function AnalyticsPageRaw({
           <div className="flex h-6 w-6 items-center justify-center rounded-md bg-red-55/20">
             <AlertTriangle className="h-3.5 w-3.5" />
           </div>
-          Slow Query Detection ({'>'}100ms)
+          Slow Query Detection ({">"}100ms)
         </h3>
         {loadingHistory ? (
           <div className="flex items-center justify-center py-6">
@@ -954,14 +1240,22 @@ function AnalyticsPageRaw({
               </thead>
               <tbody>
                 {slowQueries.map((item) => (
-                  <tr key={item.id} className="border-b border-slate-100 transition-colors hover:bg-slate-55/50">
-                    <td className="max-w-md truncate p-3 font-mono text-xs text-slate-750" title={item.sql}>
+                  <tr
+                    key={item.id}
+                    className="border-b border-slate-100 transition-colors hover:bg-slate-55/50"
+                  >
+                    <td
+                      className="max-w-md truncate p-3 font-mono text-xs text-slate-750"
+                      title={item.sql}
+                    >
                       {item.sql}
                     </td>
                     <td className="p-3 text-slate-500 font-medium text-xs whitespace-nowrap">
                       {formatTime(item.timestamp)}
                     </td>
-                    <td className="p-3 text-sm font-semibold text-red-650 tabular-nums">{item.executionTime}ms</td>
+                    <td className="p-3 text-sm font-semibold text-red-650 tabular-nums">
+                      {item.executionTime}ms
+                    </td>
                     <td className="p-3">
                       <button
                         type="button"
@@ -990,9 +1284,12 @@ function AnalyticsPageRaw({
                 <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
                   <FileText className="h-3.5 w-3.5 text-primary" />
                 </div>
-                Recent Executions <span className="ml-1 font-normal text-muted-foreground/60 normal-case">(Click row to analyze lifecycle)</span>
+                Recent Executions{" "}
+                <span className="ml-1 font-normal text-muted-foreground/60 normal-case">
+                  (Click row to analyze lifecycle)
+                </span>
               </h3>
-              
+
               {/* Search Input */}
               <div className="relative w-full max-w-xs">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -1022,19 +1319,27 @@ function AnalyticsPageRaw({
                 </button>
               </div>
             ) : history.length === 0 ? (
-              <p className="py-2 text-sm text-slate-500">No query execution history found on this session.</p>
+              <p className="py-2 text-sm text-slate-500">
+                No query execution history found on this session.
+              </p>
             ) : (
               <>
                 <div className="overflow-x-auto rounded-xl border border-slate-200/80">
                   <table className="w-full border-collapse text-sm">
                     <thead>
                       {table.getHeaderGroups().map((headerGroup) => (
-                        <tr key={headerGroup.id} className="border-b border-slate-200 bg-slate-55/40 text-left text-xs font-semibold text-slate-500">
+                        <tr
+                          key={headerGroup.id}
+                          className="border-b border-slate-200 bg-slate-55/40 text-left text-xs font-semibold text-slate-500"
+                        >
                           {headerGroup.headers.map((header) => (
                             <th key={header.id} className="p-3">
                               {header.isPlaceholder
                                 ? null
-                                : flexRender(header.column.columnDef.header, header.getContext())}
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext(),
+                                  )}
                             </th>
                           ))}
                         </tr>
@@ -1049,13 +1354,17 @@ function AnalyticsPageRaw({
                             setTimelineAnalysis(null);
                           }}
                           className={cn(
-                            'cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/50',
-                            (selectedRun as any)?.id === row.original.id && 'bg-primary/5 font-medium'
+                            "cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/50",
+                            (selectedRun as any)?.id === row.original.id &&
+                              "bg-primary/5 font-medium",
                           )}
                         >
                           {row.getVisibleCells().map((cell) => (
                             <td key={cell.id} className="p-3">
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              {flexRender(
+                                cell.column.columnDef.cell,
+                                cell.getContext(),
+                              )}
                             </td>
                           ))}
                         </tr>
@@ -1068,23 +1377,26 @@ function AnalyticsPageRaw({
                 <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100">
                   <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
                     <span>
-                      Showing{' '}
+                      Showing{" "}
                       <span className="font-semibold text-slate-700">
                         {table.getRowModel().rows.length === 0
                           ? 0
-                          : table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
-                      </span>{' '}
-                      to{' '}
+                          : table.getState().pagination.pageIndex *
+                              table.getState().pagination.pageSize +
+                            1}
+                      </span>{" "}
+                      to{" "}
                       <span className="font-semibold text-slate-700">
                         {Math.min(
-                          (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                          table.getFilteredRowModel().rows.length
+                          (table.getState().pagination.pageIndex + 1) *
+                            table.getState().pagination.pageSize,
+                          table.getFilteredRowModel().rows.length,
                         )}
-                      </span>{' '}
-                      of{' '}
+                      </span>{" "}
+                      of{" "}
                       <span className="font-semibold text-slate-700">
                         {table.getFilteredRowModel().rows.length}
-                      </span>{' '}
+                      </span>{" "}
                       executions
                     </span>
 
@@ -1117,10 +1429,16 @@ function AnalyticsPageRaw({
                       Previous
                     </button>
 
-                    {getPageNumbers(table.getState().pagination.pageIndex, table.getPageCount()).map((p, idx) => {
-                      if (p === '...') {
+                    {getPageNumbers(
+                      table.getState().pagination.pageIndex,
+                      table.getPageCount(),
+                    ).map((p, idx) => {
+                      if (p === "...") {
                         return (
-                          <span key={`dots-${idx}`} className="px-1.5 text-slate-400 text-xs">
+                          <span
+                            key={`dots-${idx}`}
+                            className="px-1.5 text-slate-400 text-xs"
+                          >
                             ...
                           </span>
                         );
@@ -1131,10 +1449,10 @@ function AnalyticsPageRaw({
                           type="button"
                           onClick={() => table.setPageIndex(p as number)}
                           className={cn(
-                            'flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                            "flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-all cursor-pointer",
                             table.getState().pagination.pageIndex === p
-                              ? 'bg-primary text-white shadow-sm'
-                              : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                              ? "bg-primary text-white shadow-sm"
+                              : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                           )}
                         >
                           {(p as number) + 1}
@@ -1172,7 +1490,9 @@ function AnalyticsPageRaw({
                   Recent Executions
                 </button>
                 <span className="mx-2 text-slate-350">/</span>
-                <span className="text-slate-600">Query #{selectedRun.id.substring(0, 8)} Lifecycle</span>
+                <span className="text-slate-600">
+                  Query #{selectedRun.id.substring(0, 8)} Lifecycle
+                </span>
               </div>
 
               <div className="flex shrink-0 items-center gap-3">
@@ -1183,7 +1503,7 @@ function AnalyticsPageRaw({
                   className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
                 >
                   <Zap className="h-3.5 w-3.5" />
-                  {analyzingTimeline ? 'Analyzing...' : 'AI Lifecycle Analysis'}
+                  {analyzingTimeline ? "Analyzing..." : "AI Lifecycle Analysis"}
                 </button>
                 <button
                   type="button"
@@ -1218,7 +1538,10 @@ function AnalyticsPageRaw({
                   </div>
                   Query Execution Lifecycle Timeline
                 </h3>
-                <p className="mt-1 max-w-2xl truncate text-xs text-slate-500" title={selectedRun.prompt || selectedRun.sql}>
+                <p
+                  className="mt-1 max-w-2xl truncate text-xs text-slate-500"
+                  title={selectedRun.prompt || selectedRun.sql}
+                >
                   {selectedRun.prompt || selectedRun.sql}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
@@ -1230,16 +1553,59 @@ function AnalyticsPageRaw({
             {/* Per-query metrics summary */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
               {[
-                { label: 'Exec Time', value: selectedRun.executionTime != null ? `${selectedRun.executionTime}ms` : '-' },
-                { label: 'Rows Scanned', value: selectedRun.rowsScanned != null ? selectedRun.rowsScanned.toLocaleString() : '-' },
-                { label: 'Rows Returned', value: selectedRun.rowsReturned != null ? selectedRun.rowsReturned.toLocaleString() : '-' },
-                { label: 'Rows Affected', value: selectedRun.rowsAffected != null ? selectedRun.rowsAffected.toLocaleString() : '-' },
-                { label: 'CPU Usage', value: selectedRun.cpuUsage != null ? `${selectedRun.cpuUsage}%` : '-' },
-                { label: 'Memory', value: selectedRun.memoryUsage != null ? `${selectedRun.memoryUsage}MB` : '-' },
+                {
+                  label: "Exec Time",
+                  value:
+                    selectedRun.executionTime != null
+                      ? `${selectedRun.executionTime}ms`
+                      : "-",
+                },
+                {
+                  label: "Rows Scanned",
+                  value:
+                    selectedRun.rowsScanned != null
+                      ? selectedRun.rowsScanned.toLocaleString()
+                      : "-",
+                },
+                {
+                  label: "Rows Returned",
+                  value:
+                    selectedRun.rowsReturned != null
+                      ? selectedRun.rowsReturned.toLocaleString()
+                      : "-",
+                },
+                {
+                  label: "Rows Affected",
+                  value:
+                    selectedRun.rowsAffected != null
+                      ? selectedRun.rowsAffected.toLocaleString()
+                      : "-",
+                },
+                {
+                  label: "CPU Usage",
+                  value:
+                    selectedRun.cpuUsage != null
+                      ? `${selectedRun.cpuUsage}%`
+                      : "-",
+                },
+                {
+                  label: "Memory",
+                  value:
+                    selectedRun.memoryUsage != null
+                      ? `${selectedRun.memoryUsage}MB`
+                      : "-",
+                },
               ].map((m) => (
-                <div key={m.label} className="rounded-lg border border-slate-200/80 bg-slate-50/50 px-3.5 py-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{m.label}</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-slate-800">{m.value}</p>
+                <div
+                  key={m.label}
+                  className="rounded-lg border border-slate-200/80 bg-slate-50/50 px-3.5 py-3"
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    {m.label}
+                  </p>
+                  <p className="mt-1 text-sm font-bold tabular-nums text-slate-800">
+                    {m.value}
+                  </p>
                 </div>
               ))}
             </div>
@@ -1250,48 +1616,64 @@ function AnalyticsPageRaw({
                 <span className="mb-3 block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Execution Steps ({selectedRun.timeline?.length || 0})
                 </span>
-                
+
                 {!selectedRun.timeline || selectedRun.timeline.length === 0 ? (
-                  <p className="text-sm text-slate-400">No timeline steps recorded for this execution.</p>
+                  <p className="text-sm text-slate-400">
+                    No timeline steps recorded for this execution.
+                  </p>
                 ) : (
                   <div className="relative space-y-5 border-l border-slate-200 pl-5">
                     {selectedRun.timeline.map((step) => {
-                      let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
-                      let typeLabel = 'Executed Query';
-                      if (step.type === 'schema_discovery') {
-                        badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
-                        typeLabel = 'Schema Discovery';
-                      } else if (step.type === 'initial_ai') {
-                        badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
-                        typeLabel = 'Initial AI Query';
-                      } else if (step.type === 'validation') {
-                        badgeColor = 'bg-amber-50 text-amber-700 border-amber-200';
-                        typeLabel = 'Validation Step';
-                      } else if (step.type === 'optimization_rewrite') {
-                        badgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
-                        typeLabel = 'AI Optimization';
-                      } else if (step.type === 'final_executed') {
-                        badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                        typeLabel = 'Final Execution';
+                      let badgeColor =
+                        "bg-slate-100 text-slate-700 border-slate-200";
+                      let typeLabel = "Executed Query";
+                      if (step.type === "schema_discovery") {
+                        badgeColor = "bg-blue-50 text-blue-700 border-blue-200";
+                        typeLabel = "Schema Discovery";
+                      } else if (step.type === "initial_ai") {
+                        badgeColor =
+                          "bg-purple-50 text-purple-700 border-purple-200";
+                        typeLabel = "Initial AI Query";
+                      } else if (step.type === "validation") {
+                        badgeColor =
+                          "bg-amber-50 text-amber-700 border-amber-200";
+                        typeLabel = "Validation Step";
+                      } else if (step.type === "optimization_rewrite") {
+                        badgeColor =
+                          "bg-indigo-50 text-indigo-700 border-indigo-200";
+                        typeLabel = "AI Optimization";
+                      } else if (step.type === "final_executed") {
+                        badgeColor =
+                          "bg-emerald-50 text-emerald-700 border-emerald-200";
+                        typeLabel = "Final Execution";
                       }
 
                       return (
                         <div key={step.id} className="relative group">
-                          <div className={cn(
-                            "absolute -left-[22px] top-2 h-2.5 w-2.5 rounded-full border-2 border-white",
-                            step.success ? "bg-emerald-500" : "bg-red-500"
-                          )} />
+                          <div
+                            className={cn(
+                              "absolute -left-[22px] top-2 h-2.5 w-2.5 rounded-full border-2 border-white",
+                              step.success ? "bg-emerald-500" : "bg-red-500",
+                            )}
+                          />
 
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className={cn("inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold", badgeColor)}>
+                              <span
+                                className={cn(
+                                  "inline-block rounded-md border px-2 py-0.5 text-[10px] font-bold",
+                                  badgeColor,
+                                )}
+                              >
                                 {typeLabel}
                               </span>
                               <span className="text-[10px] tabular-nums text-slate-400">
-                                {step.executionTime ? `${step.executionTime}ms` : ''}
+                                {step.executionTime
+                                  ? `${step.executionTime}ms`
+                                  : ""}
                               </span>
                             </div>
-                            
+
                             <pre className="overflow-x-auto rounded-lg border border-slate-200/80 bg-slate-50 p-2.5 font-mono text-[11px] text-slate-850 max-h-36">
                               <code>{step.sql}</code>
                             </pre>
@@ -1314,9 +1696,12 @@ function AnalyticsPageRaw({
                 {!timelineAnalysis ? (
                   <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/30 py-16 text-center">
                     <Activity className="mb-3 h-8 w-8 animate-pulse text-slate-300" />
-                    <p className="text-sm font-semibold text-slate-700">Query Lifecycle Analysis Pending</p>
+                    <p className="text-sm font-semibold text-slate-700">
+                      Query Lifecycle Analysis Pending
+                    </p>
                     <p className="mt-1.5 max-w-sm text-xs text-slate-400">
-                      Click "AI Lifecycle Analysis" to analyze every query step and evaluate optimization rewrites.
+                      Click "AI Lifecycle Analysis" to analyze every query step
+                      and evaluate optimization rewrites.
                     </p>
                   </div>
                 ) : (
@@ -1327,41 +1712,73 @@ function AnalyticsPageRaw({
                         Query Analysis Chain
                       </span>
                       <div className="space-y-4">
-                        {timelineAnalysis.queries?.map((q: any, idx: number) => (
-                          <div key={idx} className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/30 p-4">
-                            <pre className="overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] text-white">
-                              <code>{q.sql}</code>
-                            </pre>
-                            <div className="grid gap-3 pt-1 text-sm sm:grid-cols-2">
-                              <div>
-                                <span className="font-semibold text-slate-700">Purpose</span>
-                                <p className="mt-0.5 text-xs text-slate-500">{q.purpose}</p>
-                              </div>
-                              <div>
-                                <span className="font-semibold text-slate-700">Cost</span>
-                                <p className="mt-0.5 text-xs text-slate-500">{q.cost || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <span className="font-semibold text-slate-700">Tables Involved</span>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {q.tablesInvolved?.map((t: string) => (
-                                    <span key={t} className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground">{t}</span>
-                                  )) || <span className="text-xs text-muted-foreground">-</span>}
+                        {timelineAnalysis.queries?.map(
+                          (q: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/30 p-4"
+                            >
+                              <pre className="overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] text-white">
+                                <code>{q.sql}</code>
+                              </pre>
+                              <div className="grid gap-3 pt-1 text-sm sm:grid-cols-2">
+                                <div>
+                                  <span className="font-semibold text-slate-700">
+                                    Purpose
+                                  </span>
+                                  <p className="mt-0.5 text-xs text-slate-500">
+                                    {q.purpose}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-slate-700">
+                                    Cost
+                                  </span>
+                                  <p className="mt-0.5 text-xs text-slate-500">
+                                    {q.cost || "N/A"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-slate-700">
+                                    Tables Involved
+                                  </span>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {q.tablesInvolved?.map((t: string) => (
+                                      <span
+                                        key={t}
+                                        className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground"
+                                      >
+                                        {t}
+                                      </span>
+                                    )) || (
+                                      <span className="text-xs text-muted-foreground">
+                                        -
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-slate-700">
+                                    Bottlenecks
+                                  </span>
+                                  <p className="mt-0.5 text-xs font-medium text-amber-600">
+                                    {q.bottlenecks || "None detected"}
+                                  </p>
                                 </div>
                               </div>
-                              <div>
-                                <span className="font-semibold text-slate-700">Bottlenecks</span>
-                                <p className="mt-0.5 text-xs font-medium text-amber-600">{q.bottlenecks || 'None detected'}</p>
-                              </div>
+                              {q.optimizationOpportunities && (
+                                <div className="border-t border-slate-200/60 pt-3 text-sm">
+                                  <span className="font-semibold text-emerald-600">
+                                    Optimization Opportunities
+                                  </span>
+                                  <p className="mt-0.5 text-xs text-slate-500">
+                                    {q.optimizationOpportunities}
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                            {q.optimizationOpportunities && (
-                              <div className="border-t border-slate-200/60 pt-3 text-sm">
-                                <span className="font-semibold text-emerald-600">Optimization Opportunities</span>
-                                <p className="mt-0.5 text-xs text-slate-500">{q.optimizationOpportunities}</p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                          ),
+                        )}
                       </div>
                     </div>
 
@@ -1371,21 +1788,39 @@ function AnalyticsPageRaw({
                         Engineering Principles Validation
                       </span>
                       <div className="grid gap-3 sm:grid-cols-4">
-                        {['dry', 'yagni', 'kiss', 'solid'].map((p) => {
-                          const val = timelineAnalysis.principlesValidation?.[p];
+                        {["dry", "yagni", "kiss", "solid"].map((p) => {
+                          const val =
+                            timelineAnalysis.principlesValidation?.[p];
                           if (!val) return null;
-                          
-                          let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
-                          if (val.status === 'follows') badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                          if (val.status === 'violates') badgeColor = 'bg-red-50 text-red-700 border-red-200';
+
+                          let badgeColor =
+                            "bg-slate-100 text-slate-700 border-slate-200";
+                          if (val.status === "follows")
+                            badgeColor =
+                              "bg-emerald-50 text-emerald-700 border-emerald-200";
+                          if (val.status === "violates")
+                            badgeColor =
+                              "bg-red-50 text-red-700 border-red-200";
 
                           return (
-                            <div key={p} className="flex flex-col justify-between rounded-xl border border-border bg-background p-4">
+                            <div
+                              key={p}
+                              className="flex flex-col justify-between rounded-xl border border-border bg-background p-4"
+                            >
                               <div>
-                                <span className="text-xs font-bold uppercase text-slate-700">{p}</span>
-                                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{val.description}</p>
+                                <span className="text-xs font-bold uppercase text-slate-700">
+                                  {p}
+                                </span>
+                                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                                  {val.description}
+                                </p>
                               </div>
-                              <span className={cn("mt-3 inline-block w-fit rounded-md border px-2 py-0.5 text-[10px] font-bold capitalize", badgeColor)}>
+                              <span
+                                className={cn(
+                                  "mt-3 inline-block w-fit rounded-md border px-2 py-0.5 text-[10px] font-bold capitalize",
+                                  badgeColor,
+                                )}
+                              >
                                 {val.status}
                               </span>
                             </div>
@@ -1393,16 +1828,19 @@ function AnalyticsPageRaw({
                         })}
                       </div>
 
-                      {timelineAnalysis.principlesValidation?.concerns?.length > 0 && (
+                      {timelineAnalysis.principlesValidation?.concerns?.length >
+                        0 && (
                         <div className="mt-4 space-y-1.5 rounded-xl border border-red-200 bg-red-50/40 p-4">
                           <span className="flex items-center gap-1.5 text-xs font-semibold text-red-800">
                             <AlertTriangle className="h-3.5 w-3.5" />
                             Maintainability & Redundancy Concerns
                           </span>
                           <ul className="ml-5 list-disc text-xs text-red-700 space-y-1">
-                            {timelineAnalysis.principlesValidation.concerns.map((c: string, idx: number) => (
-                              <li key={idx}>{c}</li>
-                            ))}
+                            {timelineAnalysis.principlesValidation.concerns.map(
+                              (c: string, idx: number) => (
+                                <li key={idx}>{c}</li>
+                              ),
+                            )}
                           </ul>
                         </div>
                       )}
@@ -1415,56 +1853,96 @@ function AnalyticsPageRaw({
                           Query Optimization & Change Explanations
                         </span>
                         <div className="space-y-4">
-                          {timelineAnalysis.changeExplanations.map((exp: any, idx: number) => (
-                            <div key={idx} className="space-y-4 rounded-xl border border-amber-200/80 bg-amber-50/20 p-4">
-                              <div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Optimized Query</span>
-                                <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] text-white">
-                                  <code>{exp.sql}</code>
-                                </pre>
-                              </div>
-                              
-                              <div className="grid gap-3 pt-1 text-sm sm:grid-cols-3">
+                          {timelineAnalysis.changeExplanations.map(
+                            (exp: any, idx: number) => (
+                              <div
+                                key={idx}
+                                className="space-y-4 rounded-xl border border-amber-200/80 bg-amber-50/20 p-4"
+                              >
                                 <div>
-                                  <span className="font-semibold text-amber-900">What Changed</span>
-                                  <p className="mt-0.5 text-xs leading-relaxed text-amber-800">{exp.whatChanged}</p>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                                    Optimized Query
+                                  </span>
+                                  <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-3 font-mono text-[11px] text-white">
+                                    <code>{exp.sql}</code>
+                                  </pre>
                                 </div>
-                                <div>
-                                  <span className="font-semibold text-amber-900">Why Needed</span>
-                                  <p className="mt-0.5 text-xs leading-relaxed text-amber-800">{exp.whyNeeded}</p>
-                                </div>
-                                <div>
-                                  <span className="font-semibold text-amber-900">Expected Impact</span>
-                                  <p className="mt-0.5 text-xs leading-relaxed text-amber-800">{exp.expectedImpact}</p>
-                                </div>
-                              </div>
 
-                              <div className="flex flex-wrap items-center gap-4 border-t border-amber-200/50 pt-3 text-[10px]">
-                                <span className="font-semibold uppercase text-amber-700">Improvements:</span>
-                                <span className="flex items-center gap-1 text-xs">
-                                  Performance:
-                                  <strong className={cn(
-                                    "font-bold",
-                                    exp.performanceImprovement === 'High' ? 'text-emerald-600' : 'text-amber-600'
-                                  )}>{exp.performanceImprovement}</strong>
-                                </span>
-                                <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-xs">
-                                  Readability:
-                                  <strong className={cn(
-                                    "font-bold",
-                                    exp.readabilityImprovement === 'High' ? 'text-emerald-600' : 'text-amber-600'
-                                  )}>{exp.readabilityImprovement}</strong>
-                                </span>
-                                <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-xs">
-                                  Maintainability:
-                                  <strong className={cn(
-                                    "font-bold",
-                                    exp.maintainabilityImprovement === 'High' ? 'text-emerald-600' : 'text-amber-600'
-                                  )}>{exp.maintainabilityImprovement}</strong>
-                                </span>
+                                <div className="grid gap-3 pt-1 text-sm sm:grid-cols-3">
+                                  <div>
+                                    <span className="font-semibold text-amber-900">
+                                      What Changed
+                                    </span>
+                                    <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                                      {exp.whatChanged}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <span className="font-semibold text-amber-900">
+                                      Why Needed
+                                    </span>
+                                    <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                                      {exp.whyNeeded}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <span className="font-semibold text-amber-900">
+                                      Expected Impact
+                                    </span>
+                                    <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                                      {exp.expectedImpact}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-4 border-t border-amber-200/50 pt-3 text-[10px]">
+                                  <span className="font-semibold uppercase text-amber-700">
+                                    Improvements:
+                                  </span>
+                                  <span className="flex items-center gap-1 text-xs">
+                                    Performance:
+                                    <strong
+                                      className={cn(
+                                        "font-bold",
+                                        exp.performanceImprovement === "High"
+                                          ? "text-emerald-600"
+                                          : "text-amber-600",
+                                      )}
+                                    >
+                                      {exp.performanceImprovement}
+                                    </strong>
+                                  </span>
+                                  <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-xs">
+                                    Readability:
+                                    <strong
+                                      className={cn(
+                                        "font-bold",
+                                        exp.readabilityImprovement === "High"
+                                          ? "text-emerald-600"
+                                          : "text-amber-600",
+                                      )}
+                                    >
+                                      {exp.readabilityImprovement}
+                                    </strong>
+                                  </span>
+                                  <span className="flex items-center gap-1 border-l border-amber-200/50 pl-3 text-xs">
+                                    Maintainability:
+                                    <strong
+                                      className={cn(
+                                        "font-bold",
+                                        exp.maintainabilityImprovement ===
+                                          "High"
+                                          ? "text-emerald-600"
+                                          : "text-amber-600",
+                                      )}
+                                    >
+                                      {exp.maintainabilityImprovement}
+                                    </strong>
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ),
+                          )}
                         </div>
                       </div>
                     )}
@@ -1479,4 +1957,7 @@ function AnalyticsPageRaw({
   );
 }
 
-export const AnalyticsPage = withWorkspacePadding(AnalyticsPageRaw, { scrollable: true, bg: 'bg-slate-50/50' });
+export const AnalyticsPage = withWorkspacePadding(AnalyticsPageRaw, {
+  scrollable: true,
+  bg: "bg-slate-50/50",
+});

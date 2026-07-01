@@ -12,8 +12,8 @@
  *   - "relation does not exist" (AI lowercased a PascalCase table)
  */
 
-import type { SchemaTable } from './types';
-import { quotePgIdentifier } from './pg-identifiers';
+import type { SchemaTable } from "./types";
+import { quotePgIdentifier } from "./pg-identifiers";
 
 export interface ValidationResult {
   /** The corrected SQL (may be identical to input if no issues found). */
@@ -61,14 +61,14 @@ function buildSchemaMaps(tables: SchemaTable[]): {
 export function validateAndCorrectSQL(
   sql: string,
   tables: SchemaTable[],
-  dbType: string
+  dbType: string,
 ): ValidationResult {
-  if (tables.length === 0 || dbType === 'sqlite') {
+  if (tables.length === 0 || dbType === "sqlite") {
     // SQLite is case-insensitive natively — no correction needed.
     return { correctedSql: sql, corrections: [], unmatchedIdentifiers: [] };
   }
 
-  const isPg = dbType === 'postgresql';
+  const isPg = dbType === "postgresql";
   const { tableMap, columnMap } = buildSchemaMaps(tables);
 
   const corrections: string[] = [];
@@ -85,34 +85,194 @@ export function validateAndCorrectSQL(
    *   $n    → positional parameter (preserve as-is)
    *   word  → potential identifier to check against schema
    */
-  let corrected = '';
+  let corrected = "";
   let i = 0;
 
   // SQL keywords that must never be rewritten as identifiers
   const SQL_KEYWORDS = new Set([
-    'select','from','where','join','on','and','or','not','in','is','null',
-    'true','false','as','order','by','group','having','limit','offset',
-    'insert','into','values','update','set','delete','create','alter','drop',
-    'table','column','index','unique','primary','key','foreign','references',
-    'inner','left','right','full','outer','cross','natural','using',
-    'with','recursive','union','all','except','intersect','exists','between',
-    'like','ilike','similar','case','when','then','else','end','cast','coalesce',
-    'nullif','extract','date','time','timestamp','interval','returning',
-    'distinct','count','sum','avg','min','max','asc','desc','nulls','first','last',
-    'over','partition','rows','range','unbounded','preceding','following','current',
-    'row','filter','within','within','int','integer','text','varchar','boolean',
-    'numeric','decimal','float','double','precision','char','serial','bigserial',
-    'smallint','bigint','real','json','jsonb','uuid','bytea','money','bit',
-    'do','begin','commit','rollback','savepoint','language','plpgsql',
-    'perform','raise','notice','exception','return','returns','function',
-    'procedure','trigger','view','materialized','refresh','concurrently',
-    'explain','analyze','verbose','buffers','format','public','schema',
-    'default','constraint','check','deferrable','initially','deferred',
-    'immediate','no','action','restrict','cascade','set','match','simple',
-    'full','partial','always','generated','identity','sequence','owned',
-    'nextval','currval','setval','now','current_timestamp','current_date',
-    'current_time','localtime','localtimestamp','at','zone','epoch','year',
-    'month','day','hour','minute','second','microseconds','milliseconds',
+    "select",
+    "from",
+    "where",
+    "join",
+    "on",
+    "and",
+    "or",
+    "not",
+    "in",
+    "is",
+    "null",
+    "true",
+    "false",
+    "as",
+    "order",
+    "by",
+    "group",
+    "having",
+    "limit",
+    "offset",
+    "insert",
+    "into",
+    "values",
+    "update",
+    "set",
+    "delete",
+    "create",
+    "alter",
+    "drop",
+    "table",
+    "column",
+    "index",
+    "unique",
+    "primary",
+    "key",
+    "foreign",
+    "references",
+    "inner",
+    "left",
+    "right",
+    "full",
+    "outer",
+    "cross",
+    "natural",
+    "using",
+    "with",
+    "recursive",
+    "union",
+    "all",
+    "except",
+    "intersect",
+    "exists",
+    "between",
+    "like",
+    "ilike",
+    "similar",
+    "case",
+    "when",
+    "then",
+    "else",
+    "end",
+    "cast",
+    "coalesce",
+    "nullif",
+    "extract",
+    "date",
+    "time",
+    "timestamp",
+    "interval",
+    "returning",
+    "distinct",
+    "count",
+    "sum",
+    "avg",
+    "min",
+    "max",
+    "asc",
+    "desc",
+    "nulls",
+    "first",
+    "last",
+    "over",
+    "partition",
+    "rows",
+    "range",
+    "unbounded",
+    "preceding",
+    "following",
+    "current",
+    "row",
+    "filter",
+    "within",
+    "within",
+    "int",
+    "integer",
+    "text",
+    "varchar",
+    "boolean",
+    "numeric",
+    "decimal",
+    "float",
+    "double",
+    "precision",
+    "char",
+    "serial",
+    "bigserial",
+    "smallint",
+    "bigint",
+    "real",
+    "json",
+    "jsonb",
+    "uuid",
+    "bytea",
+    "money",
+    "bit",
+    "do",
+    "begin",
+    "commit",
+    "rollback",
+    "savepoint",
+    "language",
+    "plpgsql",
+    "perform",
+    "raise",
+    "notice",
+    "exception",
+    "return",
+    "returns",
+    "function",
+    "procedure",
+    "trigger",
+    "view",
+    "materialized",
+    "refresh",
+    "concurrently",
+    "explain",
+    "analyze",
+    "verbose",
+    "buffers",
+    "format",
+    "public",
+    "schema",
+    "default",
+    "constraint",
+    "check",
+    "deferrable",
+    "initially",
+    "deferred",
+    "immediate",
+    "no",
+    "action",
+    "restrict",
+    "cascade",
+    "set",
+    "match",
+    "simple",
+    "full",
+    "partial",
+    "always",
+    "generated",
+    "identity",
+    "sequence",
+    "owned",
+    "nextval",
+    "currval",
+    "setval",
+    "now",
+    "current_timestamp",
+    "current_date",
+    "current_time",
+    "localtime",
+    "localtimestamp",
+    "at",
+    "zone",
+    "epoch",
+    "year",
+    "month",
+    "day",
+    "hour",
+    "minute",
+    "second",
+    "microseconds",
+    "milliseconds",
   ]);
 
   while (i < sql.length) {
@@ -123,7 +283,10 @@ export function validateAndCorrectSQL(
       let j = i + 1;
       while (j < sql.length) {
         if (sql[j] === '"') {
-          if (sql[j + 1] === '"') { j += 2; continue; } // escaped quote
+          if (sql[j + 1] === '"') {
+            j += 2;
+            continue;
+          } // escaped quote
           j++;
           break;
         }
@@ -139,7 +302,10 @@ export function validateAndCorrectSQL(
       let j = i + 1;
       while (j < sql.length) {
         if (sql[j] === "'") {
-          if (sql[j + 1] === "'") { j += 2; continue; }
+          if (sql[j + 1] === "'") {
+            j += 2;
+            continue;
+          }
           j++;
           break;
         }
@@ -151,16 +317,16 @@ export function validateAndCorrectSQL(
     }
 
     // ── Backtick-quoted identifier (MySQL) → pass through ────────────────────
-    if (ch === '`') {
+    if (ch === "`") {
       let j = i + 1;
-      while (j < sql.length && sql[j] !== '`') j++;
+      while (j < sql.length && sql[j] !== "`") j++;
       corrected += sql.slice(i, j + 1);
       i = j + 1;
       continue;
     }
 
     // ── $n positional parameter → pass through ───────────────────────────────
-    if (ch === '$' && /\d/.test(sql[i + 1] || '')) {
+    if (ch === "$" && /\d/.test(sql[i + 1] || "")) {
       let j = i + 1;
       while (j < sql.length && /\d/.test(sql[j])) j++;
       corrected += sql.slice(i, j);

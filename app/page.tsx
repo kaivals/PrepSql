@@ -1,27 +1,32 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { AppHeader } from '@/components/AppHeader';
-import { NavigationSidebar } from '@/components/NavigationSidebar';
-import { ConnectionsPage } from '@/components/ConnectionsPage';
-import { SchemaSidebar } from '@/components/SchemaSidebar';
-import { QueryInterface } from '@/components/QueryInterface';
-import { SchemaEditor } from '@/components/SchemaEditor';
-import { AnalyticsPage } from '@/components/AnalyticsPage';
-import { Toast } from '@/components/Toast';
-import { SettingsModal } from '@/components/SettingsModal';
-import { ensureServerConnection } from '@/lib/client-connection';
-import type { DatabaseConnection, QueryMode, QueryResult, QueryHistoryItem } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { AppHeader } from "@/components/AppHeader";
+import { NavigationSidebar } from "@/components/NavigationSidebar";
+import { ConnectionsPage } from "@/components/ConnectionsPage";
+import { SchemaSidebar } from "@/components/SchemaSidebar";
+import { QueryInterface } from "@/components/QueryInterface";
+import { SchemaEditor } from "@/components/SchemaEditor";
+import { AnalyticsPage } from "@/components/AnalyticsPage";
+import { Toast } from "@/components/Toast";
+import { SettingsModal } from "@/components/SettingsModal";
+import { ensureServerConnection } from "@/lib/client-connection";
+import type {
+  DatabaseConnection,
+  QueryMode,
+  QueryResult,
+  QueryHistoryItem,
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-type View = 'connections' | 'workspace';
-type NavSection = QueryMode | 'history';
+type View = "connections" | "workspace";
+type NavSection = QueryMode | "history";
 
 // ── Client-side helpers for preferences (backed by /api/preferences) ─────────
 
 async function loadPreferences(): Promise<Record<string, any>> {
   try {
-    const res = await fetch('/api/preferences', { credentials: 'same-origin' });
+    const res = await fetch("/api/preferences", { credentials: "same-origin" });
     if (res.ok) {
       const data = await res.json();
       return data.preferences || {};
@@ -34,10 +39,10 @@ async function loadPreferences(): Promise<Record<string, any>> {
 
 function savePreference(key: string, value: any): void {
   try {
-    fetch('/api/preferences', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
+    fetch("/api/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({ preferences: { [key]: value } }),
     });
   } catch {
@@ -47,43 +52,47 @@ function savePreference(key: string, value: any): void {
 
 function clearSavedConnectionAPI(): void {
   try {
-    fetch('/api/saved-connection', { method: 'DELETE', credentials: 'same-origin' });
+    fetch("/api/saved-connection", {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
   } catch {
     // fire-and-forget
   }
 }
 
 export default function Home() {
-  const [view, setView] = useState<View>('connections');
+  const [view, setView] = useState<View>("connections");
   const [connections, setConnections] = useState<DatabaseConnection[]>([]);
-  const [activeConnection, setActiveConnection] = useState<DatabaseConnection | null>(null);
-  const [navSection, setNavSection] = useState<NavSection>('crud');
+  const [activeConnection, setActiveConnection] =
+    useState<DatabaseConnection | null>(null);
+  const [navSection, setNavSection] = useState<NavSection>("crud");
   const [result, setResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState("");
   const [showToast, setShowToast] = useState(false);
   const [toastConfig, setToastConfig] = useState<{
     onConfirm?: () => void;
     confirmText?: string;
     cancelText?: string;
-    type?: 'success' | 'error' | 'confirm';
+    type?: "success" | "error" | "confirm";
   }>({});
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [userEmail] = useState('user@example.com');
+  const [userEmail] = useState("user@example.com");
   const [isResizing, setIsResizing] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [initializing, setInitializing] = useState(true);
-  const [prompt, setPrompt] = useState('');
-  const [inputMode, setInputMode] = useState<'natural' | 'sql'>('natural');
+  const [prompt, setPrompt] = useState("");
+  const [inputMode, setInputMode] = useState<"natural" | "sql">("natural");
   const saveWidthTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Derive query mode from navSection (history tab shown in SchemaSidebar)
   const mode: QueryMode =
-    navSection === 'history' ? 'crud' : (navSection as QueryMode);
+    navSection === "history" ? "crud" : (navSection as QueryMode);
 
   // Load sidebar width from server-side preferences on mount
   useEffect(() => {
@@ -106,107 +115,120 @@ export default function Home() {
     setIsResizing(false);
   }, []);
 
-  const resize = useCallback((e: MouseEvent) => {
-    if (!isResizing) return;
-    const newWidth = e.clientX;
-    if (newWidth >= 240 && newWidth <= 600) {
-      setSidebarWidth(newWidth);
-      // Debounce saving to API
-      if (saveWidthTimer.current) clearTimeout(saveWidthTimer.current);
-      saveWidthTimer.current = setTimeout(() => {
-        savePreference('sidebarWidth', String(newWidth));
-      }, 500);
-    }
-  }, [isResizing]);
+  const resize = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = e.clientX;
+      if (newWidth >= 240 && newWidth <= 600) {
+        setSidebarWidth(newWidth);
+        // Debounce saving to API
+        if (saveWidthTimer.current) clearTimeout(saveWidthTimer.current);
+        saveWidthTimer.current = setTimeout(() => {
+          savePreference("sidebarWidth", String(newWidth));
+        }, 500);
+      }
+    },
+    [isResizing],
+  );
 
   useEffect(() => {
     if (isResizing) {
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      window.addEventListener('mousemove', resize);
-      window.addEventListener('mouseup', stopResizing);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
     } else {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
     }
     return () => {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
     };
   }, [isResizing, resize, stopResizing]);
 
-  const loadConnections = useCallback(async (autoRedirect = false, allowAutoConnect = true) => {
-    try {
-      let res = await fetch('/api/connection', { credentials: 'same-origin' });
-      let data = res.ok ? await res.json() : null;
-
-      if (!data?.connected && allowAutoConnect) {
-        const reconnected = await ensureServerConnection();
-        if (reconnected) {
-          res = await fetch('/api/connection', { credentials: 'same-origin' });
-          data = res.ok ? await res.json() : null;
-        }
-      }
-
-      if (data) {
-        setConnections(data.connections || []);
-        if (data.connection && data.connections?.length > 0) {
-          setActiveConnection(data.connection);
-          if (autoRedirect) {
-            setView('workspace');
-          }
-        } else {
-          setActiveConnection(null);
-        }
-      }
-
-      // Fetch history for latency sparklines
+  const loadConnections = useCallback(
+    async (autoRedirect = false, allowAutoConnect = true) => {
       try {
-        const historyRes = await fetch(`/api/history?limit=500&t=${Date.now()}`, {
-          credentials: 'same-origin',
-          cache: 'no-store',
+        let res = await fetch("/api/connection", {
+          credentials: "same-origin",
         });
-        if (historyRes.ok) {
-          const historyData = await historyRes.json();
-          setHistory(historyData.history || []);
+        let data = res.ok ? await res.json() : null;
+
+        if (!data?.connected && allowAutoConnect) {
+          const reconnected = await ensureServerConnection();
+          if (reconnected) {
+            res = await fetch("/api/connection", {
+              credentials: "same-origin",
+            });
+            data = res.ok ? await res.json() : null;
+          }
+        }
+
+        if (data) {
+          setConnections(data.connections || []);
+          if (data.connection && data.connections?.length > 0) {
+            setActiveConnection(data.connection);
+            if (autoRedirect) {
+              setView("workspace");
+            }
+          } else {
+            setActiveConnection(null);
+          }
+        }
+
+        // Fetch history for latency sparklines
+        try {
+          const historyRes = await fetch(
+            `/api/history?limit=500&t=${Date.now()}`,
+            {
+              credentials: "same-origin",
+              cache: "no-store",
+            },
+          );
+          if (historyRes.ok) {
+            const historyData = await historyRes.json();
+            setHistory(historyData.history || []);
+          }
+        } catch (err) {
+          console.error("Failed to load history on connection page:", err);
         }
       } catch (err) {
-        console.error('Failed to load history on connection page:', err);
+        console.error("Failed to load connections:", err);
       }
-    } catch (err) {
-      console.error('Failed to load connections:', err);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (view === 'connections' && !initializing) {
+    if (view === "connections" && !initializing) {
       loadConnections(false, false);
     }
   }, [view, loadConnections, initializing]);
 
   const loadMode = useCallback(async () => {
     try {
-      const res = await fetch('/api/mode');
+      const res = await fetch("/api/mode");
       if (res.ok) {
         const data = await res.json();
-        const m = data.mode || 'readonly';
-        const mapped: QueryMode = m === 'history' ? 'crud' : m;
+        const m = data.mode || "readonly";
+        const mapped: QueryMode = m === "history" ? "crud" : m;
         setNavSection(mapped);
       }
     } catch (err) {
-      console.error('Failed to load mode:', err);
+      console.error("Failed to load mode:", err);
     }
   }, []);
 
   useEffect(() => {
     const init = async () => {
       const prefs = await loadPreferences();
-      const savedView = prefs['prepsql-view'];
-      const shouldRedirect = savedView === 'workspace';
+      const savedView = prefs["prepsql-view"];
+      const shouldRedirect = savedView === "workspace";
       await loadConnections(shouldRedirect, true);
       await loadMode();
       setInitializing(false);
@@ -214,7 +236,10 @@ export default function Home() {
     init();
   }, [loadConnections, loadMode]);
 
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+  const showNotification = (
+    message: string,
+    type: "success" | "error" = "success",
+  ) => {
     setToast(message);
     setToastConfig({ type });
     setShowToast(true);
@@ -223,71 +248,71 @@ export default function Home() {
   const showConfirmation = (message: string, onConfirm: () => void) => {
     setToast(message);
     setToastConfig({
-      type: 'confirm',
+      type: "confirm",
       onConfirm,
-      confirmText: 'Execute',
-      cancelText: 'Cancel',
+      confirmText: "Execute",
+      cancelText: "Cancel",
     });
     setShowToast(true);
   };
 
   const setViewPref = (newView: View) => {
     setView(newView);
-    savePreference('prepsql-view', newView);
+    savePreference("prepsql-view", newView);
   };
 
   const handleNavSectionChange = async (section: NavSection) => {
     // For history: keep mode as crud, but open sidebar on history tab
-    if (section === 'history') {
-      setNavSection('history');
+    if (section === "history") {
+      setNavSection("history");
       return;
     }
     setNavSection(section as QueryMode);
     // Persist the mode server-side
-    await fetch('/api/mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch("/api/mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode: section }),
     });
   };
 
   const handleSelectConnection = async (connection: DatabaseConnection) => {
-    await fetch('/api/connection', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
+    await fetch("/api/connection", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({ id: connection.id }),
     });
     setActiveConnection(connection);
     setResult(null);
     setSelectedTable(null);
-    setPrompt('');
-    setInputMode('natural');
-    setViewPref('workspace');
+    setPrompt("");
+    setInputMode("natural");
+    setViewPref("workspace");
   };
 
   const handleDeleteConnection = async (id: string) => {
-    if (!confirm('Remove this connection?')) return;
+    if (!confirm("Remove this connection?")) return;
 
     if (connections.length <= 1) {
       clearSavedConnectionAPI();
     }
 
-    await fetch(`/api/connection?id=${id}`, { method: 'DELETE' });
+    await fetch(`/api/connection?id=${id}`, { method: "DELETE" });
     await loadConnections(false, false);
   };
 
   const handleDemo = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/demo', { method: 'POST' });
+      const res = await fetch("/api/demo", { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create demo DB');
+      if (!res.ok) throw new Error(data.error || "Failed to create demo DB");
 
       await loadConnections(false, false);
       if (data.connection) {
         setActiveConnection(data.connection);
-        setViewPref('workspace');
+        setViewPref("workspace");
       }
     } catch (err) {
       console.error(err);
@@ -302,22 +327,23 @@ export default function Home() {
 
   const handleModeChange = async (newMode: QueryMode) => {
     setNavSection(newMode);
-    await fetch('/api/mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch("/api/mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode: newMode }),
     });
   };
 
   const handleExecuteQuery = async (sql: string, prompt?: string) => {
     const upperSql = sql.toUpperCase();
-    const isMutation = upperSql.includes('UPDATE ') || upperSql.includes('DELETE ');
+    const isMutation =
+      upperSql.includes("UPDATE ") || upperSql.includes("DELETE ");
 
     if (isMutation) {
-      const action = upperSql.includes('UPDATE ') ? 'UPDATE' : 'DELETE';
+      const action = upperSql.includes("UPDATE ") ? "UPDATE" : "DELETE";
       showConfirmation(
         `Are you sure you want to execute this ${action} operation?\n\n${sql}`,
-        () => executeQueryInternal(sql, prompt)
+        () => executeQueryInternal(sql, prompt),
       );
       return;
     }
@@ -332,16 +358,16 @@ export default function Home() {
     try {
       await ensureServerConnection();
 
-      const res = await fetch('/api/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+      const res = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ sql }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Query execution failed');
+        throw new Error(data.error || "Query execution failed");
       }
 
       const data = await res.json();
@@ -352,17 +378,21 @@ export default function Home() {
       setHistoryRefresh((prev) => prev + 1);
 
       const upperSql = sql.toUpperCase();
-      if (upperSql.includes('UPDATE ') || upperSql.includes('DELETE ')) {
-        const action = upperSql.includes('UPDATE ') ? 'Update' : 'Delete';
-        showNotification(`${action} successful. Rows affected: ${data.rowsAffected || 0}`, 'success');
+      if (upperSql.includes("UPDATE ") || upperSql.includes("DELETE ")) {
+        const action = upperSql.includes("UPDATE ") ? "Update" : "Delete";
+        showNotification(
+          `${action} successful. Rows affected: ${data.rowsAffected || 0}`,
+          "success",
+        );
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Query execution failed';
+      const errorMsg =
+        err instanceof Error ? err.message : "Query execution failed";
       setResult({ columns: [], rows: [], rowCount: 0 });
 
       const upperSql = sql.toUpperCase();
-      if (upperSql.includes('UPDATE ') || upperSql.includes('DELETE ')) {
-        showNotification(`Error: ${errorMsg}`, 'error');
+      if (upperSql.includes("UPDATE ") || upperSql.includes("DELETE ")) {
+        showNotification(`Error: ${errorMsg}`, "error");
       }
       throw err;
     } finally {
@@ -371,12 +401,12 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    setViewPref('connections');
-    setNavSection('crud');
+    setViewPref("connections");
+    setNavSection("crud");
     setActiveConnection(null);
     setResult(null);
-    setPrompt('');
-    setInputMode('natural');
+    setPrompt("");
+    setInputMode("natural");
   };
 
   if (initializing) {
@@ -390,7 +420,7 @@ export default function Home() {
     );
   }
 
-  if (view === 'workspace' && activeConnection) {
+  if (view === "workspace" && activeConnection) {
     return (
       <div className="flex h-screen flex-col bg-background">
         <AppHeader
@@ -405,7 +435,7 @@ export default function Home() {
           onDeleteConnection={handleDeleteConnection}
           onDemo={handleDemo}
           onConnected={handleConnected}
-          onViewAllConnections={() => setViewPref('connections')}
+          onViewAllConnections={() => setViewPref("connections")}
           loading={loading}
         />
         <Toast
@@ -424,13 +454,19 @@ export default function Home() {
         <div className="flex flex-1 overflow-hidden">
           {/* ── Framer-style Navigation Sidebar ── */}
           <NavigationSidebar
-            activeSection={navSection === 'crud' || navSection === 'analytics' || navSection === 'schema' ? navSection : 'history'}
+            activeSection={
+              navSection === "crud" ||
+              navSection === "analytics" ||
+              navSection === "schema"
+                ? navSection
+                : "history"
+            }
             onSectionChange={handleNavSectionChange}
             onOpenSettings={() => setShowSettings(true)}
           />
 
           {/* ── Schema/History sidebar (only shown in crud/history mode) ── */}
-          {(navSection === 'crud' || navSection === 'history') && (
+          {(navSection === "crud" || navSection === "history") && (
             <>
               {sidebarOpen && (
                 <div
@@ -440,31 +476,35 @@ export default function Home() {
               )}
               <div
                 className={cn(
-                  'absolute inset-y-0 left-0 z-40 md:static md:overflow-hidden relative max-w-[85vw] md:max-w-none border-r border-border bg-transparent',
-                  isResizing ? 'transition-none' : 'transition-all duration-300',
+                  "absolute inset-y-0 left-0 z-40 md:static md:overflow-hidden relative max-w-[85vw] md:max-w-none border-r border-border bg-transparent",
+                  isResizing
+                    ? "transition-none"
+                    : "transition-all duration-300",
                   sidebarOpen
-                    ? 'translate-x-0 w-72 md:w-[var(--sidebar-width)]'
-                    : '-translate-x-full w-72 md:translate-x-0 md:w-0 md:border-r-0'
+                    ? "translate-x-0 w-72 md:w-[var(--sidebar-width)]"
+                    : "-translate-x-full w-72 md:translate-x-0 md:w-0 md:border-r-0",
                 )}
-                style={{
-                  '--sidebar-width': `${sidebarWidth}px`,
-                } as React.CSSProperties}
+                style={
+                  {
+                    "--sidebar-width": `${sidebarWidth}px`,
+                  } as React.CSSProperties
+                }
               >
                 <SchemaSidebar
                   connection={activeConnection}
                   onSelectQuery={(sql) => {
                     setPrompt(sql);
-                    setInputMode('sql');
+                    setInputMode("sql");
                     if (window.innerWidth < 768) setSidebarOpen(false);
                   }}
                   onSelectTable={(tbl) => setSelectedTable(tbl)}
                   onEditTable={(tbl) => {
                     setSelectedTable(tbl);
-                    handleModeChange('schema');
+                    handleModeChange("schema");
                   }}
                   refreshTrigger={historyRefresh}
                   selectedTable={selectedTable}
-                  defaultTab={navSection === 'history' ? 'history' : 'schema'}
+                  defaultTab={navSection === "history" ? "history" : "schema"}
                 />
                 {/* Resize Handle */}
                 {sidebarOpen && (
@@ -481,17 +521,17 @@ export default function Home() {
 
           {/* ── Main Content Area ── */}
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-            {mode === 'schema' ? (
+            {mode === "schema" ? (
               <SchemaEditor
                 connection={activeConnection}
                 selectedTable={selectedTable}
                 showConfirmation={showConfirmation}
                 showNotification={showNotification}
                 onRefreshSchema={() => setHistoryRefresh((prev) => prev + 1)}
-                onClose={() => handleModeChange('crud')}
+                onClose={() => handleModeChange("crud")}
                 onSelectTable={(tbl) => setSelectedTable(tbl)}
               />
-            ) : mode === 'analytics' ? (
+            ) : mode === "analytics" ? (
               <AnalyticsPage
                 connection={activeConnection}
                 showConfirmation={showConfirmation}
@@ -532,7 +572,10 @@ export default function Home() {
         onConnected={handleConnected}
         loading={loading}
       />
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
       <ConnectionsPage
         connections={connections}
         history={history}

@@ -9,7 +9,7 @@
  * Works across PostgreSQL, MySQL, MariaDB, and SQLite.
  */
 
-import type { DatabaseType } from './types';
+import type { DatabaseType } from "./types";
 
 /** A column that needs NULL backfill before a NOT NULL constraint can be applied. */
 export interface NullColumnInfo {
@@ -38,41 +38,48 @@ export interface NullCheckResult {
  * Given a column's SQL type, return a sensible default expression to use
  * when backfilling NULL values.
  */
-export function getDefaultExpression(type: string, dbType: DatabaseType): string {
+export function getDefaultExpression(
+  type: string,
+  dbType: DatabaseType,
+): string {
   const upper = type.toUpperCase();
 
   // Timestamp / datetime types
   if (
-    upper.includes('TIMESTAMP') ||
-    upper.includes('DATETIME') ||
-    upper.includes('DATE')
+    upper.includes("TIMESTAMP") ||
+    upper.includes("DATETIME") ||
+    upper.includes("DATE")
   ) {
-    return dbType === 'postgresql' ? 'NOW()' : dbType === 'sqlite' ? "datetime('now')" : 'NOW()';
+    return dbType === "postgresql"
+      ? "NOW()"
+      : dbType === "sqlite"
+        ? "datetime('now')"
+        : "NOW()";
   }
 
   // Boolean
-  if (upper.includes('BOOL')) {
-    return dbType === 'mysql' || dbType === 'mariadb' ? '0' : 'FALSE';
+  if (upper.includes("BOOL")) {
+    return dbType === "mysql" || dbType === "mariadb" ? "0" : "FALSE";
   }
 
   // Integer / numeric types
   if (
-    upper.includes('INT') ||
-    upper.includes('SERIAL') ||
-    upper.includes('BIGINT') ||
-    upper.includes('SMALLINT') ||
-    upper.includes('NUMERIC') ||
-    upper.includes('DECIMAL') ||
-    upper.includes('REAL') ||
-    upper.includes('DOUBLE') ||
-    upper.includes('FLOAT')
+    upper.includes("INT") ||
+    upper.includes("SERIAL") ||
+    upper.includes("BIGINT") ||
+    upper.includes("SMALLINT") ||
+    upper.includes("NUMERIC") ||
+    upper.includes("DECIMAL") ||
+    upper.includes("REAL") ||
+    upper.includes("DOUBLE") ||
+    upper.includes("FLOAT")
   ) {
-    return '0';
+    return "0";
   }
 
   // JSON types
-  if (upper.includes('JSON')) {
-    return dbType === 'postgresql' ? "'{}'::jsonb" : "'{}'";
+  if (upper.includes("JSON")) {
+    return dbType === "postgresql" ? "'{}'::jsonb" : "'{}'";
   }
 
   // Default: empty string
@@ -83,8 +90,8 @@ export function getDefaultExpression(type: string, dbType: DatabaseType): string
  * Quote an identifier for the given database type.
  */
 function escapeIdentifier(name: string, dbType: DatabaseType): string {
-  if (dbType === 'mysql' || dbType === 'mariadb') {
-    return `\`${name.replace(/`/g, '``')}\``;
+  if (dbType === "mysql" || dbType === "mariadb") {
+    return `\`${name.replace(/`/g, "``")}\``;
   }
   return `"${name.replace(/"/g, '""')}"`;
 }
@@ -102,7 +109,7 @@ export async function checkNulls(
   pool: any,
   dbType: DatabaseType,
   tableName: string,
-  columnChecks: { columnName: string; type: string }[]
+  columnChecks: { columnName: string; type: string }[],
 ): Promise<NullCheckResult> {
   const tblEscaped = escapeIdentifier(tableName, dbType);
   const result: NullColumnInfo[] = [];
@@ -146,11 +153,11 @@ async function countNulls(
   pool: any,
   dbType: DatabaseType,
   tblEscaped: string,
-  colEscaped: string
+  colEscaped: string,
 ): Promise<number> {
   const sql = `SELECT COUNT(*) AS count FROM ${tblEscaped} WHERE ${colEscaped} IS NULL`;
 
-  if (dbType === 'sqlite') {
+  if (dbType === "sqlite") {
     return new Promise<number>((resolve, reject) => {
       pool.get(sql, (err: Error | null, row: any) => {
         if (err) reject(err);
@@ -159,7 +166,7 @@ async function countNulls(
     });
   }
 
-  if (dbType === 'postgresql') {
+  if (dbType === "postgresql") {
     const res = await pool.query(sql);
     return parseInt(res.rows[0]?.count, 10) || 0;
   }

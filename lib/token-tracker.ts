@@ -1,13 +1,13 @@
-import { getDb } from './mongodb';
+import { getDb } from "./mongodb";
 
-const COLLECTION = 'token_usage';
+const COLLECTION = "token_usage";
 
 /** Daily token budget for Groq free tier (llama-3.3-70b-versatile): ~30,000 tokens/day */
 export const TOKEN_DAILY_BUDGET = 30_000;
 
 function getTodayKey(): string {
   const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
 }
 
 /**
@@ -56,7 +56,9 @@ export async function getTokenUsage(sessionId: string): Promise<{
 
   try {
     const db = getDb();
-    const doc = await db.collection(COLLECTION).findOne({ sessionId, dateKey: todayKey });
+    const doc = await db
+      .collection(COLLECTION)
+      .findOne({ sessionId, dateKey: todayKey });
 
     const totalTokens: number = (doc as any)?.totalTokens ?? 0;
     const promptTokens: number = (doc as any)?.promptTokens ?? 0;
@@ -67,7 +69,10 @@ export async function getTokenUsage(sessionId: string): Promise<{
       promptTokens,
       completionTokens,
       budget: TOKEN_DAILY_BUDGET,
-      percentage: Math.min(100, Math.round((totalTokens / TOKEN_DAILY_BUDGET) * 100)),
+      percentage: Math.min(
+        100,
+        Math.round((totalTokens / TOKEN_DAILY_BUDGET) * 100),
+      ),
     };
   } catch {
     return {

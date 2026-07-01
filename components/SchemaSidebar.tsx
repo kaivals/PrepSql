@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   ChevronRight,
   Clock,
@@ -8,10 +8,14 @@ import {
   Key,
   AlertCircle,
   Pencil,
-} from 'lucide-react';
-import type { DatabaseConnection, QueryHistoryItem, SchemaTable } from '@/lib/types';
-import { buildSelectPreview } from '@/lib/schema-format';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import type {
+  DatabaseConnection,
+  QueryHistoryItem,
+  SchemaTable,
+} from "@/lib/types";
+import { buildSelectPreview } from "@/lib/schema-format";
+import { cn } from "@/lib/utils";
 
 interface SchemaSidebarProps {
   connection: DatabaseConnection;
@@ -20,7 +24,7 @@ interface SchemaSidebarProps {
   onEditTable?: (tableName: string) => void;
   refreshTrigger?: number;
   selectedTable?: string | null;
-  defaultTab?: 'schema' | 'history' | 'indexes';
+  defaultTab?: "schema" | "history" | "indexes";
 }
 
 export function SchemaSidebar({
@@ -30,9 +34,9 @@ export function SchemaSidebar({
   onEditTable,
   refreshTrigger,
   selectedTable,
-  defaultTab = 'schema',
+  defaultTab = "schema",
 }: SchemaSidebarProps) {
-  const [tab, setTab] = useState<'schema' | 'history' | 'indexes'>(defaultTab);
+  const [tab, setTab] = useState<"schema" | "history" | "indexes">(defaultTab);
   const [tables, setTables] = useState<SchemaTable[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // History is fetched from the server-side store via /api/history.
@@ -50,13 +54,13 @@ export function SchemaSidebar({
   useEffect(() => {
     const loadSchema = async () => {
       try {
-        const res = await fetch('/api/schema');
+        const res = await fetch("/api/schema");
         if (res.ok) {
           const data = await res.json();
           setTables(data.tables || []);
         }
       } catch (err) {
-        console.error('Failed to load schema:', err);
+        console.error("Failed to load schema:", err);
       } finally {
         setLoading(false);
       }
@@ -75,37 +79,42 @@ export function SchemaSidebar({
       });
       requestAnimationFrame(() => {
         const el = tableItemRefs.current.get(selectedTable);
-        el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
     }
   }, [selectedTable]);
 
   // Fetch history from the server-side store.
-  const loadHistoryPage = useCallback(async (offset: number, append = false) => {
-    setHistoryLoading(true);
-    setHistoryError(null);
-    try {
-      const res = await fetch(
-        `/api/history?limit=${HISTORY_PAGE_SIZE}&offset=${offset}&connectionId=${connection.id}&t=${Date.now()}`,
-        { credentials: 'same-origin', cache: 'no-store' },
-      );
-      if (!res.ok) {
-        throw new Error('Failed to load history');
+  const loadHistoryPage = useCallback(
+    async (offset: number, append = false) => {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const res = await fetch(
+          `/api/history?limit=${HISTORY_PAGE_SIZE}&offset=${offset}&connectionId=${connection.id}&t=${Date.now()}`,
+          { credentials: "same-origin", cache: "no-store" },
+        );
+        if (!res.ok) {
+          throw new Error("Failed to load history");
+        }
+        const data = await res.json();
+        const items: QueryHistoryItem[] = data.history || [];
+        setHasMoreHistory(items.length >= HISTORY_PAGE_SIZE);
+        setHistory((prev) => (append ? [...prev, ...items] : items));
+      } catch (err) {
+        setHistoryError(
+          err instanceof Error ? err.message : "Failed to load history",
+        );
+      } finally {
+        setHistoryLoading(false);
       }
-      const data = await res.json();
-      const items: QueryHistoryItem[] = data.history || [];
-      setHasMoreHistory(items.length >= HISTORY_PAGE_SIZE);
-      setHistory((prev) => (append ? [...prev, ...items] : items));
-    } catch (err) {
-      setHistoryError(err instanceof Error ? err.message : 'Failed to load history');
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [connection.id]);
+    },
+    [connection.id],
+  );
 
   // Load history page when switching to history tab or when refreshTrigger changes
   useEffect(() => {
-    if (tab === 'history') {
+    if (tab === "history") {
       loadHistoryPage(0);
     }
   }, [tab, refreshTrigger, loadHistoryPage]);
@@ -130,7 +139,7 @@ export function SchemaSidebar({
 
   const formatTime = (timestamp: number) => {
     const diff = Date.now() - timestamp;
-    if (diff < 60000) return 'just now';
+    if (diff < 60000) return "just now";
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
     return new Date(timestamp).toLocaleDateString();
@@ -138,45 +147,50 @@ export function SchemaSidebar({
 
   return (
     <aside className="flex h-full w-full shrink-0 flex-col bg-transparent border-r border-border">
-
       {/* Tab navigation */}
       <div className="flex border-b border-border shrink-0 bg-card/45 backdrop-blur-md">
         <button
           type="button"
-          onClick={() => setTab('schema')}
+          onClick={() => setTab("schema")}
           className={cn(
-            'relative flex flex-1 items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors',
-            tab === 'schema' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+            "relative flex flex-1 items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors",
+            tab === "schema"
+              ? "text-primary font-semibold"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           Schema
-          {tab === 'schema' && (
+          {tab === "schema" && (
             <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
           )}
         </button>
         <button
           type="button"
-          onClick={() => setTab('history')}
+          onClick={() => setTab("history")}
           className={cn(
-            'relative flex flex-1 items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors',
-            tab === 'history' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+            "relative flex flex-1 items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors",
+            tab === "history"
+              ? "text-primary font-semibold"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           History
-          {tab === 'history' && (
+          {tab === "history" && (
             <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
           )}
         </button>
         <button
           type="button"
-          onClick={() => setTab('indexes')}
+          onClick={() => setTab("indexes")}
           className={cn(
-            'relative flex flex-1 items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors',
-            tab === 'indexes' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+            "relative flex flex-1 items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors",
+            tab === "indexes"
+              ? "text-primary font-semibold"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           Indexes
-          {tab === 'indexes' && (
+          {tab === "indexes" && (
             <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
           )}
         </button>
@@ -184,23 +198,25 @@ export function SchemaSidebar({
 
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto p-2">
-        {tab === 'schema' ? (
+        {tab === "schema" ? (
           loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
             </div>
           ) : tables.length === 0 ? (
-            <p className="px-3 py-4 text-xs text-muted-foreground">No tables found</p>
+            <p className="px-3 py-4 text-xs text-muted-foreground">
+              No tables found
+            </p>
           ) : (
             <div className="space-y-0.5">
               {tables.map((table) => (
                 <div key={table.name}>
                   <div
                     className={cn(
-                      'group/table-row flex items-center justify-between rounded-md transition-colors',
+                      "group/table-row flex items-center justify-between rounded-md transition-colors",
                       selectedTable === table.name
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-foreground hover:bg-muted/50'
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-foreground hover:bg-muted/50",
                     )}
                   >
                     <button
@@ -212,19 +228,27 @@ export function SchemaSidebar({
                         toggleTable(table.name);
                         if (onSelectTable) onSelectTable(table.name);
                       }}
-                      onDoubleClick={() => onSelectQuery(buildSelectPreview(table, connection.type))}
+                      onDoubleClick={() =>
+                        onSelectQuery(
+                          buildSelectPreview(table, connection.type),
+                        )
+                      }
                       title="Click to select & expand · Double-click to preview rows"
                       className="flex flex-1 items-center gap-2 px-2 py-1.5 text-sm truncate text-left text-foreground"
                     >
                       <ChevronRight
                         className={cn(
-                          'h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-200',
-                          expanded.has(table.name) && 'rotate-90'
+                          "h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-200",
+                          expanded.has(table.name) && "rotate-90",
                         )}
                       />
                       <Table2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="flex-1 truncate text-[13px]">{table.name}</span>
-                      <span className="text-xs text-muted-foreground tabular-nums">{table.rowCount}</span>
+                      <span className="flex-1 truncate text-[13px]">
+                        {table.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {table.rowCount}
+                      </span>
                     </button>
                     {onEditTable && (
                       <button
@@ -249,7 +273,9 @@ export function SchemaSidebar({
                           className="flex items-center justify-between rounded-md px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted/20"
                         >
                           <span className="text-foreground/80">{col.name}</span>
-                          <span className="font-mono text-[10px] text-muted-foreground">{col.type}</span>
+                          <span className="font-mono text-[10px] text-muted-foreground">
+                            {col.type}
+                          </span>
                         </div>
                       ))}
                       {table.indexes && table.indexes.length > 0 && (
@@ -274,19 +300,24 @@ export function SchemaSidebar({
               ))}
             </div>
           )
-        ) : tab === 'indexes' ? (
+        ) : tab === "indexes" ? (
           loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
             </div>
           ) : tables.every((t) => !t.indexes || t.indexes.length === 0) ? (
-            <p className="px-3 py-4 text-xs text-muted-foreground">No indexes found</p>
+            <p className="px-3 py-4 text-xs text-muted-foreground">
+              No indexes found
+            </p>
           ) : (
             <div className="space-y-2.5 p-1.5">
               {tables
                 .filter((t) => t.indexes && t.indexes.length > 0)
                 .map((table) => (
-                  <div key={table.name} className="overflow-hidden rounded-lg border border-border bg-card/30">
+                  <div
+                    key={table.name}
+                    className="overflow-hidden rounded-lg border border-border bg-card/30"
+                  >
                     <div className="border-b border-border bg-muted/30 px-3 py-2 text-xs font-semibold text-foreground">
                       {table.name}
                     </div>
@@ -305,11 +336,13 @@ export function SchemaSidebar({
                 ))}
             </div>
           )
-        ) : tab === 'history' ? (
+        ) : tab === "history" ? (
           historyLoading && history.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-              <p className="text-xs text-muted-foreground">Loading history...</p>
+              <p className="text-xs text-muted-foreground">
+                Loading history...
+              </p>
             </div>
           ) : historyError && history.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12">
@@ -336,19 +369,25 @@ export function SchemaSidebar({
                   type="button"
                   onClick={() => onSelectQuery(item.sql)}
                   className={cn(
-                    'w-full rounded-lg border p-2.5 text-left transition-colors',
+                    "w-full rounded-lg border p-2.5 text-left transition-colors",
                     item.success
-                      ? 'border-border bg-card/40 hover:bg-card/75'
-                      : 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
+                      ? "border-border bg-card/40 hover:bg-card/75"
+                      : "border-red-500/20 bg-red-500/5 hover:bg-red-500/10",
                   )}
                 >
-                  <div className="truncate font-mono text-[11px] text-foreground">{item.sql.substring(0, 60)}</div>
+                  <div className="truncate font-mono text-[11px] text-foreground">
+                    {item.sql.substring(0, 60)}
+                  </div>
                   <div className="mt-1.5 flex items-center gap-2">
-                    <span className={cn(
-                      'h-1.5 w-1.5 rounded-full',
-                      item.success ? 'bg-emerald-500' : 'bg-red-500'
-                    )} />
-                    <span className="text-[10px] text-muted-foreground">{formatTime(item.timestamp)}</span>
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        item.success ? "bg-emerald-500" : "bg-red-500",
+                      )}
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatTime(item.timestamp)}
+                    </span>
                   </div>
                 </button>
               ))}
@@ -359,7 +398,7 @@ export function SchemaSidebar({
                   disabled={historyLoading}
                   className="w-full rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
                 >
-                  {historyLoading ? 'Loading...' : 'Load more'}
+                  {historyLoading ? "Loading..." : "Load more"}
                 </button>
               )}
             </div>

@@ -1,13 +1,13 @@
-import { ChatGroq } from '@langchain/groq';
-import { SystemMessage, HumanMessage } from '@langchain/core/messages';
-import { buildSystemPrompt } from '../prompts/system';
-import { getFewShotExamples } from '../prompts/few-shot';
-import { getQueryMode, getGroqApiKey } from '../../app-state';
-import type { AgentStateType } from '../state';
-import { logQueryStep } from '../../query-logger';
+import { ChatGroq } from "@langchain/groq";
+import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { buildSystemPrompt } from "../prompts/system";
+import { getFewShotExamples } from "../prompts/few-shot";
+import { getQueryMode, getGroqApiKey } from "../../app-state";
+import type { AgentStateType } from "../state";
+import { logQueryStep } from "../../query-logger";
 
 export async function sqlGenerateNode(
-  state: AgentStateType
+  state: AgentStateType,
 ): Promise<Partial<AgentStateType>> {
   // Skip if schema introspection failed
   if (state.error && !state.retryCount) return {};
@@ -16,7 +16,7 @@ export async function sqlGenerateNode(
   const apiKey = await getGroqApiKey();
 
   const llm = new ChatGroq({
-    model: 'llama-3.3-70b-versatile',
+    model: "llama-3.3-70b-versatile",
     temperature: 0.1,
     maxTokens: 1024,
     apiKey,
@@ -41,7 +41,7 @@ export async function sqlGenerateNode(
     new HumanMessage(
       state.retryCount > 0
         ? `The previous SQL failed with error: "${state.error}"\nOriginal SQL:\n\`\`\`sql\n${state.lastFailedSQL}\n\`\`\`\n\nPlease fix the SQL. User's original request: ${state.userPrompt}`
-        : state.userPrompt
+        : state.userPrompt,
     ),
   ];
 
@@ -51,17 +51,20 @@ export async function sqlGenerateNode(
 
     // Extract the last SQL block if multiple exist
     const sqlMatches = [...raw.matchAll(/```sql\s*([\s\S]*?)```/gi)];
-    const generatedSQL = sqlMatches.length > 0 ? sqlMatches[sqlMatches.length - 1][1].trim() : '';
+    const generatedSQL =
+      sqlMatches.length > 0 ? sqlMatches[sqlMatches.length - 1][1].trim() : "";
 
     // Extract explanation (remove all SQL blocks)
-    const explanation = raw.replace(/```sql[\s\S]*?```/gi, '').trim();
+    const explanation = raw.replace(/```sql[\s\S]*?```/gi, "").trim();
 
     if (!generatedSQL) {
       return {
         error: null,
         finalResponse: {
-          type: 'answer',
-          message: raw.trim() || 'Could not generate SQL from your request. Try being more specific.',
+          type: "answer",
+          message:
+            raw.trim() ||
+            "Could not generate SQL from your request. Try being more specific.",
         },
       };
     }
@@ -74,7 +77,7 @@ export async function sqlGenerateNode(
     ).usage_metadata;
 
     logQueryStep({
-      type: state.retryCount > 0 ? 'optimization_rewrite' : 'initial_ai',
+      type: state.retryCount > 0 ? "optimization_rewrite" : "initial_ai",
       sql: generatedSQL,
       success: true,
     });
@@ -84,7 +87,7 @@ export async function sqlGenerateNode(
       explanation,
       error: null,
       finalResponse: {
-        type: 'sql',
+        type: "sql",
         sql: generatedSQL,
         explanation,
         usage: usageMeta
@@ -96,10 +99,10 @@ export async function sqlGenerateNode(
       },
     };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'LLM call failed';
+    const errMsg = err instanceof Error ? err.message : "LLM call failed";
 
     logQueryStep({
-      type: state.retryCount > 0 ? 'optimization_rewrite' : 'initial_ai',
+      type: state.retryCount > 0 ? "optimization_rewrite" : "initial_ai",
       sql: `-- Failed to generate SQL: ${errMsg}`,
       success: false,
       error: errMsg,
@@ -108,7 +111,7 @@ export async function sqlGenerateNode(
     return {
       error: errMsg,
       finalResponse: {
-        type: 'error',
+        type: "error",
         message: `SQL generation failed: ${errMsg}`,
       },
     };
