@@ -20,11 +20,23 @@ export async function POST(request: NextRequest) {
       completionTokens: number;
     };
 
-    const clientId = await getClientId();
-    trackTokenUsage(clientId, promptTokens, completionTokens);
+    // Validate that promptTokens and completionTokens are finite non-negative integers
+    if (
+      !Number.isFinite(promptTokens) ||
+      !Number.isFinite(completionTokens) ||
+      promptTokens < 0 ||
+      completionTokens < 0 ||
+      !Number.isInteger(promptTokens) ||
+      !Number.isInteger(completionTokens)
+    ) {
+      return NextResponse.json(
+        { error: 'promptTokens and completionTokens must be non-negative integers' },
+        { status: 400 }
+      );
+    }
 
-    // Small delay to allow the fire-and-forget write to settle before reading
-    await new Promise((r) => setTimeout(r, 150));
+    const clientId = await getClientId();
+    await trackTokenUsage(clientId, promptTokens, completionTokens);
 
     const usage = await getTokenUsage(clientId);
     return NextResponse.json(usage);
