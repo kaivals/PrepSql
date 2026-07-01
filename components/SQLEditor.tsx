@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   onExecute: (sql: string) => void;
@@ -9,37 +9,41 @@ interface Props {
   isConnected?: boolean;
 }
 
-export function SQLEditor({ onExecute, isLoading = false, isConnected = false }: Props) {
-  const [prompt, setPrompt] = useState('');
-  const [sql, setSql] = useState('');
-  const [explanation, setExplanation] = useState('');
+export function SQLEditor({
+  onExecute,
+  isLoading = false,
+  isConnected = false,
+}: Props) {
+  const [prompt, setPrompt] = useState("");
+  const [sql, setSql] = useState("");
+  const [explanation, setExplanation] = useState("");
   const [safetyWarnings, setSafetyWarnings] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) {
-      setError('Please enter a prompt');
+      setError("Please enter a prompt");
       return;
     }
 
     setGenerating(true);
-    setError('');
-    setSql('');
-    setExplanation('');
+    setError("");
+    setSql("");
+    setExplanation("");
     setSafetyWarnings([]);
 
     try {
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to generate SQL');
+        throw new Error(data.error || "Failed to generate SQL");
       }
 
       const data = await res.json();
@@ -47,7 +51,7 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
       setExplanation(data.explanation);
       setSafetyWarnings(data.safetyWarnings || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Generation failed');
+      setError(err instanceof Error ? err.message : "Generation failed");
     } finally {
       setGenerating(false);
     }
@@ -55,7 +59,7 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
 
   const handleExecute = () => {
     if (!sql.trim()) {
-      setError('No SQL to execute');
+      setError("No SQL to execute");
       return;
     }
     onExecute(sql);
@@ -65,7 +69,9 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
     <div className="space-y-4">
       <form onSubmit={handleGenerate} className="space-y-3">
         <div>
-          <label className="block text-sm font-medium mb-2">What would you like to query?</label>
+          <label className="block text-sm font-medium mb-2">
+            What would you like to query?
+          </label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -80,15 +86,21 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
           disabled={generating || !isConnected || isLoading}
           className="w-full"
         >
-          {generating ? 'Generating...' : 'Generate SQL'}
+          {generating ? "Generating..." : "Generate SQL"}
         </Button>
       </form>
 
-      {error && <div className="text-destructive text-sm bg-destructive/10 p-2 rounded">{error}</div>}
+      {error && (
+        <div className="text-destructive text-sm bg-destructive/10 p-2 rounded">
+          {error}
+        </div>
+      )}
 
       {safetyWarnings.length > 0 && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3">
-          <p className="text-sm font-medium text-destructive mb-1">Safety Warnings:</p>
+          <p className="text-sm font-medium text-destructive mb-1">
+            Safety Warnings:
+          </p>
           <ul className="text-sm text-destructive space-y-1">
             {safetyWarnings.map((warning, i) => (
               <li key={i}>• {warning}</li>
@@ -113,8 +125,13 @@ export function SQLEditor({ onExecute, isLoading = false, isConnected = false }:
             </div>
           )}
 
-          <Button onClick={handleExecute} disabled={isLoading} className="w-full" variant="default">
-            {isLoading ? 'Executing...' : 'Execute Query'}
+          <Button
+            onClick={handleExecute}
+            disabled={isLoading}
+            className="w-full"
+            variant="default"
+          >
+            {isLoading ? "Executing..." : "Execute Query"}
           </Button>
         </div>
       )}

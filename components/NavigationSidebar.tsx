@@ -1,16 +1,10 @@
-'use client';
+"use client";
 
-import {
-  Database,
-  BarChart3,
-  Table2,
-  Clock,
-  Settings,
-} from 'lucide-react';
-import type { QueryMode } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { Database, BarChart3, Table2, Clock, Settings } from "lucide-react";
+import type { QueryMode } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-type NavSection = QueryMode | 'history';
+type NavSection = QueryMode | "history";
 
 interface NavItem {
   id: NavSection;
@@ -20,23 +14,23 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    id: 'crud',
-    label: 'Query',
+    id: "crud",
+    label: "Query",
     icon: <Database className="h-5 w-5" />,
   },
   {
-    id: 'analytics',
-    label: 'Analytics',
+    id: "analytics",
+    label: "Analytics",
     icon: <BarChart3 className="h-5 w-5" />,
   },
   {
-    id: 'schema',
-    label: 'Schema',
+    id: "schema",
+    label: "Schema",
     icon: <Table2 className="h-5 w-5" />,
   },
   {
-    id: 'history',
-    label: 'History',
+    id: "history",
+    label: "History",
     icon: <Clock className="h-5 w-5" />,
   },
 ];
@@ -64,17 +58,17 @@ export function NavigationSidebar({
               type="button"
               onClick={() => onSectionChange(item.id)}
               className={cn(
-                'flex w-full flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-2.5 transition-all duration-150 cursor-pointer',
+                "flex w-full flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-2.5 transition-all duration-150 cursor-pointer",
                 active
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground'
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
               )}
             >
               {item.icon}
               <span
                 className={cn(
-                  'text-[9px] font-semibold leading-none tracking-tight text-center',
-                  active ? 'text-primary' : 'text-muted-foreground'
+                  "text-[9px] font-semibold leading-none tracking-tight text-center",
+                  active ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 {item.label}
@@ -89,7 +83,7 @@ export function NavigationSidebar({
         type="button"
         onClick={onOpenSettings}
         className="flex w-full flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-2.5 text-muted-foreground transition-all duration-150 hover:bg-sidebar-accent/50 hover:text-foreground mx-1.5 cursor-pointer"
-        style={{ width: 'calc(100% - 12px)' }}
+        style={{ width: "calc(100% - 12px)" }}
       >
         <Settings className="h-5 w-5" />
         <span className="text-[9px] font-semibold leading-none tracking-tight text-muted-foreground text-center">

@@ -1,10 +1,25 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Plus, Trash2, Save, Key, Table2, ShieldAlert, AlertTriangle, ChevronDown, Search } from 'lucide-react';
-import { withWorkspacePadding } from '@/components/withWorkspacePadding';
-import type { DatabaseConnection, SchemaColumn, SchemaTable } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { useState, useEffect, useRef } from "react";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Save,
+  Key,
+  Table2,
+  ShieldAlert,
+  AlertTriangle,
+  ChevronDown,
+  Search,
+} from "lucide-react";
+import { withWorkspacePadding } from "@/components/withWorkspacePadding";
+import type {
+  DatabaseConnection,
+  SchemaColumn,
+  SchemaTable,
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 /** Result from the server-side NULL check endpoint. */
 interface NullColumnInfo {
@@ -25,7 +40,7 @@ interface SchemaEditorProps {
   connection: DatabaseConnection;
   selectedTable: string | null;
   showConfirmation: (message: string, onConfirm: () => void) => void;
-  showNotification: (message: string, type: 'success' | 'error') => void;
+  showNotification: (message: string, type: "success" | "error") => void;
   onRefreshSchema: () => void;
   onClose: () => void;
   onSelectTable?: (tableName: string) => void;
@@ -39,36 +54,36 @@ type EditableColumn = SchemaColumn & {
 };
 
 const DB_DATA_TYPES = {
-  sqlite: ['INTEGER', 'TEXT', 'REAL', 'BLOB', 'NUMERIC'],
+  sqlite: ["INTEGER", "TEXT", "REAL", "BLOB", "NUMERIC"],
   postgresql: [
-    'INTEGER',
-    'BIGINT',
-    'VARCHAR(255)',
-    'TEXT',
-    'BOOLEAN',
-    'TIMESTAMP',
-    'DOUBLE PRECISION',
-    'JSONB',
+    "INTEGER",
+    "BIGINT",
+    "VARCHAR(255)",
+    "TEXT",
+    "BOOLEAN",
+    "TIMESTAMP",
+    "DOUBLE PRECISION",
+    "JSONB",
   ],
   mysql: [
-    'INT',
-    'BIGINT',
-    'VARCHAR(255)',
-    'TEXT',
-    'TINYINT(1)',
-    'DATETIME',
-    'DECIMAL(10,2)',
-    'JSON',
+    "INT",
+    "BIGINT",
+    "VARCHAR(255)",
+    "TEXT",
+    "TINYINT(1)",
+    "DATETIME",
+    "DECIMAL(10,2)",
+    "JSON",
   ],
   mariadb: [
-    'INT',
-    'BIGINT',
-    'VARCHAR(255)',
-    'TEXT',
-    'TINYINT(1)',
-    'DATETIME',
-    'DECIMAL(10,2)',
-    'JSON',
+    "INT",
+    "BIGINT",
+    "VARCHAR(255)",
+    "TEXT",
+    "TINYINT(1)",
+    "DATETIME",
+    "DECIMAL(10,2)",
+    "JSON",
   ],
 };
 
@@ -91,7 +106,7 @@ function SchemaEditorRaw({
   // Table picker state
   const [allTables, setAllTables] = useState<SchemaTable[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerSearch, setPickerSearch] = useState("");
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -99,7 +114,7 @@ function SchemaEditorRaw({
   useEffect(() => {
     const fetchTables = async () => {
       try {
-        const res = await fetch('/api/schema');
+        const res = await fetch("/api/schema");
         if (res.ok) {
           const data = await res.json();
           setAllTables(data.tables || []);
@@ -115,18 +130,20 @@ function SchemaEditorRaw({
     const handle = (e: MouseEvent) => {
       const t = e.target as Node;
       if (
-        pickerBtnRef.current && !pickerBtnRef.current.contains(t) &&
-        pickerRef.current && !pickerRef.current.contains(t)
+        pickerBtnRef.current &&
+        !pickerBtnRef.current.contains(t) &&
+        pickerRef.current &&
+        !pickerRef.current.contains(t)
       ) {
         setPickerOpen(false);
       }
     };
-    document.addEventListener('mousedown', handle);
-    return () => document.removeEventListener('mousedown', handle);
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
   }, [pickerOpen]);
 
   const filteredPickerTables = allTables.filter((t) =>
-    t.name.toLowerCase().includes(pickerSearch.toLowerCase())
+    t.name.toLowerCase().includes(pickerSearch.toLowerCase()),
   );
 
   // Load schema for selected table
@@ -136,10 +153,12 @@ function SchemaEditorRaw({
     const fetchTableSchema = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/schema');
+        const res = await fetch("/api/schema");
         if (res.ok) {
           const data = await res.json();
-          const table = (data.tables || []).find((t: SchemaTable) => t.name === selectedTable);
+          const table = (data.tables || []).find(
+            (t: SchemaTable) => t.name === selectedTable,
+          );
           if (table) {
             const cols = (table.columns || []).map((c: SchemaColumn) => ({
               ...c,
@@ -150,7 +169,7 @@ function SchemaEditorRaw({
           }
         }
       } catch (err) {
-        console.error('Failed to load table schema:', err);
+        console.error("Failed to load table schema:", err);
       } finally {
         setLoading(false);
       }
@@ -158,7 +177,6 @@ function SchemaEditorRaw({
 
     fetchTableSchema();
   }, [selectedTable]);
-
 
   const dataTypes = DB_DATA_TYPES[connection.type] || DB_DATA_TYPES.sqlite;
 
@@ -178,7 +196,11 @@ function SchemaEditorRaw({
     setColumns([...columns, newCol]);
   };
 
-  const handleUpdateField = (index: number, field: keyof EditableColumn, value: any) => {
+  const handleUpdateField = (
+    index: number,
+    field: keyof EditableColumn,
+    value: any,
+  ) => {
     const updated = [...columns];
     updated[index] = {
       ...updated[index],
@@ -187,7 +209,7 @@ function SchemaEditorRaw({
     };
 
     // Auto-adjust rules
-    if (field === 'primaryKey' && value === true) {
+    if (field === "primaryKey" && value === true) {
       updated[index].nullable = false; // Primary keys cannot be nullable
     }
 
@@ -234,15 +256,15 @@ function SchemaEditorRaw({
    * Query the server to check whether any of the given columns contain NULL values.
    */
   const fetchNullCheck = async (
-    candidates: { columnName: string; type: string }[]
+    candidates: { columnName: string; type: string }[],
   ): Promise<NullColumnInfo[]> => {
-    if (candidates.length === 0 || connection.type === 'sqlite') return [];
+    if (candidates.length === 0 || connection.type === "sqlite") return [];
 
     setCheckingNulls(true);
     try {
-      const res = await fetch('/api/schema/null-check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/schema/null-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ table: selectedTable, columns: candidates }),
       });
       if (!res.ok) return [];
@@ -256,7 +278,9 @@ function SchemaEditorRaw({
   };
 
   // Generate DDL statements
-  const getMigrationStatements = (backfillColumns: NullColumnInfo[] = []): string[] => {
+  const getMigrationStatements = (
+    backfillColumns: NullColumnInfo[] = [],
+  ): string[] => {
     const sqls: string[] = [];
     const dbType = connection.type;
     const activeCols = columns.filter((c) => !c.isDeleted);
@@ -267,15 +291,20 @@ function SchemaEditorRaw({
       backfillSet.set(bc.columnName, bc.backfillSql);
     }
 
-    if (dbType === 'sqlite') {
+    if (dbType === "sqlite") {
       // Table recreate pattern for SQLite due to ALTER TABLE limits
       const colDefs = activeCols.map((c) => {
         let def = `"${c.name}" ${c.type}`;
-        if (c.primaryKey) def += ' PRIMARY KEY';
-        if (c.autoIncrement && c.type.toUpperCase().includes('INT')) def += ' AUTOINCREMENT';
-        if (!c.nullable) def += ' NOT NULL';
-        if (c.unique && !c.primaryKey) def += ' UNIQUE';
-        if (c.defaultValue !== null && c.defaultValue !== undefined && c.defaultValue !== '') {
+        if (c.primaryKey) def += " PRIMARY KEY";
+        if (c.autoIncrement && c.type.toUpperCase().includes("INT"))
+          def += " AUTOINCREMENT";
+        if (!c.nullable) def += " NOT NULL";
+        if (c.unique && !c.primaryKey) def += " UNIQUE";
+        if (
+          c.defaultValue !== null &&
+          c.defaultValue !== undefined &&
+          c.defaultValue !== ""
+        ) {
           def += ` DEFAULT ${c.defaultValue}`;
         }
         if (c.foreignKey?.table && c.foreignKey?.column) {
@@ -296,7 +325,9 @@ function SchemaEditorRaw({
         }
       }
 
-      sqls.push(`CREATE TABLE "${tempTableName}" (\n  ${colDefs.join(',\n  ')}\n);`);
+      sqls.push(
+        `CREATE TABLE "${tempTableName}" (\n  ${colDefs.join(",\n  ")}\n);`,
+      );
 
       // Copy matching data columns
       const copyPairs: { from: string; to: string }[] = [];
@@ -311,9 +342,11 @@ function SchemaEditorRaw({
       });
 
       if (copyPairs.length > 0) {
-        const fromCols = copyPairs.map((p) => `"${p.from}"`).join(', ');
-        const toCols = copyPairs.map((p) => `"${p.to}"`).join(', ');
-        sqls.push(`INSERT INTO "${tempTableName}" (${toCols}) SELECT ${fromCols} FROM "${selectedTable}";`);
+        const fromCols = copyPairs.map((p) => `"${p.from}"`).join(", ");
+        const toCols = copyPairs.map((p) => `"${p.to}"`).join(", ");
+        sqls.push(
+          `INSERT INTO "${tempTableName}" (${toCols}) SELECT ${fromCols} FROM "${selectedTable}";`,
+        );
       }
 
       sqls.push(`DROP TABLE "${selectedTable}";`);
@@ -321,20 +354,32 @@ function SchemaEditorRaw({
       sqls.push(`COMMIT;`);
       sqls.push(`PRAGMA foreign_keys=ON;`);
     } else {
-      const escape = (name: string) => (dbType === 'mysql' || dbType === 'mariadb' ? `\`${name}\`` : `"${name}"`);
-      const tblEscaped = escape(selectedTable || '');
+      const escape = (name: string) =>
+        dbType === "mysql" || dbType === "mariadb"
+          ? `\`${name}\``
+          : `"${name}"`;
+      const tblEscaped = escape(selectedTable || "");
 
       // 1. DROP columns
       columns.forEach((c) => {
         if (c.isDeleted && !c.isNew) {
-          sqls.push(`ALTER TABLE ${tblEscaped} DROP COLUMN ${escape(c.originalName || c.name)};`);
+          sqls.push(
+            `ALTER TABLE ${tblEscaped} DROP COLUMN ${escape(c.originalName || c.name)};`,
+          );
         }
       });
 
       // 2. RENAME columns
       columns.forEach((c) => {
-        if (!c.isDeleted && !c.isNew && c.originalName && c.originalName !== c.name) {
-          sqls.push(`ALTER TABLE ${tblEscaped} RENAME COLUMN ${escape(c.originalName)} TO ${escape(c.name)};`);
+        if (
+          !c.isDeleted &&
+          !c.isNew &&
+          c.originalName &&
+          c.originalName !== c.name
+        ) {
+          sqls.push(
+            `ALTER TABLE ${tblEscaped} RENAME COLUMN ${escape(c.originalName)} TO ${escape(c.name)};`,
+          );
         }
       });
 
@@ -342,13 +387,20 @@ function SchemaEditorRaw({
       columns.forEach((c) => {
         if (c.isNew && !c.isDeleted) {
           let def = `${escape(c.name)} ${c.type}`;
-          if (c.primaryKey) def += ' PRIMARY KEY';
+          if (c.primaryKey) def += " PRIMARY KEY";
           if (c.autoIncrement) {
-            def += dbType === 'postgresql' ? ' GENERATED BY DEFAULT AS IDENTITY' : ' AUTO_INCREMENT';
+            def +=
+              dbType === "postgresql"
+                ? " GENERATED BY DEFAULT AS IDENTITY"
+                : " AUTO_INCREMENT";
           }
-          if (!c.nullable) def += ' NOT NULL';
-          if (c.unique && !c.primaryKey) def += ' UNIQUE';
-          if (c.defaultValue !== null && c.defaultValue !== undefined && c.defaultValue !== '') {
+          if (!c.nullable) def += " NOT NULL";
+          if (c.unique && !c.primaryKey) def += " UNIQUE";
+          if (
+            c.defaultValue !== null &&
+            c.defaultValue !== undefined &&
+            c.defaultValue !== ""
+          ) {
             def += ` DEFAULT ${c.defaultValue}`;
           }
           if (c.foreignKey?.table && c.foreignKey?.column) {
@@ -368,25 +420,33 @@ function SchemaEditorRaw({
 
             // Change Type
             if (origCol.type !== c.type) {
-              if (dbType === 'postgresql') {
-                sqls.push(`ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} TYPE ${c.type};`);
+              if (dbType === "postgresql") {
+                sqls.push(
+                  `ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} TYPE ${c.type};`,
+                );
               } else {
-                sqls.push(`ALTER TABLE ${tblEscaped} MODIFY COLUMN ${colEscaped} ${c.type};`);
+                sqls.push(
+                  `ALTER TABLE ${tblEscaped} MODIFY COLUMN ${colEscaped} ${c.type};`,
+                );
               }
             }
 
             // Change Nullable
             if (origCol.nullable !== c.nullable) {
-              if (dbType === 'postgresql') {
+              if (dbType === "postgresql") {
                 if (c.nullable) {
-                  sqls.push(`ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} DROP NOT NULL;`);
+                  sqls.push(
+                    `ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} DROP NOT NULL;`,
+                  );
                 } else {
                   // Before adding NOT NULL, backfill any existing NULLs
                   const backfill = backfillSet.get(c.name);
                   if (backfill) {
                     sqls.push(backfill);
                   }
-                  sqls.push(`ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} SET NOT NULL;`);
+                  sqls.push(
+                    `ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} SET NOT NULL;`,
+                  );
                 }
               } else {
                 if (!c.nullable) {
@@ -396,22 +456,30 @@ function SchemaEditorRaw({
                     sqls.push(backfill);
                   }
                 }
-                sqls.push(`ALTER TABLE ${tblEscaped} MODIFY COLUMN ${colEscaped} ${c.type} ${c.nullable ? 'NULL' : 'NOT NULL'};`);
+                sqls.push(
+                  `ALTER TABLE ${tblEscaped} MODIFY COLUMN ${colEscaped} ${c.type} ${c.nullable ? "NULL" : "NOT NULL"};`,
+                );
               }
             }
 
             // Change Default
             if (origCol.defaultValue !== c.defaultValue) {
-              if (c.defaultValue === null || c.defaultValue === '') {
-                sqls.push(`ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} DROP DEFAULT;`);
+              if (c.defaultValue === null || c.defaultValue === "") {
+                sqls.push(
+                  `ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} DROP DEFAULT;`,
+                );
               } else {
-                sqls.push(`ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} SET DEFAULT ${c.defaultValue};`);
+                sqls.push(
+                  `ALTER TABLE ${tblEscaped} ALTER COLUMN ${colEscaped} SET DEFAULT ${c.defaultValue};`,
+                );
               }
             }
 
             // Add Unique
             if (!origCol.unique && c.unique) {
-              sqls.push(`ALTER TABLE ${tblEscaped} ADD UNIQUE (${colEscaped});`);
+              sqls.push(
+                `ALTER TABLE ${tblEscaped} ADD UNIQUE (${colEscaped});`,
+              );
             }
           }
         }
@@ -425,7 +493,7 @@ function SchemaEditorRaw({
     const statements = getMigrationStatements();
 
     if (statements.length === 0) {
-      showNotification('No schema modifications detected.', 'success');
+      showNotification("No schema modifications detected.", "success");
       return;
     }
 
@@ -441,15 +509,13 @@ function SchemaEditorRaw({
 
     // Regenerate migration SQL with backfill statements included
     const finalStatements = getMigrationStatements(backfillColumns);
-    const migrationSql = finalStatements.join('\n');
+    const migrationSql = finalStatements.join("\n");
 
     // Build a warning message if backfill is needed
-    let warningSuffix = '';
+    let warningSuffix = "";
     if (backfillColumns.length > 0) {
-      const lines = backfillColumns.map(
-        (bc) => `• ${bc.description}`
-      );
-      warningSuffix = `\n\n⚠️ NULL Value Backfill Required:\n${lines.join('\n')}\n\nThe UPDATE statements above will run automatically before applying the NOT NULL constraint.`;
+      const lines = backfillColumns.map((bc) => `• ${bc.description}`);
+      warningSuffix = `\n\n⚠️ NULL Value Backfill Required:\n${lines.join("\n")}\n\nThe UPDATE statements above will run automatically before applying the NOT NULL constraint.`;
     }
 
     showConfirmation(
@@ -457,27 +523,27 @@ function SchemaEditorRaw({
       async () => {
         setSaving(true);
         try {
-          const res = await fetch('/api/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/api/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sql: migrationSql }),
           });
 
           if (!res.ok) {
             const errData = await res.json();
-            throw new Error(errData.error || 'Failed to update schema');
+            throw new Error(errData.error || "Failed to update schema");
           }
 
-          showNotification('Schema changes saved successfully!', 'success');
+          showNotification("Schema changes saved successfully!", "success");
           setNullWarnings([]);
           onRefreshSchema();
         } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Unknown error';
-          showNotification(`Schema save failed: ${msg}`, 'error');
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          showNotification(`Schema save failed: ${msg}`, "error");
         } finally {
           setSaving(false);
         }
-      }
+      },
     );
   };
 
@@ -497,7 +563,7 @@ function SchemaEditorRaw({
                 <ArrowLeft className="h-4 w-4" />
               </button>
               <Table2 className="h-5 w-5 text-muted-foreground shrink-0" />
-              
+
               {/* Table picker trigger */}
               <div className="relative">
                 <button
@@ -505,20 +571,22 @@ function SchemaEditorRaw({
                   type="button"
                   onClick={() => {
                     setPickerOpen((v) => !v);
-                    setPickerSearch('');
+                    setPickerSearch("");
                   }}
                   className={cn(
-                    'group flex items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-muted/50',
-                    !selectedTable && 'text-muted-foreground'
+                    "group flex items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-muted/50",
+                    !selectedTable && "text-muted-foreground",
                   )}
                 >
                   <h1 className="text-lg font-semibold text-foreground">
-                    {selectedTable ? `Editing Table: ${selectedTable}` : 'Pick a table…'}
+                    {selectedTable
+                      ? `Editing Table: ${selectedTable}`
+                      : "Pick a table…"}
                   </h1>
                   <ChevronDown
                     className={cn(
-                      'h-4 w-4 text-muted-foreground/60 transition-transform duration-200',
-                      pickerOpen && 'rotate-180'
+                      "h-4 w-4 text-muted-foreground/60 transition-transform duration-200",
+                      pickerOpen && "rotate-180",
                     )}
                   />
                 </button>
@@ -546,7 +614,9 @@ function SchemaEditorRaw({
                     {/* Table list */}
                     <div className="max-h-60 overflow-y-auto p-1.5">
                       {filteredPickerTables.length === 0 ? (
-                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">No tables found</p>
+                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                          No tables found
+                        </p>
                       ) : (
                         filteredPickerTables.map((t) => (
                           <button
@@ -557,15 +627,20 @@ function SchemaEditorRaw({
                               setPickerOpen(false);
                             }}
                             className={cn(
-                              'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted/20',
-                              selectedTable === t.name && 'bg-primary/10 text-primary'
+                              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-muted/20",
+                              selectedTable === t.name &&
+                                "bg-primary/10 text-primary",
                             )}
                           >
                             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10">
                               <Table2 className="h-3 w-3 text-primary" />
                             </div>
-                            <span className="flex-1 truncate font-medium text-foreground text-[13px]">{t.name}</span>
-                            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{t.rowCount}</span>
+                            <span className="flex-1 truncate font-medium text-foreground text-[13px]">
+                              {t.name}
+                            </span>
+                            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                              {t.rowCount}
+                            </span>
                           </button>
                         ))
                       )}
@@ -575,7 +650,9 @@ function SchemaEditorRaw({
               </div>
             </div>
             <p className="pl-[72px] px-1 text-xs text-muted-foreground capitalize">
-              {selectedTable ? `Dialect: ${connection.type}` : 'Click to select a table'}
+              {selectedTable
+                ? `Dialect: ${connection.type}`
+                : "Click to select a table"}
             </p>
           </div>
 
@@ -596,7 +673,11 @@ function SchemaEditorRaw({
               className="flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-xs font-semibold text-background hover:bg-foreground/90 disabled:opacity-50"
             >
               <Save className="h-3.5 w-3.5" />
-              {checkingNulls ? 'Checking...' : saving ? 'Saving...' : 'Save Schema'}
+              {checkingNulls
+                ? "Checking..."
+                : saving
+                  ? "Saving..."
+                  : "Save Schema"}
             </button>
           </div>
         </div>
@@ -609,8 +690,13 @@ function SchemaEditorRaw({
                 <Table2 className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <p className="font-semibold text-foreground">No table selected</p>
-                <p className="mt-1 text-sm text-muted-foreground">Click the table name above or use sidebar to pick a table and start editing its schema.</p>
+                <p className="font-semibold text-foreground">
+                  No table selected
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Click the table name above or use sidebar to pick a table and
+                  start editing its schema.
+                </p>
               </div>
             </div>
           ) : loading ? (
@@ -627,7 +713,9 @@ function SchemaEditorRaw({
                   <th className="p-3">Default</th>
                   <th className="p-3 text-center">PK</th>
                   <th className="p-3 text-center">Unique</th>
-                  {connection.type !== 'sqlite' && <th className="p-3 text-center">Auto Inc</th>}
+                  {connection.type !== "sqlite" && (
+                    <th className="p-3 text-center">Auto Inc</th>
+                  )}
                   <th className="p-3">Foreign Key</th>
                   <th className="p-3 text-right">Actions</th>
                 </tr>
@@ -637,9 +725,9 @@ function SchemaEditorRaw({
                   <tr
                     key={idx}
                     className={cn(
-                      'border-b border-border hover:bg-muted/10 transition-colors',
-                      col.isDeleted && 'bg-red-50/50 opacity-60 line-through',
-                      col.isNew && 'bg-emerald-50/20'
+                      "border-b border-border hover:bg-muted/10 transition-colors",
+                      col.isDeleted && "bg-red-50/50 opacity-60 line-through",
+                      col.isNew && "bg-emerald-50/20",
                     )}
                   >
                     {/* Name */}
@@ -648,10 +736,12 @@ function SchemaEditorRaw({
                         type="text"
                         value={col.name}
                         disabled={col.isDeleted}
-                        onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateField(idx, "name", e.target.value)
+                        }
                         className={cn(
-                          'w-full rounded border border-border bg-muted/10 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary',
-                          col.isNew && 'font-semibold text-emerald-800'
+                          "w-full rounded border border-border bg-muted/10 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary",
+                          col.isNew && "font-semibold text-emerald-800",
                         )}
                       />
                     </td>
@@ -661,7 +751,9 @@ function SchemaEditorRaw({
                       <select
                         value={col.type.toUpperCase()}
                         disabled={col.isDeleted}
-                        onChange={(e) => handleUpdateField(idx, 'type', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateField(idx, "type", e.target.value)
+                        }
                         className="rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:ring-1"
                       >
                         {dataTypes.map((t) => (
@@ -672,14 +764,15 @@ function SchemaEditorRaw({
                       </select>
                     </td>
 
-
                     {/* Nullable */}
                     <td className="p-3">
                       <input
                         type="checkbox"
                         checked={col.nullable}
                         disabled={col.isDeleted || col.primaryKey}
-                        onChange={(e) => handleUpdateField(idx, 'nullable', e.target.checked)}
+                        onChange={(e) =>
+                          handleUpdateField(idx, "nullable", e.target.checked)
+                        }
                         className="h-3.5 w-3.5 rounded border-border"
                       />
                     </td>
@@ -688,10 +781,16 @@ function SchemaEditorRaw({
                     <td className="p-3">
                       <input
                         type="text"
-                        value={col.defaultValue || ''}
+                        value={col.defaultValue || ""}
                         placeholder="NULL"
                         disabled={col.isDeleted}
-                        onChange={(e) => handleUpdateField(idx, 'defaultValue', e.target.value || null)}
+                        onChange={(e) =>
+                          handleUpdateField(
+                            idx,
+                            "defaultValue",
+                            e.target.value || null,
+                          )
+                        }
                         className="w-24 rounded border border-border bg-background px-2 py-1 focus:outline-none"
                       />
                     </td>
@@ -702,7 +801,9 @@ function SchemaEditorRaw({
                         type="checkbox"
                         checked={col.primaryKey}
                         disabled={col.isDeleted}
-                        onChange={(e) => handleUpdateField(idx, 'primaryKey', e.target.checked)}
+                        onChange={(e) =>
+                          handleUpdateField(idx, "primaryKey", e.target.checked)
+                        }
                         className="h-3.5 w-3.5 rounded border-border"
                       />
                     </td>
@@ -713,19 +814,27 @@ function SchemaEditorRaw({
                         type="checkbox"
                         checked={col.unique}
                         disabled={col.isDeleted}
-                        onChange={(e) => handleUpdateField(idx, 'unique', e.target.checked)}
+                        onChange={(e) =>
+                          handleUpdateField(idx, "unique", e.target.checked)
+                        }
                         className="h-3.5 w-3.5 rounded border-border"
                       />
                     </td>
 
                     {/* Auto Increment */}
-                    {connection.type !== 'sqlite' && (
+                    {connection.type !== "sqlite" && (
                       <td className="p-3 text-center">
                         <input
                           type="checkbox"
                           checked={col.autoIncrement}
                           disabled={col.isDeleted || !col.primaryKey}
-                          onChange={(e) => handleUpdateField(idx, 'autoIncrement', e.target.checked)}
+                          onChange={(e) =>
+                            handleUpdateField(
+                              idx,
+                              "autoIncrement",
+                              e.target.checked,
+                            )
+                          }
                           className="h-3.5 w-3.5 rounded border-border"
                         />
                       </td>
@@ -737,15 +846,15 @@ function SchemaEditorRaw({
                         <input
                           type="text"
                           placeholder="Table"
-                          value={col.foreignKey?.table || ''}
+                          value={col.foreignKey?.table || ""}
                           disabled={col.isDeleted}
                           onChange={(e) => {
                             const table = e.target.value;
-                            const column = col.foreignKey?.column || 'id';
+                            const column = col.foreignKey?.column || "id";
                             handleUpdateField(
                               idx,
-                              'foreignKey',
-                              table ? { table, column } : null
+                              "foreignKey",
+                              table ? { table, column } : null,
                             );
                           }}
                           className="w-16 rounded border border-border bg-background px-1.5 py-0.5 focus:outline-none text-[11px]"
@@ -753,15 +862,15 @@ function SchemaEditorRaw({
                         <input
                           type="text"
                           placeholder="Col"
-                          value={col.foreignKey?.column || ''}
+                          value={col.foreignKey?.column || ""}
                           disabled={col.isDeleted}
                           onChange={(e) => {
                             const column = e.target.value;
-                            const table = col.foreignKey?.table || '';
+                            const table = col.foreignKey?.table || "";
                             handleUpdateField(
                               idx,
-                              'foreignKey',
-                              table ? { table, column } : null
+                              "foreignKey",
+                              table ? { table, column } : null,
                             );
                           }}
                           className="w-12 rounded border border-border bg-background px-1.5 py-0.5 focus:outline-none text-[11px]"
@@ -805,15 +914,23 @@ function SchemaEditorRaw({
                 NULL Values Detected — Auto-Backfill Will Apply
               </p>
               <p className="mt-0.5 text-amber-700">
-                The following columns contain NULL values. Before adding the NOT NULL constraint,
-                the migration will automatically update these rows:
+                The following columns contain NULL values. Before adding the NOT
+                NULL constraint, the migration will automatically update these
+                rows:
               </p>
               <ul className="mt-1.5 list-inside list-disc space-y-0.5 text-amber-700">
                 {nullWarnings.map((w) => (
                   <li key={w.columnName}>
-                    <span className="font-mono font-medium">{w.columnName}</span>
-                    {' '}(type: {w.type}): {w.nullCount} row(s) will be set to{' '}
-                    <code className="rounded bg-amber-100 px-1">{w.backfillSql.match(/=\s*(.+)/)?.[1]?.replace(';', '').trim()}</code>
+                    <span className="font-mono font-medium">
+                      {w.columnName}
+                    </span>{" "}
+                    (type: {w.type}): {w.nullCount} row(s) will be set to{" "}
+                    <code className="rounded bg-amber-100 px-1">
+                      {w.backfillSql
+                        .match(/=\s*(.+)/)?.[1]
+                        ?.replace(";", "")
+                        .trim()}
+                    </code>
                   </li>
                 ))}
               </ul>
@@ -828,7 +945,10 @@ function SchemaEditorRaw({
         <div>
           <p className="font-semibold text-foreground">Safety Advisory</p>
           <p className="mt-0.5">
-            Updating the schema of a database containing data can lead to data loss or integrity issues (e.g. adding a NOT NULL constraint without a default value, or dropping a column). Make sure you verify the generated migration script in the confirmation box before execution.
+            Updating the schema of a database containing data can lead to data
+            loss or integrity issues (e.g. adding a NOT NULL constraint without
+            a default value, or dropping a column). Make sure you verify the
+            generated migration script in the confirmation box before execution.
           </p>
         </div>
       </div>
@@ -836,4 +956,6 @@ function SchemaEditorRaw({
   );
 }
 
-export const SchemaEditor = withWorkspacePadding(SchemaEditorRaw, { scrollable: false });
+export const SchemaEditor = withWorkspacePadding(SchemaEditorRaw, {
+  scrollable: false,
+});

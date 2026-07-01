@@ -1,40 +1,40 @@
-import type { DatabaseConnection } from './types';
-import type { SavedConnection } from './connection-defaults';
+import type { DatabaseConnection } from "./types";
+import type { SavedConnection } from "./connection-defaults";
 
 export function canAutoConnect(saved: SavedConnection | null): boolean {
   if (!saved) return false;
-  if (saved.type === 'sqlite') return !!saved.filepath;
+  if (saved.type === "sqlite") return !!saved.filepath;
   return !!(saved.host && saved.user && saved.database && saved.password);
 }
 
 export async function connectWithCredentials(
-  saved: SavedConnection
+  saved: SavedConnection,
 ): Promise<DatabaseConnection> {
-  const payload: Omit<DatabaseConnection, 'id'> = {
+  const payload: Omit<DatabaseConnection, "id"> = {
     type: saved.type,
     name: saved.name || saved.type,
   };
 
-  if (saved.type === 'sqlite') {
+  if (saved.type === "sqlite") {
     payload.filepath = saved.filepath;
   } else {
     payload.host = saved.host;
     payload.port = saved.port;
     payload.user = saved.user;
-    payload.password = saved.password ?? '';
+    payload.password = saved.password ?? "";
     payload.database = saved.database;
   }
 
-  const res = await fetch('/api/connection', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const res = await fetch("/api/connection", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
+    credentials: "same-origin",
   });
 
   if (!res.ok) {
     const data = await res.json();
-    throw new Error(data.error || 'Failed to connect');
+    throw new Error(data.error || "Failed to connect");
   }
 
   const data = await res.json();
@@ -47,7 +47,9 @@ export async function connectWithCredentials(
  */
 async function loadSavedConnectionFromServer(): Promise<SavedConnection | null> {
   try {
-    const res = await fetch('/api/saved-connection', { credentials: 'same-origin' });
+    const res = await fetch("/api/saved-connection", {
+      credentials: "same-origin",
+    });
     if (!res.ok) return null;
     const data = await res.json();
     if (!data.connection) return null;
@@ -58,7 +60,9 @@ async function loadSavedConnectionFromServer(): Promise<SavedConnection | null> 
 }
 
 export async function ensureServerConnection(): Promise<DatabaseConnection | null> {
-  const statusRes = await fetch('/api/connection', { credentials: 'same-origin' });
+  const statusRes = await fetch("/api/connection", {
+    credentials: "same-origin",
+  });
   if (!statusRes.ok) return null;
 
   const status = await statusRes.json();
@@ -68,9 +72,9 @@ export async function ensureServerConnection(): Promise<DatabaseConnection | nul
 
   if (status.connections?.length > 0) {
     const first = status.connections[0] as DatabaseConnection;
-    await fetch('/api/connection', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch("/api/connection", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: first.id }),
     });
     return first;

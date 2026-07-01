@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import { getClientId } from '@/lib/app-state';
-import * as db from '@/lib/db';
+import { NextResponse } from "next/server";
+import { getClientId } from "@/lib/app-state";
+import * as db from "@/lib/db";
 
 /**
  * GET /api/saved-connection
@@ -27,7 +27,12 @@ export async function GET() {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to load saved connection' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load saved connection",
+      },
       { status: 500 },
     );
   }
@@ -44,7 +49,12 @@ export async function DELETE() {
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to clear saved connection' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to clear saved connection",
+      },
       { status: 500 },
     );
   }

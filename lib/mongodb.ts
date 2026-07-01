@@ -1,6 +1,7 @@
-import { MongoClient, type Db } from 'mongodb';
+import { MongoClient, type Db } from "mongodb";
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/prepsql';
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/prepsql";
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
@@ -26,7 +27,7 @@ export async function connectMongo(): Promise<void> {
   client = new MongoClient(MONGODB_URI);
   await client.connect();
   db = client.db();
-  console.log('[mongodb] Connected to', MONGODB_URI);
+  console.log("[mongodb] Connected to", MONGODB_URI);
 }
 
 export async function disconnectMongo(): Promise<void> {
@@ -34,6 +35,6 @@ export async function disconnectMongo(): Promise<void> {
     await client.close();
     client = null;
     db = null;
-    console.log('[mongodb] Disconnected');
+    console.log("[mongodb] Disconnected");
   }
 }

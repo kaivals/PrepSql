@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getClientId } from '@/lib/app-state';
-import * as db from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { getClientId } from "@/lib/app-state";
+import * as db from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,19 +9,28 @@ export async function POST(request: NextRequest) {
 
     if (!action || !result) {
       return NextResponse.json(
-        { error: 'action and result are required' },
-        { status: 400 }
+        { error: "action and result are required" },
+        { status: 400 },
       );
     }
 
     const clientId = await getClientId();
-    await db.insertAnalysisResult(clientId, action, targetSql || null, result, connectionId);
+    await db.insertAnalysisResult(
+      clientId,
+      action,
+      targetSql || null,
+      result,
+      connectionId,
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to save analysis' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to save analysis",
+      },
+      { status: 500 },
     );
   }
 }
@@ -29,9 +38,9 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const connectionId = url.searchParams.get('connectionId');
-    const action = url.searchParams.get('action');
-    const limitParam = url.searchParams.get('limit');
+    const connectionId = url.searchParams.get("connectionId");
+    const action = url.searchParams.get("action");
+    const limitParam = url.searchParams.get("limit");
     let limit = 10;
     if (limitParam) {
       const parsed = parseInt(limitParam, 10);
@@ -40,12 +49,20 @@ export async function GET(request: NextRequest) {
       }
     }
     const clientId = await getClientId();
-    const analyses = await db.getAnalysisResults(clientId, limit, connectionId, action);
+    const analyses = await db.getAnalysisResults(
+      clientId,
+      limit,
+      connectionId,
+      action,
+    );
     return NextResponse.json({ analyses });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to load analyses' },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to load analyses",
+      },
+      { status: 500 },
     );
   }
 }

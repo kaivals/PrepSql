@@ -1,7 +1,12 @@
-import { cookies, headers } from 'next/headers';
-import { randomBytes } from 'crypto';
-import type { DatabaseConnection, QueryHistoryItem, QueryMode, TimelineStep } from './types';
-import * as db from './db';
+import { cookies, headers } from "next/headers";
+import { randomBytes } from "crypto";
+import type {
+  DatabaseConnection,
+  QueryHistoryItem,
+  QueryMode,
+  TimelineStep,
+} from "./types";
+import * as db from "./db";
 
 // ── Client / session identification ───────────────────────────────────────────
 //
@@ -10,21 +15,21 @@ import * as db from './db';
 
 export async function getClientId(): Promise<string> {
   const headerStore = await headers();
-  const headerClientId = headerStore.get('x-prepsql-client-id');
+  const headerClientId = headerStore.get("x-prepsql-client-id");
   if (headerClientId) {
     return headerClientId;
   }
 
   const cookieStore = await cookies();
-  let clientId = cookieStore.get('prepsql-client')?.value;
+  let clientId = cookieStore.get("prepsql-client")?.value;
 
   if (!clientId) {
-    clientId = randomBytes(16).toString('hex');
-    cookieStore.set('prepsql-client', clientId, {
+    clientId = randomBytes(16).toString("hex");
+    cookieStore.set("prepsql-client", clientId, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
       maxAge: 60 * 60 * 24 * 7,
     });
   }
@@ -32,7 +37,9 @@ export async function getClientId(): Promise<string> {
   return clientId;
 }
 
-export function stripPassword(connection: DatabaseConnection): DatabaseConnection {
+export function stripPassword(
+  connection: DatabaseConnection,
+): DatabaseConnection {
   const { password: _, ...rest } = connection;
   return rest;
 }
@@ -45,11 +52,13 @@ export async function getConnections(): Promise<DatabaseConnection[]> {
   return docs.map(docToConnection);
 }
 
-export async function addConnection(connection: Omit<DatabaseConnection, 'id'>): Promise<DatabaseConnection> {
+export async function addConnection(
+  connection: Omit<DatabaseConnection, "id">,
+): Promise<DatabaseConnection> {
   const clientId = await getClientId();
   const existing = (await db.getConnections(clientId)).find((c) => {
     if (c.type !== connection.type) return false;
-    if (c.type === 'sqlite') return c.filepath === connection.filepath;
+    if (c.type === "sqlite") return c.filepath === connection.filepath;
     return (
       c.host === connection.host &&
       c.port === connection.port &&
@@ -61,8 +70,10 @@ export async function addConnection(connection: Omit<DatabaseConnection, 'id'>):
   if (existing) {
     // Update mutable fields (password may have changed, user may have renamed it)
     const updates: Partial<db.ConnectionDoc> = {};
-    if (connection.password !== undefined) updates.password = connection.password;
-    if (connection.name && connection.name !== existing.name) updates.name = connection.name;
+    if (connection.password !== undefined)
+      updates.password = connection.password;
+    if (connection.name && connection.name !== existing.name)
+      updates.name = connection.name;
     if (Object.keys(updates).length > 0) {
       await db.updateConnection(clientId, existing.id, updates);
     }
@@ -75,7 +86,7 @@ export async function addConnection(connection: Omit<DatabaseConnection, 'id'>):
     return updated;
   }
 
-  const id = randomBytes(8).toString('hex');
+  const id = randomBytes(8).toString("hex");
   const newConnection: DatabaseConnection = { ...connection, id };
   await db.addConnection(clientId, connectionToDoc(newConnection, id));
   await db.saveSessionData(clientId, { activeConnectionId: id });
@@ -118,13 +129,24 @@ export async function getConnection(): Promise<DatabaseConnection | undefined> {
   return active ? docToConnection(active) : undefined;
 }
 
-export async function setConnection(connection: DatabaseConnection): Promise<void> {
+export async function setConnection(
+  connection: DatabaseConnection,
+): Promise<void> {
   const clientId = await getClientId();
-  const existing = (await db.getConnections(clientId)).find((c) => c.id === connection.id);
+  const existing = (await db.getConnections(clientId)).find(
+    (c) => c.id === connection.id,
+  );
   if (existing) {
-    await db.updateConnection(clientId, connection.id, connectionToDoc(connection, connection.id));
+    await db.updateConnection(
+      clientId,
+      connection.id,
+      connectionToDoc(connection, connection.id),
+    );
   } else {
-    await db.addConnection(clientId, connectionToDoc(connection, connection.id));
+    await db.addConnection(
+      clientId,
+      connectionToDoc(connection, connection.id),
+    );
   }
   await db.saveSessionData(clientId, { activeConnectionId: connection.id });
 }
@@ -134,7 +156,7 @@ export async function setConnection(connection: DatabaseConnection): Promise<voi
 export async function getQueryMode(): Promise<QueryMode> {
   const clientId = await getClientId();
   const session = await db.getSessionData(clientId);
-  return session?.queryMode || 'crud';
+  return session?.queryMode || "crud";
 }
 
 export async function setQueryMode(mode: QueryMode): Promise<void> {
@@ -148,14 +170,18 @@ export async function setQueryMode(mode: QueryMode): Promise<void> {
 // (executionTime, rowsScanned, cpuUsage, etc.) and survives page reloads
 // because it is persisted server-side in MongoDB.
 
-export async function addToHistory(item: Omit<QueryHistoryItem, 'id'>): Promise<void> {
+export async function addToHistory(
+  item: Omit<QueryHistoryItem, "id">,
+): Promise<void> {
   const clientId = await getClientId();
   await db.insertQueryHistory(clientId, item);
 }
 
-export async function getHistory(
-  options?: { limit?: number; offset?: number; connectionId?: string },
-): Promise<{ items: QueryHistoryItem[]; total: number }> {
+export async function getHistory(options?: {
+  limit?: number;
+  offset?: number;
+  connectionId?: string;
+}): Promise<{ items: QueryHistoryItem[]; total: number }> {
   const clientId = await getClientId();
   return db.getQueryHistory(clientId, options);
 }
@@ -167,18 +193,23 @@ export async function clearHistory(): Promise<void> {
 
 // ── Pending Timeline (for mutation approval flow) ─────────────────────────────
 
-export async function getPendingTimeline(): Promise<{ steps: TimelineStep[]; threadId: string } | undefined> {
+export async function getPendingTimeline(): Promise<
+  { steps: TimelineStep[]; threadId: string } | undefined
+> {
   const clientId = await getClientId();
   const session = await db.getSessionData(clientId);
   if (!session?.pendingTimeline) return undefined;
   // Handle legacy format (array) or new format (object with steps and threadId)
   if (Array.isArray(session.pendingTimeline)) {
-    return { steps: session.pendingTimeline, threadId: '' };
+    return { steps: session.pendingTimeline, threadId: "" };
   }
   return session.pendingTimeline as { steps: TimelineStep[]; threadId: string };
 }
 
-export async function setPendingTimeline(data: { steps: TimelineStep[]; threadId: string }): Promise<void> {
+export async function setPendingTimeline(data: {
+  steps: TimelineStep[];
+  threadId: string;
+}): Promise<void> {
   const clientId = await getClientId();
   await db.saveSessionData(clientId, { pendingTimeline: data });
 }
@@ -214,13 +245,13 @@ export async function clearAnthropicApiKey(): Promise<void> {
 
 export async function getAnthropicKeyInfo(): Promise<{
   configured: boolean;
-  source: 'env' | 'client' | 'none';
+  source: "env" | "client" | "none";
   maskedKey?: string;
 }> {
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return {
       configured: true,
-      source: 'env',
+      source: "env",
       maskedKey: maskApiKey(process.env.ANTHROPIC_API_KEY),
     };
   }
@@ -231,16 +262,16 @@ export async function getAnthropicKeyInfo(): Promise<{
   if (clientKey) {
     return {
       configured: true,
-      source: 'client',
+      source: "client",
       maskedKey: maskApiKey(clientKey),
     };
   }
 
-  return { configured: false, source: 'none' };
+  return { configured: false, source: "none" };
 }
 
 function maskApiKey(key: string): string {
-  if (key.length <= 12) return '••••••••';
+  if (key.length <= 12) return "••••••••";
   return `${key.slice(0, 10)}...${key.slice(-4)}`;
 }
 
@@ -267,16 +298,16 @@ export async function clearGroqApiKey(): Promise<void> {
 }
 
 export async function getAiApiKey(): Promise<
-  { provider: 'groq' | 'anthropic'; key: string } | undefined
+  { provider: "groq" | "anthropic"; key: string } | undefined
 > {
   const groqKey = await getGroqApiKey();
   if (groqKey?.trim()) {
-    return { provider: 'groq', key: groqKey.trim() };
+    return { provider: "groq", key: groqKey.trim() };
   }
 
   const anthropicKey = await getAnthropicApiKey();
   if (anthropicKey?.trim()) {
-    return { provider: 'anthropic', key: anthropicKey.trim() };
+    return { provider: "anthropic", key: anthropicKey.trim() };
   }
 
   return undefined;
@@ -284,8 +315,8 @@ export async function getAiApiKey(): Promise<
 
 export async function getAiKeyInfo(): Promise<{
   configured: boolean;
-  provider?: 'groq' | 'anthropic';
-  source: 'env' | 'client' | 'none';
+  provider?: "groq" | "anthropic";
+  source: "env" | "client" | "none";
   maskedKey?: string;
 }> {
   const clientId = await getClientId();
@@ -295,8 +326,8 @@ export async function getAiKeyInfo(): Promise<{
   if (groqKey) {
     return {
       configured: true,
-      provider: 'groq',
-      source: 'client',
+      provider: "groq",
+      source: "client",
       maskedKey: maskApiKey(groqKey),
     };
   }
@@ -305,8 +336,8 @@ export async function getAiKeyInfo(): Promise<{
   if (clientKey) {
     return {
       configured: true,
-      provider: 'anthropic',
-      source: 'client',
+      provider: "anthropic",
+      source: "client",
       maskedKey: maskApiKey(clientKey),
     };
   }
@@ -314,8 +345,8 @@ export async function getAiKeyInfo(): Promise<{
   if (process.env.GROQ_API_KEY?.trim()) {
     return {
       configured: true,
-      provider: 'groq',
-      source: 'env',
+      provider: "groq",
+      source: "env",
       maskedKey: maskApiKey(process.env.GROQ_API_KEY),
     };
   }
@@ -323,28 +354,30 @@ export async function getAiKeyInfo(): Promise<{
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
     return {
       configured: true,
-      provider: 'anthropic',
-      source: 'env',
+      provider: "anthropic",
+      source: "env",
       maskedKey: maskApiKey(process.env.ANTHROPIC_API_KEY),
     };
   }
 
-  return { configured: false, source: 'none' };
+  return { configured: false, source: "none" };
 }
 
 export async function setAiApiKey(apiKey: string): Promise<void> {
   const trimmed = apiKey.trim();
-  if (trimmed.startsWith('gsk_')) {
+  if (trimmed.startsWith("gsk_")) {
     await setGroqApiKey(trimmed);
     await clearAnthropicApiKey();
     return;
   }
-  if (trimmed.startsWith('sk-ant-')) {
+  if (trimmed.startsWith("sk-ant-")) {
     await setAnthropicApiKey(trimmed);
     await clearGroqApiKey();
     return;
   }
-  throw new Error('Invalid API key format. Use a Groq key (gsk_...) or Anthropic key (sk-ant-...).');
+  throw new Error(
+    "Invalid API key format. Use a Groq key (gsk_...) or Anthropic key (sk-ant-...).",
+  );
 }
 
 export async function clearAiApiKey(): Promise<void> {
@@ -359,24 +392,27 @@ export async function isAiConfigured(): Promise<boolean> {
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-export function validateConnection(connection: Partial<DatabaseConnection>): { valid: boolean; error?: string } {
+export function validateConnection(connection: Partial<DatabaseConnection>): {
+  valid: boolean;
+  error?: string;
+} {
   if (!connection.type) {
-    return { valid: false, error: 'Database type is required' };
+    return { valid: false, error: "Database type is required" };
   }
 
-  if (connection.type === 'sqlite') {
+  if (connection.type === "sqlite") {
     if (!connection.filepath) {
-      return { valid: false, error: 'Filepath is required for SQLite' };
+      return { valid: false, error: "Filepath is required for SQLite" };
     }
   } else {
     if (!connection.host) {
-      return { valid: false, error: 'Host is required' };
+      return { valid: false, error: "Host is required" };
     }
     if (!connection.user) {
-      return { valid: false, error: 'User is required' };
+      return { valid: false, error: "User is required" };
     }
     if (!connection.database) {
-      return { valid: false, error: 'Database name is required' };
+      return { valid: false, error: "Database name is required" };
     }
   }
 
@@ -399,7 +435,10 @@ function docToConnection(doc: db.ConnectionDoc): DatabaseConnection {
   };
 }
 
-function connectionToDoc(connection: DatabaseConnection, id: string): Omit<db.ConnectionDoc, 'sessionId' | 'updatedAt'> {
+function connectionToDoc(
+  connection: DatabaseConnection,
+  id: string,
+): Omit<db.ConnectionDoc, "sessionId" | "updatedAt"> {
   return {
     id,
     type: connection.type,

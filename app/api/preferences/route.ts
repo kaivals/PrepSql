@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getClientId } from '@/lib/app-state';
-import * as db from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { getClientId } from "@/lib/app-state";
+import * as db from "@/lib/db";
 
 /**
  * GET /api/preferences
@@ -13,7 +13,10 @@ export async function GET() {
     return NextResponse.json({ preferences: settings });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to load preferences' },
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to load preferences",
+      },
       { status: 500 },
     );
   }
@@ -29,8 +32,11 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { preferences } = body;
 
-    if (!preferences || typeof preferences !== 'object') {
-      return NextResponse.json({ error: 'preferences object is required' }, { status: 400 });
+    if (!preferences || typeof preferences !== "object") {
+      return NextResponse.json(
+        { error: "preferences object is required" },
+        { status: 400 },
+      );
     }
 
     const clientId = await getClientId();
@@ -42,7 +48,10 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to save preferences' },
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to save preferences",
+      },
       { status: 500 },
     );
   }

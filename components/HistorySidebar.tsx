@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 interface QueryHistoryItem {
   id: string;
@@ -22,13 +22,13 @@ export function HistorySidebar({ onSelectQuery, refreshTrigger }: Props) {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch('/api/history');
+      const res = await fetch("/api/history");
       if (res.ok) {
         const data = await res.json();
         setHistory(data.history);
       }
     } catch (err) {
-      console.error('Failed to load history:', err);
+      console.error("Failed to load history:", err);
     } finally {
       setLoading(false);
     }
@@ -39,15 +39,15 @@ export function HistorySidebar({ onSelectQuery, refreshTrigger }: Props) {
   }, [refreshTrigger]);
 
   const handleClearHistory = async () => {
-    if (!confirm('Clear all query history?')) return;
+    if (!confirm("Clear all query history?")) return;
 
     try {
-      const res = await fetch('/api/history', { method: 'DELETE' });
+      const res = await fetch("/api/history", { method: "DELETE" });
       if (res.ok) {
         setHistory([]);
       }
     } catch (err) {
-      console.error('Failed to clear history:', err);
+      console.error("Failed to clear history:", err);
     }
   };
 
@@ -56,7 +56,7 @@ export function HistorySidebar({ onSelectQuery, refreshTrigger }: Props) {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
 
-    if (diff < 60000) return 'just now';
+    if (diff < 60000) return "just now";
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
     return date.toLocaleDateString();
@@ -99,14 +99,20 @@ export function HistorySidebar({ onSelectQuery, refreshTrigger }: Props) {
                 onClick={() => onSelectQuery(item.sql)}
                 className={`w-full text-left p-2 rounded text-xs border transition-colors ${
                   item.success
-                    ? 'border-border hover:bg-muted bg-card/50'
-                    : 'border-destructive/30 bg-destructive/5 hover:bg-destructive/10'
+                    ? "border-border hover:bg-muted bg-card/50"
+                    : "border-destructive/30 bg-destructive/5 hover:bg-destructive/10"
                 }`}
               >
-                <div className="font-mono text-foreground truncate">{item.sql.substring(0, 40)}...</div>
-                <div className="text-xs text-muted-foreground mt-1">{formatTime(item.timestamp)}</div>
+                <div className="font-mono text-foreground truncate">
+                  {item.sql.substring(0, 40)}...
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {formatTime(item.timestamp)}
+                </div>
                 {!item.success && item.error && (
-                  <div className="text-destructive text-xs mt-1">Error: {item.error}</div>
+                  <div className="text-destructive text-xs mt-1">
+                    Error: {item.error}
+                  </div>
                 )}
               </button>
             ))}

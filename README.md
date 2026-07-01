@@ -25,16 +25,19 @@ PrepSQL is a modern web application that uses Claude AI to generate SQL queries 
 
 1. Clone or download the project
 2. Install dependencies:
+
    ```bash
    pnpm install
    ```
 
 3. Set up environment variables in `.env.local`:
+
    ```
    ANTHROPIC_API_KEY=your-anthropic-api-key-here
    ```
 
 4. Start the development server:
+
    ```bash
    pnpm dev
    ```
@@ -112,6 +115,7 @@ PrepSQL is a modern web application that uses Claude AI to generate SQL queries 
 ## Troubleshooting
 
 ### "Failed to connect to database. Check your credentials."
+
 This error means PrepSQL couldn't establish a connection. **Most commonly**, your database server isn't running:
 
 1. **PostgreSQL**:
@@ -133,19 +137,25 @@ This error means PrepSQL couldn't establish a connection. **Most commonly**, you
    - For PostgreSQL without a password, leave password blank or use `trust` in pg_hba.conf
 
 ### Wrong Credentials Error
+
 If you see detailed error messages about authentication:
+
 - **PostgreSQL**: Check if you need a password. Try leaving it blank, or use `psql` CLI to test first
 - **MySQL**: Verify the user exists: `SELECT user FROM mysql.user;`
 - **Port mismatch**: PostgreSQL defaults to 5432, MySQL to 3306
 
 ### SQLite Connection Error
+
 SQLite requires native compilation which may not be available in all environments. Use PostgreSQL or MySQL for production deployments.
 
 ### API Key Missing
+
 Ensure `ANTHROPIC_API_KEY` is set in `.env.local`. Get a key from https://console.anthropic.com/
 
 ### "Connection refused" or Timeout
+
 The database server is not running or not accessible:
+
 - Check if the server is running (see database startup commands above)
 - Verify the hostname/IP is correct (localhost vs 127.0.0.1 vs IP address)
 - Check firewall settings if connecting to a remote database
@@ -172,17 +182,20 @@ ENCRYPTION_KEY=
 ## Development
 
 ### Running the Dev Server
+
 ```bash
 pnpm dev
 ```
 
 ### Building for Production
+
 ```bash
 pnpm build
 pnpm start
 ```
 
 ### Type Checking
+
 ```bash
 pnpm type-check
 ```
