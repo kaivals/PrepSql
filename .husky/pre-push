@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+set -eu
+
+zero_sha=0000000000000000000000000000000000000000
+empty_tree=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+
+while read local_ref local_sha remote_ref remote_sha
+do
+	if [ "$local_sha" = "$zero_sha" ]; then
+		continue
+	fi
+
+	if [ "$remote_sha" = "$zero_sha" ]; then
+		base_sha=$empty_tree
+	else
+		base_sha=$remote_sha
+	fi
+
+	prettier_files=$(git diff --name-only --diff-filter=ACMR "$base_sha" "$local_sha" -- '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '*.json' '*.md' '*.css' '*.yml' '*.yaml')
+	eslint_files=$(git diff --name-only --diff-filter=ACMR "$base_sha" "$local_sha" -- '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs')
+
+	if [ -n "$prettier_files" ]; then
+		printf '%s\n' "$prettier_files" | xargs -r prettier --check
+	fi
+
+	if [ -n "$eslint_files" ]; then
+		printf '%s\n' "$eslint_files" | xargs -r eslint
+	fi
+done
